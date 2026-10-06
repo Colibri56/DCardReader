@@ -1,0 +1,1467 @@
+<style>
+    /* עיצוב כללי לאפליקציה (הורחב כדי להכיל 3 קלפים גדולים) */
+    #card-reader-app {
+        font-family: 'Heebo', sans-serif;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: transparent;
+        direction: rtl;
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    /* בלוק 1: שאלה */
+    .question-block textarea {
+        width: 100%;
+        min-height: 100px;
+        padding: 15px;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 18px;
+        resize: vertical;
+        transition: all 0.4s ease;
+        background: white;
+    }
+
+    .question-block textarea.locked {
+        background-color: transparent;
+        border-color: transparent;
+        color: #8B1E3F;
+        font-weight: bold;
+        font-size: 24px;
+        text-align: center;
+        resize: none;
+        pointer-events: none;
+    }
+
+    /* מיקרופון להכתבה קולית - פינה בתוך תיבת הטקסט, לא שורה נפרדת */
+    .question-block {
+        position: relative;
+    }
+    .btn-mic {
+        width: 44px;
+        height: 44px;
+        flex-shrink: 0; /* בשורת הצ'אט (flex) - לא נלחץ כשהשדה מתמלא */
+        border: none;
+        border-radius: 50%;
+        background: #f1f1f1;
+        color: #8B1E3F;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+        z-index: 2;
+    }
+    /* אייקון SVG עם fill="currentColor" - כך שהוא יורש את צבע הכפתור (בורדו,
+       ולבן כשמוקלטים) במקום אימוג'י שהצבע שלו קבוע ולא תמיד ברור/עקבי בין
+       דפדפנים ומערכות הפעלה. הגודל הוגדל ב-~36% (22px->30px) יחסית לכפתור
+       (44px) בלי לשנות את גודל הכפתור עצמו - רק האייקון הפנימי גדל. */
+    .btn-mic svg {
+        width: 30px !important;
+        height: 30px !important;
+        flex-shrink: 0;
+    }
+    /* בתיבת השאלה (בלוק 1) הכפתור יושב בפינה בתוך ה-textarea, לא בשורה נפרדת */
+    .question-block .btn-mic {
+        position: absolute;
+        bottom: 14px;
+        left: 14px; /* RTL: תיבת הטקסט ב-RTL, הכפתור בפינה השמאלית התחתונה */
+    }
+    .btn-mic:hover {
+        background: #e6dade;
+    }
+    .btn-mic.recording {
+        background: #d1272e;
+        color: white;
+        animation: dcard-mic-pulse 1.2s infinite;
+    }
+    @keyframes dcard-mic-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(209, 39, 46, 0.5); }
+        70%  { box-shadow: 0 0 0 10px rgba(209, 39, 46, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(209, 39, 46, 0); }
+    }
+
+    /* חיווי האזנה: גלי קול במקום האייקון בזמן ההקלטה בלבד. מופיעים כש-.recording
+       נוסף לכפתור (onstart) ונעלמים כש-.recording מוסר (onend/onerror) - כלומר
+       ברגע שהטקסט הסופי כבר הוזן לשדה. הפסים הם span בתוך הכפתור עצמו, כך שאין
+       שינוי פריסה בשדה או בשורת הצ'אט. */
+    .mic-wave {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        height: 22px;
+    }
+    .mic-wave i {
+        display: block;
+        width: 3px;
+        height: 100%;
+        background: white;
+        border-radius: 2px;
+        transform-origin: center;
+        animation: dcard-wave 0.9s ease-in-out infinite;
+    }
+    .mic-wave i:nth-child(1) { animation-delay: 0s; }
+    .mic-wave i:nth-child(2) { animation-delay: 0.15s; }
+    .mic-wave i:nth-child(3) { animation-delay: 0.3s; }
+    .mic-wave i:nth-child(4) { animation-delay: 0.45s; }
+    @keyframes dcard-wave {
+        0%, 100% { transform: scaleY(0.3); }
+        50%      { transform: scaleY(1); }
+    }
+    .btn-mic.recording .mic-wave { display: flex; }
+    .btn-mic.recording svg { display: none; }
+
+    /* בלוק 2: אנימציית הערבוב והשליפה */
+    .deck-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .deck {
+        position: relative;
+        width: 150px;
+        height: 220px;
+        margin-bottom: 30px;
+    }
+
+    .card-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: #800020;
+        border-radius: 12px;
+        border: 2px solid #fff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        transition: transform 0.4s ease-in-out, z-index 0s 0.2s;
+    }
+
+    /* פיזור התחלתי קל כדי ליצור תחושה של ערימה */
+    .card-1 { transform: rotate(-2deg) translate(2px, 2px); z-index: 1; }
+    .card-2 { transform: rotate(1deg) translate(-2px, -1px); z-index: 2; }
+    .card-3 { transform: rotate(-1deg) translate(0, 0); z-index: 3; }
+
+    /* מחלקות האנימציה שמופעלות בעת הערבוב */
+    .card-back.shuffle-left {
+        transform: translateX(-120px) rotate(-15deg);
+        z-index: 5 !important;
+    }
+
+    .card-back.shuffle-right {
+        transform: translateX(120px) rotate(15deg);
+        z-index: 5 !important;
+    }
+
+    /* כפתור מרכזי */
+    .btn-main {
+        background-color: #8B1E3F;
+        color: white;
+        border: none;
+        padding: 15px 40px;
+        font-size: 20px;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: transform 0.2s, background-color 0.3s;
+        box-shadow: 0 4px 10px rgba(139, 30, 63, 0.3);
+    }
+
+    .btn-main:hover {
+        background-color: #6a1630;
+        transform: scale(1.05);
+    }
+
+    /* בלוק 3: תצוגת הקלפים (מותאם ל-3 קלפים גדולים) */
+    .cards-block {
+        display: none;
+        text-align: center;
+    }
+    .drawn-cards-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 30px;
+        margin-top: 15px;
+    }
+    .card-item {
+        flex: 0 1 260px; /* רוחב בסיסי גדול לקלף (260 פיקסלים) */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .card-display {
+        width: 100%;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        animation: cardEnter 0.5s ease-out;
+    }
+    .card-id-label {
+        font-size: 14px;
+        color: #666;
+        background: #f0f0f0;
+        padding: 4px 10px;
+        border-radius: 15px;
+    }
+    @keyframes cardEnter {
+        from { opacity: 0; transform: translateY(20px) scale(0.9); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* בלוק 4: צ'אט AI */
+    .chat-block {
+        display: none;
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .chat-history {
+        min-height: 100px;
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 15px;
+        padding: 10px;
+        border: 1px dashed #e0e0e0;
+        border-radius: 8px;
+        color: #888;
+        text-align: center;
+    }
+    .chat-input-area {
+        display: flex;
+        flex-wrap: wrap; /* מאפשר להודעת שגיאת מיקרופון (flex-basis: 100%) לרדת לשורה משלה */
+        gap: 10px;
+    }
+    .chat-input-area textarea {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 16px;
+        resize: vertical; /* מותר להגדיל, לא מתחת ל-3 השורות שנקבעו ב-rows="3" */
+    }
+    .btn-send {
+        background-color: #333;
+        color: white;
+        border: none;
+        padding: 0 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+    /* בלוק ביניים: בחירת מסלול אחרי שליפת קלף - "שיחה אישית" מול "קבלת מסר" */
+    .path-choice-block {
+        display: none;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    /* בלוק 5: כפתורי סיום */
+    .actions-block {
+        display: none;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        border-top: 2px solid #eee;
+        padding-top: 20px;
+    }
+    .btn-outline {
+        background: transparent;
+        border: 2px solid #555;
+        color: #555;
+        padding: 10px 20px;
+        border-radius: 30px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+    .btn-outline:hover {
+        background: #555;
+        color: white;
+    }
+
+    /* מסגרת "קבלת מסר אישי" בבורדו כמו שאר האתר, לא באפור כמו שאר כפתורי ה-outline */
+    #btn-path-message {
+        border-color: #8B1E3F;
+        color: #8B1E3F;
+    }
+    #btn-path-message:hover {
+        background: #8B1E3F;
+        color: white;
+    }
+
+    /* טקסט בכל בועות הצ'אט (משתמש ו-AI) מיושר לימין, כי .chat-history
+       מגדיר text-align: center והבועות היו יורשות אותו. */
+    .dcard-bubble {
+        text-align: right;
+        direction: rtl;
+    }
+
+    /* שינוי UX (#3): אנימציית טעינה - שלוש נקודות פועמות, במקום הטקסט
+       הסטטי "הקורא בקלפים מתמקד...". אותו בורדו כמו .btn-main/.card-back
+       ו-textarea.locked, כדי שזה יתאים לפלטת הצבעים הקיימת. */
+    .dcard-typing-dots {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 2px 4px;
+    }
+    .dcard-typing-dots span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #8B1E3F;
+        opacity: 0.35;
+    }
+
+    /* שלושה שלבי אנימציה לנקודות ההמתנה. ה-JS (showTyping) מוסיף לאלמנט
+       .dcard-typing-dots את המחלקה הנכונה לפי הזמן שחלף מאז שהתחילה ההמתנה
+       ומחליף אותה בזמן. כל שלב מגדיר אנימציה לנקודות בלבד - אין אנימציה ברירת מחדל. */
+
+    /* שלב 1 (0-3 שניות): קפיצה - הטיפוס המהיר והמוכר */
+    .dcard-typing-dots.stage-jump span {
+        opacity: 1;
+        animation: dcard-jump 0.9s infinite ease-in-out;
+    }
+    .dcard-typing-dots.stage-jump span:nth-child(2) { animation-delay: 0.15s; }
+    .dcard-typing-dots.stage-jump span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes dcard-jump {
+        0%, 60%, 100% { transform: translateY(0); }
+        30%           { transform: translateY(-5px); }
+    }
+
+    /* שלב 2 (3-8 שניות): נשימה - הקפיצה נעצרת, הנקודות דועכות ומתבהרות לאט, כמו נשימה (סימן למחשבה מעמיקה) */
+    .dcard-typing-dots.stage-pulse span {
+        animation: dcard-breathe 2.4s infinite ease-in-out;
+    }
+    .dcard-typing-dots.stage-pulse span:nth-child(2) { animation-delay: 0.3s; }
+    .dcard-typing-dots.stage-pulse span:nth-child(3) { animation-delay: 0.6s; }
+    @keyframes dcard-breathe {
+        0%, 100% { opacity: 0.25; transform: scale(0.8); }
+        50%      { opacity: 1;    transform: scale(1.1); }
+    }
+
+    /* שלב 3 (8 שניות ומעלה): גל - הבהוב צבע שעובר מנקודה לנקודה משמאל לימין (סימן שהתשובה הסופית נוצרת) */
+    .dcard-typing-dots.stage-wave span {
+        opacity: 1;
+        background: linear-gradient(90deg, rgba(139, 30, 63, 0.3) 0%, #8B1E3F 50%, rgba(139, 30, 63, 0.3) 100%);
+        background-size: 300% 100%;
+        animation: dcard-shimmer 1.6s infinite linear;
+    }
+    .dcard-typing-dots.stage-wave span:nth-child(2) { animation-delay: 0.2s; }
+    .dcard-typing-dots.stage-wave span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dcard-shimmer {
+        0%   { background-position: 100% 0; }
+        100% { background-position: -100% 0; }
+    }
+</style>
+
+<div id="card-reader-app">
+
+    <!-- בלוק 1: תיבת טקסט לשאלה -->
+    <div class="question-block" id="block-1">
+        <textarea id="user-question" placeholder="על מה תרצה לקבל הכוונה היום? כתוב את שאלתך כאן..."></textarea>
+        <button type="button" class="btn-mic" id="btn-mic" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+            <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        </button>
+    </div>
+
+    <!-- בלוק 2: ערימת קלפים לאנימציה וכפתור פעולה -->
+    <div class="deck-block" id="block-2">
+        <div class="deck" id="card-deck">
+            <div class="card-back card-1"></div>
+            <div class="card-back card-2"></div>
+            <div class="card-back card-3"></div>
+        </div>
+        <button class="btn-main" id="btn-deck-action">ערבוב קלפים</button>
+    </div>
+
+    <!-- בלוק 3: אזור הצגת הקלפים שנשלפו -->
+    <div class="cards-block" id="block-3">
+        <div id="cards-container" class="drawn-cards-container"></div>
+    </div>
+
+    <!-- בלוק ביניים: בחירה בין שיחה אישית לקבלת מסר, מוצג אחרי כל שליפת קלף -->
+    <div class="path-choice-block" id="block-path-choice">
+        <button class="btn-main" id="btn-path-chat">לפיתוח האינטואיציה</button>
+        <button class="btn-outline" id="btn-path-message">לקבלת מסר אישי</button>
+    </div>
+
+    <!-- בלוק 4: דיאלוג עם ה-AI -->
+    <div class="chat-block" id="block-4">
+        <div class="chat-history" id="chat-history">
+            (כאן תוצג תגובת הקורא בקלפים)
+        </div>
+        <div class="chat-input-area">
+            <textarea id="ai-reply-input" rows="3" placeholder="כאן רושמים את התגובה לקורא בקלפים ובהתייחס לתמונת הקלף/ים"></textarea>
+            <button type="button" class="btn-mic" id="btn-mic-chat" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+                <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            </button>
+            <button class="btn-send">שלח</button>
+        </div>
+    </div>
+
+    <!-- בלוק 5: כפתורי סיום סשן -->
+    <div class="actions-block" id="block-5">
+        <button class="btn-outline">סיום ויציאה</button>
+        <button class="btn-outline">שליחת הדיאלוג במייל</button>
+        <button class="btn-outline" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
+    </div>
+
+</div>
+
+<script>
+    // --- הגדרות משתמש ו-API ---
+    // הנתיב היחסי ל-REST API של וורדפרס
+    const API_BASE = '/wp-json/dcard/v1/session';
+    let sessionToken = null;
+    let sessionInitiated = false; // ר' תיקון באג 9 - מונע קריאה כפולה ל-initSession()
+
+    // תיקון QA 4.3: window.dcardRestNonce מוזרק ב-wp_head (ר' dcard-ai-reader-
+    // backend.php) - קיים בדרך כלל, אבל לא מובטח (למשל דף שהוגש מ-cache ישן
+    // לפני שהתכונה נוספה, או אם ה-hook איכשהו לא רץ) - אז תמיד נבדק עם
+    // typeof במקום הנחה שהוא קיים. היעדרו לא עוצר כלום בצד השרת (בדיקה
+    // "רכה" - ר' verify_nonce_if_present ב-class-dcard-rest-controller.php),
+    // רק מוותר על השכבה הנוספת הזו לקריאה הספציפית.
+    function dcardHeaders() {
+        var headers = { 'Content-Type': 'application/json' };
+        if (typeof window.dcardRestNonce === 'string' && window.dcardRestNonce) {
+            headers['X-WP-Nonce'] = window.dcardRestNonce;
+        }
+        return headers;
+    }
+
+    // --- התמדת שם/מגדר/אימייל ב-localStorage, כדי שלא לבקש אותם מהמשתמש בכל
+    // כניסה. גלישה פרטית/localStorage חסום יכולים לגרום ל-getItem/setItem
+    // לזרוק - לכן תמיד עטופים ב-try/catch, והדף ממשיך לעבוד גם אם אין אחסון.
+    const DCARD_LS_KEYS = { name: 'dcard_userName', gender: 'dcard_userGender', email: 'dcard_userEmail' };
+
+    function dcardGetLS(key) {
+        try {
+            return localStorage.getItem(key);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function dcardSetLS(key, value) {
+        try {
+            localStorage.setItem(key, value);
+        } catch (e) {
+            // פרטי/חסום - ממשיכים בלי לשמור, לא עוצרים את הזרימה.
+        }
+    }
+
+    // ברירת מחדל - משמשת רק אם אין עדיין ערכים שמורים ב-localStorage (ר' למטה)
+    // ועד לתשובה מ-/session/start (ר' initSession), ששם הערך הסופי נקבע -
+    // יכול גם להיות מוחלף שם ע"י Settings > DCard AI > Test User Name/Gender
+    // בזמן בדיקות (עוקף הן את ברירת המחדל כאן והן את מה שנשמר ב-localStorage).
+    let userName = "משה";
+    let userGender = "male";
+
+    // אם המשתמש כבר מילא את פופאפ ה-onboarding בעבר (קלט שם/מגדר) - הערכים
+    // האלה כבר שמורים מפעם קודמת, ואין צורך לבקש אותם שוב. אם הם חסרים,
+    // פותחים את הפופאפ (ר' openOnboardingPopup למטה).
+    const storedName   = dcardGetLS(DCARD_LS_KEYS.name);
+    const storedGender = dcardGetLS(DCARD_LS_KEYS.gender);
+
+    if (storedName && storedGender) {
+        userName = storedName;
+        userGender = storedGender;
+    }
+
+    // הגדרות ולוגיקה בסיסית
+    const TOTAL_CARDS = 72;
+    const MAX_CARDS = 3;
+    let drawnCards = [];
+    let forceCardId = null; // מצב בדיקה: מגיע מהשרת (Settings > DCard AI), null = הגרלה רגילה
+    let appState = 'start';
+    let shuffleInterval;
+
+    // אלמנטים מה-DOM
+    const userQuestion = document.getElementById('user-question');
+    // Placeholder מותאם מגדר - נקבע סופית ב-initSession(), אחרי שהשרת מחזיר
+    // את ה-userGender שנפתר בפועל (יכול להיות שונה ממה שנשלח, אם מוגדר
+    // override ב-Settings > DCard AI > Test User Gender לבדיקות). עד אז,
+    // הפלייסהולדר שבברירת המחדל של ה-HTML (זכר) מוצג לרגע קצר.
+    const btnMic = document.getElementById('btn-mic');
+    const btnDeckAction = document.getElementById('btn-deck-action');
+    const visualDeck = document.getElementById('card-deck');
+    const animationCards = document.querySelectorAll('.card-back');
+    const block3Cards = document.getElementById('block-3');
+    const cardsContainer = document.getElementById('cards-container');
+    const block4Chat = document.getElementById('block-4');
+    const block5Actions = document.getElementById('block-5');
+    const chatHistory = document.getElementById('chat-history');
+    const chatInput = document.getElementById('ai-reply-input');
+    const btnMicChat = document.getElementById('btn-mic-chat');
+    const chatInputArea = document.querySelector('.chat-input-area');
+    const btnSend = document.querySelector('.btn-send');
+    // סקופ ל-block-5 בלבד: כפתור "קבלת מסר" משתמש גם הוא ב-btn-outline,
+    // וחיפוש גלובלי היה מזיז את האינדקסים של כפתורי הסיום.
+    const endSessionBtns = document.querySelectorAll('#block-5 .btn-outline');
+    const pathChoiceBlock = document.getElementById('block-path-choice');
+    const btnPathChat = document.getElementById('btn-path-chat');
+    const btnPathMessage = document.getElementById('btn-path-message');
+    let pendingCardId = null; // הקלף שממתין לבחירת מסלול (שיחה אישית / קבלת מסר)
+    let chatModeActive = false; // true לאחר שנבחר "שיחה אישית" - שאר הסשן, תיבת ההקלדה תמיד גלויה
+    // סופר אך ורק שליחות בפועל של שאלה על ידי המשתמש (btnSend/Enter) - לא
+    // הודעות AI אוטומטיות (שאילת קלף, "מה עולה בך"), לא ניסיונות חסומים.
+    let userQuestionCount = 0;
+    // 15, לא 3: זו אותה מגבלת האיטרציות שכבר מוגדרת ואכופה בצד השרת
+    // (turn_count, ר' agent-brain-instructions.md סעיף 2 ו-session_turn_inner
+    // ב-class-dcard-rest-controller.php) - השיחה נועדה להישאר פתוחה עד שם,
+    // לא להיסגר אחרי 3 חילופי דברים.
+    const MAX_USER_QUESTIONS = 15;
+
+    function resetUserQuestionCount() {
+        userQuestionCount = 0;
+        const existingLimitMsg = document.getElementById('chat-limit-message');
+        if (existingLimitMsg) existingLimitMsg.remove();
+    }
+
+    // כפתור "שאלה חדשה" (onclick ב-HTML, כי הוא מחוץ לכל בלוק שרץ אחרי הטעינה).
+    // location.reload() כבר מאפס את כל מצב ה-JS כולל userQuestionCount, אבל
+    // האיפוס המפורש כאן דורש שהמונה מתאפס במפורש כשמתחילה קריאה חדשה.
+    window.dcardStartNewReading = function () {
+        resetUserQuestionCount();
+        location.reload();
+    };
+
+    // 1. אתחול סשן. קריאה אחת בדיוק לכל טעינה - ר' למטה איפה זה נקרא בפועל:
+    // מיד כאן למשתמש חוזר (יש כבר storedName/storedGender), או מתוך מאזין
+    // ה-submit של הפופאפ למשתמש חדש (ר' תיקון באג 9 למטה).
+    async function initSession() {
+        sessionInitiated = true; // נקבע מיד (לא רק בהצלחה) - מונע מרוץ של קריאה כפולה
+        try {
+            const res = await fetch(`${API_BASE}/start`, {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ userName, userGender })
+            });
+            const data = await res.json();
+            if (data.session_token) {
+                sessionToken = data.session_token;
+                forceCardId = data.forceCardId ? Number(data.forceCardId) : null;
+                chatHistory.innerHTML = ''; // ניקוי אזור הצ'אט לאחר שהחיבור הצליח
+
+                // הערך שחוזר מהשרת הוא הקובע, לא מה שנשלח - כי הוא עשוי לשקף
+                // override פעיל מ-Settings > DCard AI > Test User Name/Gender.
+                if (data.userGender) userGender = data.userGender;
+                if (data.userName) userName = data.userName;
+
+                userQuestion.placeholder = ( 'female' === userGender )
+                    ? 'על מה תרצי לקבל הכוונה היום? כתבי את שאלתך כאן ולחצי Enter...'
+                    : 'על מה תרצה לקבל הכוונה היום? כתוב את שאלתך כאן ולחץ Enter...';
+            }
+        } catch (e) {
+            console.error("שגיאה ביצירת סשן מול השרת", e);
+        }
+    }
+
+    // תיקון באג 9: initSession() רץ קודם היה תמיד כאן, מיד, בלי תנאי - כולל
+    // למשתמש חדש שעוד לא מילא שם/מגדר בפופאפ. זה יצר סשן בשרת עם ברירות
+    // המחדל הקבועות ("משה"/זכר) עוד *לפני* שהפופאפ בכלל נפתח, כי קריאת ה-
+    // /session/start קודמת לכל אינטראקציה של המשתמש עם הפופאפ. התוצאה: מייל
+    // הסיכום של הסשן הראשון-אי-פעם תמיד הציג "משה" למרות שהוזן שם אמיתי -
+    // רק מהסשן הבא (אחרי שה-localStorage כבר התמלא) userName/userGender
+    // מתעדכנים *לפני* initSession() (ר' storedName/storedGender למעלה),
+    // ולכן זה "תיקן את עצמו" רק בפעם השנייה. התיקון: למשתמש חוזר (יש כבר
+    // storedName/storedGender) קוראים ל-initSession() מיד כמו קודם; למשתמש
+    // חדש, לא קוראים לה כלל כאן - היא נקראת במקום זה מתוך מאזין ה-submit של
+    // הפופאפ (למטה), אחרי ש-userName/userGender כבר מעודכנים מהשדות
+    // שהמשתמש באמת מילא.
+
+    // 0ב. פופאפ onboarding (שם + מגדר) - Elementor Popup Builder, post=4484.
+    // נפתח תכנותית רק אם אין עדיין ערכים שמורים ב-localStorage (ר' storedName/
+    // storedGender למעלה) - כלומר פעם ראשונה בלבד לכל דפדפן/מכשיר.
+    //
+    // חשוב: "On Page Load" בטאב Triggers של הפופאפ עצמו (באלמנטור) צריך
+    // להישאר מסומן - זה כנראה התנאי שגורם לאלמנטור בכלל לרשום/לאתחל את
+    // הפופאפ הזה בעמוד. כשכל ה-triggers כובו, הפופאפ לא עלה בשום מצב, גם לא
+    // דרך הקריאה שלנו - כנראה שאלמנטור לא "מכין" פופאפ בעמוד אם אין לו אף
+    // trigger פעיל, בלי קשר לזה שיש לנו קריאת JS ישירה. לכן האחריות "לא
+    // להציג שוב למי שכבר מילא" עברה אלינו: אם כבר יש ערכים שמורים, סוגרים
+    // את הפופאפ מיד אחרי שהוא (אולי) נפתח לבד ע"י ה-trigger המובנה, במקום
+    // לנסות למנוע ממנו להיפתח מלכתחילה.
+    console.log('[DCard Popup] page load decision - storedName:', JSON.stringify(storedName), 'storedGender:', JSON.stringify(storedGender));
+    if (storedName && storedGender) {
+        // תיקון הבהוב: click()/force-hide (ר' keepOnboardingPopupClosed למטה)
+        // תמיד פועלים *אחרי* שהפופאפ כבר נראה לרגע על המסך, כי הם מגיבים
+        // לכך שהוא נפתח. במקום זה, מזריקים כלל CSS שמסתיר את הקונטיינר
+        // מיידית - לפני שהדפדפן בכלל מצייר את הפתיחה של ה-trigger המובנה,
+        // כך שלמשתמש חוזר (יש כבר storedName/storedGender) אין רגע נראות
+        // בכלל, לא רק סגירה מהירה.
+        var hideStyle = document.createElement('style');
+        hideStyle.textContent = '#elementor-popup-modal-4484 { display: none !important; }';
+        document.head.appendChild(hideStyle);
+        console.log('[DCard Popup] injected CSS to pre-hide popup immediately for returning visitor');
+        console.log('[DCard Popup] both already saved -> will keep CLOSING for a few seconds in case Elementor auto-opens it, and starting the session now');
+        keepOnboardingPopupClosed();
+        initSession();
+    } else {
+        console.log('[DCard Popup] missing data -> will try to OPEN, session will start once the popup is submitted');
+        openOnboardingPopup();
+    }
+
+    // תיקון באג 3 (השורש האמיתי של "getModal is not a function" / "Cannot
+    // read properties of undefined (reading 'target')" בקונסול): זה שהאובייקט
+    // elementorProFrontend.modules.popup כבר קיים לא אומר שהפופאפ הספציפי
+    // (id=4484) כבר נרשם ואותחל אצל אלמנטור. יש שלב פנימי נוסף - אלמנטור
+    // רושם כל פופאפ כ"document" משלו תחת elementorFrontend.documentsManager
+    // - ורק אחרי שהרישום הזה הושלם, showPopup/closePopup באמת עובדים בלי
+    // לקרוס. קריאה להן לפני כן (המודול הכללי כבר קיים, אבל המסמך הספציפי עוד
+    // לא) היא בדיוק מה שגרם לקריסות שראינו בקונסול - ולמצב "לפעמים עובד
+    // ולפעמים לא" בלי שום קשר הגיוני לזמן טעינה "גס". מקור: בעיה מתועדת של
+    // אלמנטור עצמו - github.com/elementor/elementor/issues/17444.
+    function elementorPopupModuleReady() {
+        return !!(
+            window.elementorProFrontend &&
+            elementorProFrontend.modules &&
+            elementorProFrontend.modules.popup &&
+            window.elementorFrontend &&
+            elementorFrontend.documentsManager &&
+            elementorFrontend.documentsManager.documents &&
+            elementorFrontend.documentsManager.documents['4484']
+        );
+    }
+
+    // תיקון באג 7: אחרי כמה סבבים שבהם elementorProFrontend.modules.popup.closePopup()
+    // "הצליח" (לא זרק) בלי לסגור בפועל כלום - מתברר שה"הצלחה" שראינו קודם
+    // (אחרי שליחת הפופאפ) כנראה לא הייתה בזכות הקריאה שלנו, אלא התנהגות
+    // ברירת מחדל של אלמנטור שסוגר פופאפים עם טופס אחרי שליחה מוצלחת.
+    // ה-API הפנימי לא אמין מספיק. הפתרון החדש: לא מנחשים API פנימי בכלל -
+    // מאתרים את כפתור הסגירה (ה-X) שאלמנטור עצמו מרנדר בתוך הפופאפ, ומדמים
+    // עליו לחיצה אמיתית (click()) - בדיוק אותו code path שמשתמש אמיתי
+    // שלוחץ על ה-X מפעיל, בלי תלות בניחוש פרמטרים. מאומת מה-HTML בפועל:
+    // <div id="elementor-popup-modal-4484">...<a class="dialog-close-button" ...>.
+    // הקונטיינר הזה קיים ב-DOM תמיד (הנראות נשלטת ב-style, לא בנוכחות
+    // האלמנט) - אז אין יותר צורך בהמתנה ל"מוכנות" כמו עם ה-API הישן.
+    function closeOnboardingPopupViaButton() {
+        var closeBtn = document.querySelector('#elementor-popup-modal-4484 .dialog-close-button');
+        if (!closeBtn) return false;
+        try {
+            closeBtn.click();
+        } catch (err) {
+            console.warn('[DCard Popup] clicking close button threw:', err);
+        }
+        return true;
+    }
+
+    // תיקון באג 8: הקונסול הראה בפירוש "close button found and clicked" בלי
+    // שום שגיאה - אבל הפופאפ נשאר גלוי בכל זאת. כלומר click() תקין טכנית
+    // לא בהכרח מפעיל את ההתנהגות הפנימית שאלמנטור קושר לכפתור הזה (ייתכן
+    // שהבדיקה הפנימית תלויה ב-event.isTrusted, או בקישור אירועים שלא
+    // מגיב ל-click() סינתטי). במקום להמשיך לנחש מנגנונים פנימיים של
+    // אלמנטור, פשוט מסתירים את קונטיינר הפופאפ ישירות עם style - עוקף
+    // לגמרי את שכבת הטיפול של אלמנטור, בלי תלות בניחוש נכון של ה-API/
+    // מנגנון האירועים הפנימי שלו. #elementor-popup-modal-4484 כבר אומת
+    // כקונטיינר האמיתי מתוך ה-HTML בפועל.
+    function forceHideOnboardingPopup() {
+        var modal = document.getElementById('elementor-popup-modal-4484');
+        if (!modal) return false;
+        modal.style.setProperty('display', 'none', 'important');
+        return true;
+    }
+
+    function closeOnboardingPopupIfOpen() {
+        var clicked = closeOnboardingPopupViaButton();
+        var forced = forceHideOnboardingPopup();
+        console.log('[DCard Popup] closeOnboardingPopupIfOpen - close button ' + (clicked ? 'found and clicked' : 'not found in DOM yet') + ', force-hide ' + (forced ? 'applied' : 'container not found'));
+    }
+
+    // תיקון באג 5: closeOnboardingPopupIfOpen יכולה לרוץ *לפני* שה-trigger
+    // "On Page Load" של אלמנטור הספיק בכלל לפתוח את הפופאפ (יכול להיות לו
+    // delay פנימי, גם אם 0 זה עדיין אסינכרוני) - ואז כפתור הסגירה עוד לא
+    // קיים/גלוי, אין מה ללחוץ עליו, ורגע אחר כך ה-trigger כן פותח אותו,
+    // בלי שנשאר מי שינסה לסגור שוב. בדיוק זה גרם לפופאפ לקפוץ שוב אחרי
+    // "שאלה חדשה" (location.reload גורם לאותו מרוץ מחדש בכל טעינה). הפתרון:
+    // לא מסתפקים בניסיון סגירה אחד - ממשיכים לנסות שוב כמה פעמים במהלך
+    // השניות הראשונות אחרי הטעינה, כדי לכסות גם פתיחה מאוחרת של ה-trigger.
+    function keepOnboardingPopupClosed() {
+        var guardDelays = [0, 300, 700, 1200, 2000, 3000, 5000];
+        guardDelays.forEach(function (delay) {
+            setTimeout(function () {
+                closeOnboardingPopupIfOpen();
+            }, delay);
+        });
+    }
+
+    // תיקון באג 1: קריאה חד-פעמית (if/else) כאן נכשלה בשקט ברוב הפעמים, כי
+    // ה-<script> הזה (בתוך ווידג'ט ה-HTML) רץ ברגע שהדפדפן מגיע אליו -
+    // בדרך כלל *לפני* שה-bundle של Elementor Pro (שמגדיר elementorProFrontend)
+    // סיים להיטען ולהתאתחל במקום אחר בעמוד. לכן, בניסיון להריץ קוד בזמן אמת
+    // (בלי מטמון שמזרז טעינה) - בדיוק מצב ה-incognito+ניקוי-cache שדווח -
+    // זה כמעט תמיד נכשל. הפתרון: לבדוק שוב כל 150ms עד שהמודול מוכן.
+    //
+    // תיקון נוסף: 10 שניות (67 ניסיונות) התבררו כלא מספיקות בטעינה ראשונה
+    // "קרה" לגמרי (שום דבר עדיין לא ב-cache של הדפדפן - לא Elementor, לא
+    // Elementor Pro, לא התבנית) - בדיוק המקרה שדווח: בכניסה הראשונה הפופאפ
+    // לא נפתח בכלל (המודול לא הספיק להיטען תוך 10 שניות), ואחרי ריענון
+    // (שבו הקבצים כבר ב-cache הרגיל של הדפדפן, לא קשור ל-localStorage שלנו)
+    // זה כן עבד. הוארך ל-60 שניות (400 ניסיונות) כדי לכסות גם טעינה ראשונה
+    // איטית בלי לוותר מוקדם מדי.
+    //
+    // תיקון באג 2 (חשוב לא פחות): התנאי storedName && storedGender נבדק פעם
+    // אחת בלבד, למעלה בסקריפט, *לפני* שסבב הניסיונות האסינכרוני הזה בכלל
+    // מתחיל. אם המודול מתעכב כמה שניות (בדיוק אותה בעיית תזמון מבאג 1) -
+    // ובזמן הזה המשתמש מספיק למלא את הפופאפ ולשלוח אותו - הקריאה המושהית כאן
+    // הייתה פונה ופותחת מחדש פופאפ שכבר נסגר, כי שום דבר לא בדק מחדש אם
+    // המשתמש כבר שמר את הפרטים בינתיים. זה בדיוק מה שגרם לפופאפ "לקפוץ שוב"
+    // מיד אחרי שליחה. התיקון: לבדוק שוב, ברגע שממש עומדים לפתוח (לא רק
+    // בתחילת הסקריפט), אם הערכים כבר נשמרו - ואם כן, לוותר על הפתיחה.
+    function openOnboardingPopup(attemptsLeft) {
+        if (typeof attemptsLeft === 'undefined') attemptsLeft = 400; // ~60 שניות ב-150ms לבדיקה
+
+        if (dcardGetLS(DCARD_LS_KEYS.name) && dcardGetLS(DCARD_LS_KEYS.gender)) {
+            console.log('[DCard Popup] openOnboardingPopup: data got saved in the meantime - skipping open (attemptsLeft=' + attemptsLeft + ')');
+            return; // המשתמש כבר שלח את הפופאפ בינתיים - אין מה לפתוח יותר.
+        }
+
+        if (elementorPopupModuleReady()) {
+            console.log('[DCard Popup] calling showPopup({id:4484}) (document ready, attemptsLeft=' + attemptsLeft + ')');
+            try {
+                elementorProFrontend.modules.popup.showPopup({ id: 4484 });
+            } catch (err) {
+                console.warn('[DCard Popup] showPopup threw despite readiness check:', err);
+            }
+            return;
+        }
+
+        if (attemptsLeft <= 0) {
+            console.warn('[DCard] Elementor popup API never became available after ~60s - cannot open onboarding popup (post=4484).');
+            return;
+        }
+
+        setTimeout(function () {
+            openOnboardingPopup(attemptsLeft - 1);
+        }, 150);
+    }
+
+    // שמירת השם/מגדר שהוזנו בפופאפ ברגע השליחה. מאזין גלובלי (delegated,
+    // capture) במקום סלקטור קבוע לכפתור/טופס - כי הפופאפ מוזרק ל-DOM ע"י
+    // Elementor Popup Builder (לא חלק מה-HTML הזה), וכך זה עובד בלי תלות
+    // בזמן ההזרקה או במבנה המדויק שלו. capture=true כדי לתפוס את ה-submit
+    // גם אם ה-JS הפנימי של Elementor עוצר את ה-bubbling אחרי ה-preventDefault
+    // שלו (preventDefault לא מבטל את ההרצה של מאזינים שכבר נרשמו ב-capture).
+    document.addEventListener('submit', function (e) {
+        const form = e.target;
+        if (!form || typeof form.querySelector !== 'function') return;
+
+        // סלקטורים לפי ה-HTML האמיתי שנבדק בפועל בפופאפ (Elementor Form):
+        // - שם: <input name="form_fields[user_name]" id="form-field-user_name">
+        // - מגדר: לא שדה יחיד אלא שתי checkbox נפרדות שחולקות אותו name
+        //   ("form_fields[user_gender][]") - מבדילים ביניהן רק לפי ה-id:
+        //   form-field-user_gender-0 = זכר, form-field-user_gender-1 = נקבה.
+        //   ה-value שלהן הוא הטקסט העברי ("פנייה בלשון זכר"), לא "male"/"female".
+        const nameField       = form.querySelector('#form-field-user_name, [name="form_fields[user_name]"]');
+        const genderMaleBox   = form.querySelector('#form-field-user_gender-0');
+        const genderFemaleBox = form.querySelector('#form-field-user_gender-1');
+        if (!nameField && !genderMaleBox && !genderFemaleBox) return; // לא טופס ה-onboarding - לא נוגעים
+
+        console.log('[DCard Popup] onboarding form submit detected. nameField found:', !!nameField, 'genderMaleBox found:', !!genderMaleBox, 'genderFemaleBox found:', !!genderFemaleBox);
+
+        // preventDefault משלנו - לא מתוך הנחה שה-JS הפנימי של Elementor
+        // יתפוס את ה-submit הזה בזמן. אם ה-JS שלו (שמיירט את השליחה
+        // ועושה AJAX) טרם נטען/אותחל - בדיוק אותה בעיית תזמון שכבר תוקנה
+        // אצלנו כמה פעמים בסקריפט הזה - הדפדפן נופל בחזרה לשליחת טופס
+        // אמיתית (ניווט/טעינת עמוד מחדש), וזה בדיוק מה שמחזיר את ה-trigger
+        // "On Page Load" לפעולה שוב ומציג את הפופאפ מחדש אחרי שליחה. קריאה
+        // משלנו ל-preventDefault כאן (capture, רץ ראשון) חוסמת את הנפילה-
+        // לאחור הזו באופן מוחלט, בלי תלות בתזמון של Elementor - preventDefault
+        // לא עוצר propagation, אז ה-handler הפנימי של Elementor עדיין ירוץ
+        // כרגיל ויבצע את ה-AJAX שלו בעצמו (אם/כשהוא כבר מוכן).
+        e.preventDefault();
+
+        if (nameField && nameField.value.trim()) {
+            dcardSetLS(DCARD_LS_KEYS.name, nameField.value.trim());
+            userName = nameField.value.trim(); // ר' תיקון באג 9 - מזין את הסשן הראשון בפועל, לא רק טעינות עתידיות
+        }
+
+        // checkbox, לא radio - עקרונית אפשר ששתיהן יסומנו או ששתיהן לא.
+        // "נקבה" מקבלת עדיפות אם שתיהן מסומנות; אם אף אחת לא מסומנת, לא
+        // שומרים מגדר בכלל (ואז הפופאפ עדיין ייפתח שוב בפעם הבאה, כי אין
+        // עדיין ערך שמור - דורש שהמשתמש בפועל יבחר אחת מהן).
+        if (genderFemaleBox && genderFemaleBox.checked) {
+            dcardSetLS(DCARD_LS_KEYS.gender, 'female');
+            userGender = 'female';
+        } else if (genderMaleBox && genderMaleBox.checked) {
+            dcardSetLS(DCARD_LS_KEYS.gender, 'male');
+            userGender = 'male';
+        }
+
+        console.log('[DCard Popup] after save - localStorage name:', JSON.stringify(dcardGetLS(DCARD_LS_KEYS.name)), 'gender:', JSON.stringify(dcardGetLS(DCARD_LS_KEYS.gender)));
+
+        // תיקון באג 9: משתמש חדש - initSession() עוד לא רצה בכלל (ר' ההערה
+        // למעלה ליד הקריאה המקורית). עכשיו, אחרי ש-userName/userGender כבר
+        // מעודכנים מהשדות שבאמת מולאו, זה הרגע לקרוא לה - כך שהסשן הראשון-
+        // אי-פעם נוצר עם הפרטים האמיתיים, לא עם ברירות המחדל. sessionInitiated
+        // מונע קריאה כפולה אם איכשהו הפופאפ נשלח גם אצל משתמש שכבר אותחל.
+        if (!sessionInitiated) {
+            console.log('[DCard Popup] submit handler - starting session now with real userName/userGender');
+            initSession();
+        }
+
+        // סגירה מפורשת מהצד שלנו - לא מסתמכים על כך שהפופאפ עצמו מוגדר
+        // להיסגר אחרי שליחה (Form Widget > Actions After Submit). משתמש
+        // ב-keepOnboardingPopupClosed (תיקון באג 5+7) ולא בקריאה חד-פעמית -
+        // לחיצה אמיתית על כפתור הסגירה, לא API פנימי, אז אין יותר צורך
+        // בהעברת event.
+        console.log('[DCard Popup] submit handler - closing via keepOnboardingPopupClosed()');
+        keepOnboardingPopupClosed();
+    }, true);
+
+    // 1ב. הכתבה קולית (Web Speech API) - כפתורי מיקרופון בתיבת השאלה ובצ'אט.
+    // כל שגיאה מוצגת עם alert() חוסם (לא הודעה שקטה שאפשר לפספס) ונרשמת
+    // ל-console עם prefix [DCard Voice] כדי שקל יהיה לסנן ב-DevTools.
+    function micErrorMessage(errorCode) {
+        switch (errorCode) {
+            case 'not-allowed':
+            case 'permission-denied':
+                return 'אנא אשר גישה למיקרופון בהגדרות הדפדפן';
+            case 'audio-capture':
+                return 'לא נמצא מיקרופון פעיל במחשב. יש לוודא שמיקרופון מחובר ונבחר בהגדרות המערכת.';
+            case 'no-speech':
+                return 'לא זוהה דיבור. נסה שוב ודבר בסמוך למיקרופון.';
+            case 'network':
+                return 'בעיית רשת בזיהוי הדיבור. נסה שוב.';
+            case 'aborted':
+                return null; // עצירה יזומה על ידי המשתמש עצמו (לחיצה חוזרת) - לא שגיאה, לא מציגים alert.
+            default:
+                return 'לא הצלחנו להפעיל הכתבה קולית. נסה שוב.';
+        }
+    }
+
+    // מוקצה בפועל בתוך setupVoiceInput() למטה - נשאר null אם הדפדפן לא תומך
+    // ב-Web Speech API בכלל. נבדק (guard) בכל מקום שמשתמש בו.
+    let chatMicController = null;
+
+    (function setupVoiceInput() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        // הדפדפן לא תומך בכלל - שני הכפתורים נשארים מוסתרים (display:none
+        // מה-HTML) כדי לא לבלבל, ומציגים alert חד-פעמי שמסביר את זה.
+        if (!SpeechRecognition) {
+            console.warn('[DCard Voice] Web Speech API not supported in this browser.');
+            alert('הכתבה קולית לא נתמכת בדפדפן הזה. אפשר להמשיך ולכתוב באופן רגיל.');
+            return;
+        }
+
+        // מצמיד הכתבה קולית לכפתור+שדה נתון. כל כפתור מקבל מופע recognition
+        // נפרד משלו, כי בכל רגע נתון רק אחד מהם יכול להיות פעיל בפועל
+        // (המשתמש לוחץ על כפתור אחד בכל פעם), אבל ככה אין תלות ביניהם.
+        function attachVoiceButton(btn, inputEl, label) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'he-IL';
+            // continuous=true: המיקרופון נשאר פתוח ולא נסגר אוטומטית על השהייה
+            // קצרה בדיבור (זה מה שגרם לקיטוע אחרי 2-3 מילים אצל מי שמדבר לאט) -
+            // ההקלטה נעצרת רק בלחיצה חוזרת על הכפתור, לא מעצמה.
+            recognition.continuous = true;
+            // interimResults=false בכל הפלטפורמות: מקבלים רק טקסט סופי, כשהמשתמש
+            // מסיים משפט. זה מונע את כפילויות המילים שנצפו ב-Chrome לאנדרואיד
+            // (המנוע צובר טיוטות). החיווי החזותי בזמן ההאזנה - ר' .mic-wave ב-CSS.
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            let isRecording = false;
+            // התוכן שכבר היה בשדה לפני שהתחילה ההקלטה הנוכחית (לא דורסים אותו).
+            // המחרוזת שמוצגת בכל רגע נבנית מחדש מ-event.results (ר' onresult למטה),
+            // ולא נצברת לאורך זמן - כך שאירוע כפול/מאוחר לא יכול להכפיל מילים.
+            let baseText = '';
+            // true רק כשההקלטה נעצרה דרך ה-stop() החיצוני (ר' למטה), לא דרך
+            // לחיצה רגילה על כפתור המיקרופון. recognition.stop() אסינכרוני -
+            // המנוע עדיין יכול לשגר onresult אחד אחרון עם השארית אחרי שכבר
+            // קראנו לו stop(). בלי הדגל הזה, אותו onresult מאוחר כותב מחדש
+            // לתוך השדה אחרי שכבר נוקה ונשלח (למשל ע"י "שלח" בצ'אט) - בדיוק
+            // הבאג של "ההקלטה האחרונה נשארת בתיבה למרות שהיא כבר נשלחה".
+            let suppressTrailingResult = false;
+
+            btn.style.display = '';
+
+            btn.addEventListener('click', () => {
+                if (inputEl.readOnly || inputEl.disabled) return; // השדה נעול, אין למה להכתיב
+                if (isRecording) {
+                    recognition.stop();
+                    return;
+                }
+                baseText = inputEl.value.trim();
+                try {
+                    recognition.start();
+                } catch (e) {
+                    // start() זורק אם כבר רץ (למשל לחיצה כפולה מהירה) - מתעלמים.
+                    console.log(`[DCard Voice] (${label}) start() threw - likely already running`, e);
+                }
+            });
+
+            recognition.onstart = () => {
+                isRecording = true;
+                suppressTrailingResult = false; // הקלטה חדשה - מתחילים נקי
+                btn.classList.add('recording');
+                console.log(`[DCard Voice] (${label}) onstart - listening (continuous)...`);
+            };
+
+            recognition.onresult = (event) => {
+                if (suppressTrailingResult) {
+                    console.log(`[DCard Voice] (${label}) onresult - מתעלמים: ההקלטה נעצרה חיצונית (למשל ע"י "שלח") והשדה כבר נוקה.`);
+                    return;
+                }
+                // בונים את כל הטקסט מחדש מ-event.results בכל אירוע (מאפס, לא צובר).
+                // קטעים סופיים מצטרפים; הטיוטה האחרונה (לא סופית) מחליפה את הקודמת.
+                // כך התוצאה זהה לא משנה איך המנוע מחלק את התוצאות בין אירועים -
+                // וזה מה שמונע כפילויות במובייל.
+                let finalText = '';
+                let interimText = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    const result = event.results[i];
+                    const transcript = result[0].transcript.trim();
+                    if (!transcript) continue;
+                    if (result.isFinal) {
+                        finalText = finalText ? `${finalText} ${transcript}` : transcript;
+                    } else {
+                        interimText = transcript;
+                    }
+                }
+
+                inputEl.value = [baseText, finalText, interimText].filter(Boolean).join(' ');
+
+                console.log(`[DCard Voice] (${label}) onresult - final: "${finalText}", interim: "${interimText}"`);
+            };
+
+            recognition.onerror = (event) => {
+                isRecording = false;
+                btn.classList.remove('recording');
+                console.error(`[DCard Voice] (${label}) onerror:`, event.error, event);
+                const message = micErrorMessage(event.error);
+                if (message) {
+                    alert(message);
+                }
+            };
+
+            recognition.onend = () => {
+                isRecording = false;
+                btn.classList.remove('recording');
+                console.log(`[DCard Voice] (${label}) onend`);
+            };
+
+            // נחשף החוצה כדי שקוד אחר (לחיצה על "שלח") יוכל לכבות הקלטה
+            // פעילה מבלי לגעת בפרטי המימוש של recognition/isRecording כאן.
+            // מסמן suppressTrailingResult=true לפני ה-stop() עצמו (לא אחריו) -
+            // כדי לכסות גם את ה-onresult האחרון שעלול להגיע אחרי שה-stop()
+            // האסינכרוני כבר נקרא.
+            return {
+                stop() {
+                    if (isRecording) {
+                        suppressTrailingResult = true;
+                        recognition.stop();
+                    }
+                }
+            };
+        }
+
+        attachVoiceButton(btnMic, userQuestion, 'question');    // בלוק 1: תיבת השאלה
+        chatMicController = attachVoiceButton(btnMicChat, chatInput, 'chat'); // בלוק 4: שיחה אישית עם ה-AI
+    })();
+
+    // 2. פונקציות עזר לבניית בועות צ'אט
+    function appendMessage(role, text) {
+        // עוצר את סבב הטקסטים המתחלפים (clearInterval) ומסיר את חיווי ה"מקליד",
+        // אם הם מוצגים - זה קורה תמיד לפני שמוצגת כל הודעה חדשה, ולכן בפועל
+        // תמיד ברגע שמגיעה תשובה מה-API (הצלחה או שגיאה).
+        stopTyping();
+
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'dcard-bubble';
+        msgDiv.style.margin = "10px 0";
+        msgDiv.style.padding = "12px 18px";
+        msgDiv.style.borderRadius = "15px";
+        msgDiv.style.maxWidth = "85%";
+        msgDiv.style.display = "inline-block";
+        msgDiv.style.lineHeight = "1.5";
+
+        if (role === 'user') {
+            msgDiv.style.background = "#f1f1f1";
+            msgDiv.style.color = "#333";
+            msgDiv.style.float = "left"; // יישור למשתמש
+            msgDiv.style.borderBottomLeftRadius = "2px";
+        } else {
+            msgDiv.style.background = "#8B1E3F";
+            msgDiv.style.color = "white";
+            msgDiv.style.float = "right"; // יישור לסוכן ה-AI
+            msgDiv.style.borderBottomRightRadius = "2px";
+        }
+
+        // תיקון אבטחה (QA 4.1): לא innerHTML - text הוא קלט לא-בטוח (גם מה
+        // שהמשתמש הקליד בעצמו, גם מה שה-AI מחזיר) ועלול להכיל HTML/JS.
+        // בונים את שבירות השורה כאלמנטים אמיתיים, והטקסט עצמו תמיד כ-text
+        // node - בלתי ניתן לפרשנות כ-HTML לעולם, תהיה התוכן שלו אשר יהיה.
+        const lines = String(text).split('\n');
+        lines.forEach(function (line, index) {
+            msgDiv.appendChild(document.createTextNode(line));
+            if (index < lines.length - 1) {
+                msgDiv.appendChild(document.createElement('br'));
+            }
+        });
+
+        const wrapper = document.createElement('div');
+        wrapper.style.overflow = "hidden";
+        wrapper.style.clear = "both";
+        wrapper.style.width = "100%";
+        wrapper.appendChild(msgDiv);
+
+        chatHistory.appendChild(wrapper);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    // חיווי המתנה: רק אנימציית שלוש נקודות (ללא טקסט), בשלושה שלבים לפי הזמן
+    // (ר' .dcard-typing-dots ב-<style> למעלה).
+    //
+    // מעברי השלבים מתוזמנים עם setTimeout ונשמרים ב-typingStageTimeoutIds,
+    // כדי שיבוטלו ב-stopTyping ברגע שמגיעה תשובה.
+    let typingStageTimeoutIds = [];
+
+    // עוצר את מעברי השלבים ומסיר את חיווי ה"מקליד" מה-DOM, אם הוא מוצג.
+    // נקראת בתחילת appendMessage() - כלומר ברגע שמגיעה תשובה מה-API (הצלחה
+    // או שגיאה), ולכן המעברים תמיד נעצרים בדיוק כשיש תגובה.
+    function stopTyping() {
+        typingStageTimeoutIds.forEach(clearTimeout);
+        typingStageTimeoutIds = [];
+        const typingInd = document.getElementById('typing-indicator');
+        if (typingInd) typingInd.remove();
+    }
+
+    // מחליף את מחלקת השלב של נקודות ההמתנה (ר' CSS: stage-jump / stage-pulse / stage-wave).
+    function setTypingStage(dotsEl, stageClass) {
+        dotsEl.classList.remove('stage-jump', 'stage-pulse', 'stage-wave');
+        dotsEl.classList.add(stageClass);
+    }
+
+    function showTyping() {
+        stopTyping(); // מנקה חיווי/סבב קודם אם קיים, לפני שמתחילים חדש
+
+        const msgDiv = document.createElement('div');
+        msgDiv.id = "typing-indicator";
+        msgDiv.style.margin = "10px 0";
+        msgDiv.style.padding = "10px 15px";
+        msgDiv.style.borderRadius = "15px";
+        msgDiv.style.background = "#e0e0e0";
+        msgDiv.style.color = "#555";
+        msgDiv.style.float = "right";
+        msgDiv.style.clear = "both";
+        msgDiv.style.display = "flex";
+        msgDiv.style.alignItems = "center";
+        msgDiv.style.gap = "8px";
+
+        const dots = document.createElement('span');
+        dots.className = 'dcard-typing-dots stage-jump'; // שלב 1 מיד בתחילה
+        dots.innerHTML = '<span></span><span></span><span></span>';
+
+        // מעבר שלבים לפי הזמן שחלף מאז שהתחילה ההמתנה. כל מעבר מתוזמן פעם אחת
+        // (setTimeout) ונשמר ב-typingStageTimeoutIds כדי שייעצר ב-stopTyping.
+        typingStageTimeoutIds.push(setTimeout(() => setTypingStage(dots, 'stage-pulse'), 3000));
+        typingStageTimeoutIds.push(setTimeout(() => setTypingStage(dots, 'stage-wave'), 8000));
+        msgDiv.appendChild(dots);
+
+        const wrapper = document.createElement('div');
+        wrapper.style.overflow = "hidden";
+        wrapper.style.width = "100%";
+        wrapper.appendChild(msgDiv);
+
+        chatHistory.appendChild(wrapper);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    // בחירה אקראית של קלף באמצעות crypto.getRandomValues, עם rejection
+    // sampling כדי למנוע הטיית modulo (0x100000000 לא מתחלק ב-72).
+    function secureRandomCardId() {
+        const limit = Math.floor(0x100000000 / TOTAL_CARDS) * TOTAL_CARDS;
+        const buf = new Uint32Array(1);
+        do {
+            crypto.getRandomValues(buf);
+        } while (buf[0] >= limit);
+        return (buf[0] % TOTAL_CARDS) + 1;
+    }
+
+    // מציג שוב את הקופה והכפתור רק אם הסוכן הציע קלף נוסף ועוד לא הגענו למקסימום.
+    function maybeOfferAnotherCard(nextAction) {
+        // 'request_card_draw' מתקבל גם הוא: הסוכן משתמש בו לפעמים כשהוא מסכים לבקשת המשתמש לקלף נוסף.
+        const offered = nextAction === 'offer_another_card' || nextAction === 'request_card_draw';
+        if (offered && appState === 'drawn' && drawnCards.length < MAX_CARDS) {
+            visualDeck.style.display = '';
+            btnDeckAction.style.display = '';
+            // הקופה נמצאת בראש העמוד והמשתמש מסתכל על הצ'אט, אז מגלגלים אליה.
+            visualDeck.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // באג שתוקן: קודם הקופה רק "הופיעה" סטטית אחרי הגלילה - המסך נראה
+            // קפוא ולא היה ברור למשתמש מה לעשות. עכשיו האנימציה מתחילה
+            // אוטומטית (בדיוק כמו לחיצה ראשונה על הכפתור) - יש תנועה מיד, וכפתור
+            // "בחר קלף" מוכן; לחיצה אחת מצד המשתמש כבר בוחרת את הקלף בפועל.
+            beginShuffling();
+        }
+    }
+
+    // מתחיל את אנימציית הערבוב ומעביר את appState ל-'shuffling'. משותף לשני
+    // המקומות שמתחילים שליפת קלף: הלחיצה הראשונה על הכפתור (קלף ראשון/הצעה
+    // ידנית לקלף נוסף), וההצעה האוטומטית של קלף נוסף מ-maybeOfferAnotherCard.
+    function beginShuffling() {
+        appState = 'shuffling';
+        btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
+        performShuffleStep();
+        shuffleInterval = setInterval(performShuffleStep, 900);
+    }
+
+    // נועל את תיבת הכתיבה ומציג הודעת סיום במקומה. נקרא משני מקומות שונים
+    // (ר' btnSend), עם טקסט מתאים לכל אחד:
+    //   - הסוכן עצמו קבע שהתהליך הסתיים (data.endSession) - יכול לקרות
+    //     בכל שלב, ברגע שיש סימן שהמשתמש קיבל תשובה (ר' agent-brain-instructions.md
+    //     שלב ט') - זו לא בהכרח השאלה ה-15, ולכן אסור להמשיך לשאול רק כי
+    //     "עוד לא הגענו למגבלה".
+    //   - הגענו למגבלת 15 השאלות (MAX_USER_QUESTIONS) בלי שהסוכן סיים מעצמו -
+    //     רשת ביטחון, השרת כבר אוכף את זה גם כן.
+    // המונה מתאפס ממילא בכל טעינה מחדש של העמוד ("שאלה חדשה" עושה location.reload()).
+    function lockChatInput(message) {
+        chatInputArea.style.display = 'none';
+
+        if (document.getElementById('chat-limit-message')) return; // כבר מוצג, לא כופלים
+
+        const limitMsg = document.createElement('div');
+        limitMsg.id = 'chat-limit-message';
+        limitMsg.style.textAlign = 'center';
+        limitMsg.style.color = '#8B1E3F';
+        limitMsg.style.fontWeight = 'bold';
+        limitMsg.style.padding = '10px';
+        limitMsg.innerText = message;
+        chatInputArea.insertAdjacentElement('afterend', limitMsg);
+    }
+
+    // פונקציית האנימציה (ללא שינוי)
+    function performShuffleStep() {
+        animationCards.forEach((card, index) => {
+            setTimeout(() => {
+                card.classList.add(index % 2 === 0 ? 'shuffle-left' : 'shuffle-right');
+            }, index * 100);
+        });
+        setTimeout(() => {
+            animationCards.forEach(card => {
+                card.classList.remove('shuffle-left', 'shuffle-right');
+                card.style.zIndex = Math.floor(Math.random() * 10);
+            });
+        }, 400);
+    }
+
+    // 3. ניהול שליפת הקלפים והפנייה הראשונית למודל
+    btnDeckAction.addEventListener('click', async function() {
+        if (!sessionToken) {
+            alert("המערכת מבצעת התחברות לשרת, אנא המתן שניה ונסה שוב.");
+            return;
+        }
+
+        if (appState === 'start' || appState === 'drawn') {
+            if (appState === 'start' && userQuestion.value.trim() === "") {
+                alert("אנא כתוב את שאלתך לפני שנתחיל.");
+                return;
+            }
+            if (appState === 'start') {
+                userQuestion.classList.add('locked');
+                userQuestion.readOnly = true;
+                btnMic.style.display = 'none'; // השאלה ננעלה, אין יותר למה להכתיב
+
+                // שינוי UX (#1): בועת השאלה מוזרקת מיד ברגע שהמשתמש נועל
+                // את השאלה שלו ומתחיל את התהליך - לא מחכה לתשובת ה-AI
+                // הראשונה כמו קודם. הפורמט קבוע: שאלת: "...".
+                appendMessage('user', `שאלת: "${userQuestion.value.trim()}"`);
+            }
+            beginShuffling();
+            return;
+        }
+
+        if (appState === 'shuffling') {
+            clearInterval(shuffleInterval);
+
+            let randomCardId;
+            if (forceCardId && !drawnCards.includes(forceCardId)) {
+                // מצב בדיקה (A/B): הקלף הראשון קבוע. קלפים נוספים חוזרים להגרלה רגילה.
+                randomCardId = forceCardId;
+            } else {
+                do {
+                    randomCardId = secureRandomCardId();
+                } while (drawnCards.includes(randomCardId));
+            }
+
+            drawnCards.push(randomCardId);
+            let formattedCardId = String(randomCardId).padStart(2, '0');
+
+            // תצוגת הקלף
+            let cardWrapper = document.createElement('div');
+            cardWrapper.className = 'card-item';
+            let imgElement = document.createElement('img');
+            imgElement.className = 'card-display';
+            imgElement.src = `/wp-content/uploads/im_${formattedCardId}.jpg`;
+        //    let idLabel = document.createElement('span');
+        //    idLabel.className = 'card-id-label';
+        //    idLabel.innerText = `(קלף מס' ${formattedCardId})`;
+            cardWrapper.appendChild(imgElement);
+         //   cardWrapper.appendChild(idLabel);
+            cardsContainer.appendChild(cardWrapper);
+
+            block3Cards.style.display = 'block';
+            block4Chat.style.display = 'block';
+            block5Actions.style.display = 'flex';
+
+            if (drawnCards.length < MAX_CARDS) {
+                // קלף נוסף הוא אופציונלי ולא מעודדים אותו: הקופה והכפתור
+                // מוסתרים עד שהסוכן מציע קלף נוסף (nextAction === 'offer_another_card'),
+                // כדי שהמשתמש יתאמץ ויהיה יצירתי עם הקלף שכבר לפניו.
+                appState = 'drawn';
+                btnDeckAction.innerText = ( 'female' === userGender ) ? "שלפי קלף נוסף" : "שלוף קלף נוסף";
+                visualDeck.style.display = 'none';
+                btnDeckAction.style.display = 'none';
+            } else {
+                appState = 'max';
+                visualDeck.style.display = 'none';
+                btnDeckAction.style.display = 'none';
+            }
+
+            if (chatModeActive) {
+                // כבר בחרו "שיחה אישית" קודם (קלף נוסף שהוצע תוך כדי הצ'אט) -
+                // לא חוזרים לבחירת מסלול ולא מסתירים את תיבת ההקלדה שוב,
+                // ממשיכים ישר לתגובת ה-AI על הקלף החדש.
+                runCardAI(randomCardId, 'chat');
+            } else {
+                // בכל שליפת קלף ראשון בוחרים קודם מסלול: שיחה אישית או קבלת
+                // מסר חד-פעמי. עד לבחירה, תיבת ההקלדה מוסתרת כדי שלא יכתוב
+                // לתוכה לפני שהמסלול נקבע.
+                pendingCardId = randomCardId;
+                chatInputArea.style.display = 'none';
+                pathChoiceBlock.style.display = 'flex';
+            }
+        }
+    });
+
+    // קריאה בפועל ל-AI עבור הקלף שנשלף, לפי המסלול שנבחר.
+    async function runCardAI(cardId, mode) {
+        showTyping();
+        try {
+            // תיקון ביצועים: בעבר, עבור הקלף הראשון, הקוד היה שולח שתי
+            // בקשות ברצף - card-selected ואז turn נוסף - כלומר שתי
+            // קריאות AI מלאות אחת אחרי השנייה לפני שהמשתמש רואה תשובה.
+            // זה בדיוק מה שדחף את זמן ההמתנה הכולל מעבר לטיימאאוט של
+            // השרת ("תקוע 30 שניות ואז שגיאה"). עכשיו השאלה (רק בקלף
+            // הראשון, כשעוד אין state.original_question בסשן) נשלחת
+            // כפרמטר בתוך אותה בקשה יחידה ל-card-selected, וה-backend
+            // מזין אותה למודל באותה קריאה - AI call אחד בלבד לכל קלף.
+            const cardRes = await fetch(`${API_BASE}/card-selected`, {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({
+                    session_token: sessionToken,
+                    card_id: String(cardId),
+                    question: drawnCards.length === 1 ? userQuestion.value.trim() : undefined,
+                    mode: mode
+                })
+            });
+            const cardData = await cardRes.json();
+
+            if (cardData.aiReply) {
+                appendMessage('ai', cardData.aiReply);
+                if (mode === 'chat') {
+                    // רק במסלול שיחה אישית יש המשך אפשרי - כולל הצעת קלף נוסף.
+                    maybeOfferAnotherCard(cardData.nextAction);
+                }
+                // במסלול "קבלת מסר" התהליך מסתיים בהודעה אחת: תיבת ההקלדה
+                // נשארת מוסתרת (הייתה מוסתרת כבר מרגע השליפה) ואין המשך שיחה.
+            } else {
+                // תיקון: cardData.error הוא טקסט טכני מיועד ללוגים (למשל "המודל
+                // לא החזיר JSON תקין גם אחרי ניסיון חוזר") - לא מיועד למשתמש,
+                // ולא תואם בכלל את הטון החם שכל ה-prompt בנוי סביבו. תמיד
+                // מציגים הודעה ידידותית קבועה, לא את הטקסט הגולמי מהשרת.
+                // תיקון נוסף: "נסה שוב" לבדו מטעה אם הכשל חוזר על עצמו בכל
+                // ניסיון (לא בעיה חד-פעמית) - עכשיו גם מכוון למוצא בפועל.
+                appendMessage('ai', 'אירעה שגיאה בקבלת תגובה. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+            }
+        } catch (e) {
+            appendMessage('ai', 'אירעה שגיאה בחיבור למערכת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+            console.error(e);
+        }
+    }
+
+    btnPathChat.addEventListener('click', () => {
+        if (pendingCardId === null) return;
+        chatModeActive = true; // מכאן ואילך תיבת ההקלדה נשארת גלויה גם בקלפים נוספים
+        pathChoiceBlock.style.display = 'none';
+        chatInputArea.style.display = '';
+        const cardId = pendingCardId;
+        pendingCardId = null;
+        runCardAI(cardId, 'chat');
+    });
+
+    btnPathMessage.addEventListener('click', () => {
+        if (pendingCardId === null) return;
+        resetUserQuestionCount(); // מסלול קבלת מסר לא כולל שיחה, אבל מאפסים ליתר ביטחון
+        pathChoiceBlock.style.display = 'none';
+        // תיבת ההקלדה נשארת מוסתרת למשך שאר הסשן - זה מסלול חד-פעמי.
+        const cardId = pendingCardId;
+        pendingCardId = null;
+        runCardAI(cardId, 'message');
+    });
+
+    // 4. שליחת הודעת טקסט רגילה בצ'אט
+    btnSend.addEventListener('click', async () => {
+        // לחיצה על "שלח" מכבה הקלטה פעילה אם הייתה - אין סיבה שהמיקרופון
+        // ימשיך להאזין אחרי שהמשתמש כבר החליט לשלוח את מה שכתוב בתיבה.
+        if (chatMicController) chatMicController.stop();
+
+        const text = chatInput.value.trim();
+        if (!text || !sessionToken) return;
+        if (userQuestionCount >= MAX_USER_QUESTIONS) return; // הגיע למגבלה, התיבה כבר אמורה להיות מוסתרת
+
+        appendMessage('user', text);
+        chatInput.value = '';
+        showTyping();
+        userQuestionCount++; // סופרים את השליחה בפועל, לפני התשובה - זו השאלה ה-userQuestionCount בדיוק
+        // רשת ביטחון בלבד: אם הגענו למגבלת 15 (MAX_USER_QUESTIONS) בלי שהסוכן
+        // סיים מעצמו קודם, מסמנים לשרת שזו פנייה אחרונה כדי שיסכם ולא ימשיך לשאול.
+        const isFinalTurn = userQuestionCount >= MAX_USER_QUESTIONS;
+        let agentEndedConversation = false;
+
+        try {
+            const res = await fetch(`${API_BASE}/turn`, {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ session_token: sessionToken, message: text, is_final_turn: isFinalTurn })
+            });
+            const data = await res.json();
+            if (data.aiReply) {
+                appendMessage('ai', data.aiReply);
+                // הסוכן עצמו קובע מתי אין עוד מה לשאול (סימני הבנה, ר' שלב ט'
+                // בהוראות) - זה יכול לקרות הרבה לפני השאלה ה-15, ואז אסור
+                // להמשיך את השיחה רק כי המונה שלנו עוד לא הגיע למגבלה.
+                agentEndedConversation = !!data.endSession;
+                if (!isFinalTurn && !agentEndedConversation) {
+                    maybeOfferAnotherCard(data.nextAction);
+                }
+            } else {
+                // אותו תיקון כמו ב-runCardAI למעלה - לא מציגים טקסט שגיאה גולמי
+                // מהשרת, וגם לא "נסה שוב" לבדו אם זה כשל שחוזר על עצמו.
+                appendMessage('ai', 'אירעה שגיאה בקבלת תגובה. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+            }
+        } catch(e) {
+            appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+        } finally {
+            // הנעילה תמיד קורית כאן (לא רק בענף ההצלחה) - גם אם התשובה חזרה
+            // כשגיאה על השאלה ה-15, כדי שהמונה בפועל והמצב הנעול תמיד יסתנכרנו.
+            if (agentEndedConversation) {
+                lockChatInput('קיבלת תשובה לשאלה שלך. אפשר לשלוח את השיחה במייל למטה, או ללחוץ "שאלה חדשה" כדי להתחיל מחדש.');
+            } else if (isFinalTurn) {
+                lockChatInput('הגעת למקסימום השאלות לקריאה זו. לקריאה חדשה לחץ על הכפתור למטה.');
+            }
+        }
+    });
+
+    // שליחה נוחה עם מקש Enter
+    chatInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            // התיבה היא עכשיו textarea (3 שורות) - בלי preventDefault, Enter
+            // גם שולח וגם מכניס שורה חדשה לתיבה (שמתנקה מיד אחרי, אז נשארת
+            // שורה ריקה "תקועה"). Enter עדיין שולח, כמו קודם; Shift+Enter
+            // להכנסת שורה חדשה בפועל בלי לשלוח.
+            if (!e.shiftKey) {
+                e.preventDefault();
+                btnSend.click();
+            }
+        }
+    });
+
+    // אותה נוחות ב-Enter בתיבת השאלה הראשונית (בלוק 1) - מדמה לחיצה על
+    // כפתור הקופה (btnDeckAction: "ערבב קלפים"/"בחר קלף", לפי appState).
+    // readOnly נבדק כי אחרי הנעילה (userQuestion.readOnly = true, ר' לחיצת
+    // הכפתור למטה) אין יותר טעם להמשיך להאזין ל-Enter על השדה הנעול.
+    userQuestion.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter' && !userQuestion.readOnly) {
+            if (!e.shiftKey) {
+                e.preventDefault();
+                // אם הסשן עוד לא הוקם (למשל: Enter נלחץ מיד עם טעינת העמוד,
+                // לפני שהתשובה מ-/session/start חזרה) - לא מציגים את ה-alert
+                // החוסם של btnDeckAction בשביל זה; פשוט מתעלמים מהלחיצה הזו,
+                // בניגוד ללחיצה ידנית על הכפתור עצמו (שם ה-alert עדיין רלוונטי,
+                // כי שם המשתמש בחר באופן יזום ללחוץ ולכן ראוי להסביר לו למה
+                // שום דבר לא קרה).
+                if (!sessionToken) return;
+                btnDeckAction.click();
+            }
+        }
+    });
+
+    // 5. כפתורי סיום (מבוסס על סדר הכפתורים ב-HTML)
+    // כפתור: סיום הסשן ויציאה
+    endSessionBtns[0].addEventListener('click', async () => {
+        if(confirm("האם אתה בטוח שברצונך לסיים את הסשן?")) {
+            await fetch(`${API_BASE}/end`, {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ session_token: sessionToken, email: "" })
+            });
+            block4Chat.innerHTML = "<h3 style='text-align:center;'>תודה! הסשן הסתיים.</h3>";
+            block5Actions.style.display = 'none';
+        }
+    });
+
+    // תיקון QA 3.2: ולידציה בסיסית - לא תחליף לאימות אמיתי (שליחת מייל עם
+    // לינק אישור), רק סינון מוקדם של טעויות הקלדה ברורות לפני טרחת בקשה
+    // לשרת. אותה בדיקה בדיוק ש-is_email() בצד השרת עדיין עושה בפועל.
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // כפתור: שליחת הדיאלוג במייל
+    endSessionBtns[1].addEventListener('click', async () => {
+        // אין כאן פופאפ אמיתי - prompt() הדפדפן, שתומך בערך ברירת מחדל
+        // כפרמטר שני. אם כבר נשמרה כתובת מפעם קודמת, היא מוצגת מוכנה בתיבה.
+        const savedEmail = dcardGetLS(DCARD_LS_KEYS.email) || '';
+        const userEmail = prompt("לאיזו כתובת אימייל לשלוח את התיעוד?", savedEmail);
+        if (!userEmail) return;
+
+        if (!EMAIL_REGEX.test(userEmail.trim())) {
+            alert("הכתובת שהוזנה לא נראית תקינה. נסה שוב.");
+            return;
+        }
+
+        dcardSetLS(DCARD_LS_KEYS.email, userEmail);
+
+        // תמונות הקלפים שנשלפו בפועל בסשן, לפי סדר השליפה - יוטמעו במייל.
+        const cardImages = Array.from(document.querySelectorAll('#cards-container .card-display')).map(img => img.src);
+
+        // תיקון QA 3.2: קודם הקריאה הזו לא נבדקה בכלל (לא try/catch, לא
+        // בדיקת emailSent בתגובה) - המשתמש תמיד ראה "נשלח בהצלחה", גם אם
+        // ה-fetch נכשל ברשת וגם אם wp_mail() נכשל בצד השרת (data.emailSent
+        // === false). עכשיו שתי הדרכים האלה מדווחות בנפרד, בלי לטעון הצלחה
+        // שלא קרתה בפועל.
+        try {
+            const res = await fetch(`${API_BASE}/end`, {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ session_token: sessionToken, email: userEmail, cardImages: cardImages })
+            });
+            const data = await res.json();
+            if (data.emailSent) {
+                alert("הדיאלוג נשלח בהצלחה לכתובת: " + userEmail);
+            } else {
+                alert("לא הצלחנו לשלוח את המייל לכתובת שהוזנה. אפשר לנסות שוב, או לוודא שהכתובת נכונה.");
+            }
+        } catch (e) {
+            alert("אירעה שגיאת תקשורת ולא הצלחנו לשלוח את המייל. נסה שוב.");
+        }
+    });
+</script>

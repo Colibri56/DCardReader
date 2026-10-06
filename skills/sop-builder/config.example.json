@@ -1,0 +1,25 @@
+{
+  "owner": {
+    "domain": "תיווך נדל\"ן",
+    "audience": "עובד/ת חדש/ה"
+  },
+  "output": {
+    "primary": "local_file",
+    "local_dir": "outputs/procedures"
+  },
+  "source": {
+    "preferred": ["gmail"],
+    "fallback": "interview"
+  },
+  "tasks": {
+    "board": "none",
+    "enabled": false
+  },
+  "scan": {
+    "source_dir": "",
+    "min_count": 3
+  },
+  "language": "he-dual-gender",
+  "tz_offset_hours": 3,
+  "_notes": "primary options: local_file | google_sheets | gmail | telegram | notion | google_docs | google_drive. board options: none | monday | trello | asana | clickup. כל מה שמעבר ל-local_file הוא אופציונלי ונופל ל-local_file אם המחבר לא זמין."
+}

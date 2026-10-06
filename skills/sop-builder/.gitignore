@@ -1,0 +1,16 @@
+# Secrets - never commit
+.env
+
+# Per-owner config written by onboarding (machine-specific)
+config.json
+
+# Python
+__pycache__/
+*.pyc
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Generated SOPs / scratch output
+outputs/
