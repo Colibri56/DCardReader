@@ -13,12 +13,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'DCARD_PLUGIN_FILE', __FILE__ );
 define( 'DCARD_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DCARD_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'DCARD_DB_VERSION', '1.0.0' );
+define( 'DCARD_DB_VERSION', '1.1.0' ); // הועלה: הוספת טבלת wp_dcard_users (ר' class-dcard-users.php)
 
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-logger.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-activator.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-db.php';
+require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-users.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-settings.php';
+require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-quotas.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-cards.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-ai-gateway.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-mailer.php';
@@ -34,10 +36,17 @@ add_action( 'plugins_loaded', function () {
 
 add_action( 'admin_menu', function () {
 	DCard_Settings::register_menu();
+	DCard_Quotas::register_menu();
 } );
 
 add_action( 'admin_init', function () {
 	DCard_Settings::register_settings();
+	DCard_Quotas::register_settings();
+} );
+
+// תיקון QA 4.3 (אותו דפוס) - ר' הערה ב-DCard_Quotas::enqueue_frontend_settings().
+add_action( 'wp_enqueue_scripts', function () {
+	DCard_Quotas::enqueue_frontend_settings();
 } );
 
 add_action( 'rest_api_init', function () {

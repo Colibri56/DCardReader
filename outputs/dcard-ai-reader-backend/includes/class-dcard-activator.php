@@ -7,12 +7,17 @@ class DCard_Activator {
 
 	public static function activate() {
 		self::create_table();
+		DCard_Users::create_table();
 		update_option( 'dcard_db_version', DCARD_DB_VERSION );
 	}
 
 	public static function maybe_upgrade() {
 		if ( get_option( 'dcard_db_version' ) !== DCARD_DB_VERSION ) {
 			self::create_table();
+			// נוסף כאן (לא רק ב-activate()) כדי שהתקנות קיימות של הפלאגין
+			// יקבלו את טבלת wp_dcard_users החדשה גם בלי הפעלה/כיבוי מחדש -
+			// ר' עליית DCARD_DB_VERSION ב-dcard-ai-reader-backend.php.
+			DCard_Users::create_table();
 			update_option( 'dcard_db_version', DCARD_DB_VERSION );
 		}
 	}

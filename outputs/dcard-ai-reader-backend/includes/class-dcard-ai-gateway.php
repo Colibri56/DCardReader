@@ -103,6 +103,24 @@ class DCard_AI_Gateway {
 			);
 		}
 
+		// הזרקת הנחיה גלובלית לשפה/מגדר - לכל קריאה, בכל מודל ובכל path (קבלת
+		// מסר/שיחה אישית), ללא תלות ב-$extra_system_instruction הספציפי
+		// למצב (אם יש). מצורפת *אחרי* ה-extra הקיים, לא מחליפה אותו - כך
+		// שזו תמיד השכבה האחרונה שהמודל רואה. address_gender כבר מגיע
+		// בתוך $state_payload/$user_json עצמו (סעיף 4), אבל זו הדגשה נפרדת
+		// ומחמירה יותר - בדיוק דפוס ה-defense-in-depth שמיושם בכל הפרויקט
+		// (הנחיה ב-prompt + יישום/בדיקה גם מחוץ למודל, איפה שניתן).
+		$address_gender      = isset( $state_payload['address_gender'] ) ? $state_payload['address_gender'] : 'male';
+		$gender_label        = ( 'female' === $address_gender ) ? 'נקבה' : 'זכר';
+		$gender_instruction  = "CRITICAL LANGUAGE & GENDER INSTRUCTIONS:\n"
+			. "You must write EXCLUSIVELY in perfect, native-level Hebrew.\n"
+			. "The user's gender is: {$address_gender} ({$gender_label}).\n"
+			. "You MUST adapt every single verb, adjective, and pronoun in your response to match this specific gender perfectly.\n"
+			. "PROHIBITED ACTIONS: Do not invent words, do not use literal translations of English idioms, and do not make spelling mistakes. Before outputting the response, internally verify that the Hebrew grammar is strictly correct for the user's gender.";
+		$extra_system_instruction = ( '' !== $extra_system_instruction )
+			? $extra_system_instruction . "\n\n" . $gender_instruction
+			: $gender_instruction;
+
 		$user_json = wp_json_encode( $state_payload, JSON_UNESCAPED_UNICODE );
 
 		$raw = self::call_provider( $provider, $model, $api_key, $user_json, $extra_system_instruction );

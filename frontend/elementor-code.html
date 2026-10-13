@@ -1,11 +1,23 @@
 <style>
+    /* תיקון גרדיאנט: קודם הוחל ישירות על #card-reader-app, אבל האלמנט הזה
+       מקונן בתוך ה-wrapper/section של אלמנטור שיש לו רקע משלו (לרוב לבן
+       אחיד) - כך שהגרדיאנט נראה "חתוך"/לא נראה כלל מעבר לגבולות התיבה
+       הפנימית. הפתרון: מחילים את הגרדיאנט גלובלית על body ועל .elementor-page
+       (שני הסלקטורים מכוסים כי לא בטוח איזה מהם בפועל "התחתון ביותר" בעמוד
+       הזה), ומשאירים את #card-reader-app עצמו שקוף כדי שהגרדיאנט הגלובלי
+       יראה מבעד לו בלי הפרעה.
+    */
+    body, .elementor-page {
+        background: radial-gradient(circle, #FFFFFF 0%, #F2E6E6 100%) !important;
+    }
+
     /* עיצוב כללי לאפליקציה (הורחב כדי להכיל 3 קלפים גדולים) */
     #card-reader-app {
         font-family: 'Heebo', sans-serif;
         max-width: 900px;
         margin: 0 auto;
         padding: 20px;
-        background-color: transparent;
+        background: transparent !important;
         direction: rtl;
         display: flex;
         flex-direction: column;
@@ -198,7 +210,16 @@
         width: 100%;
         border-radius: 12px;
         box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        animation: cardEnter 0.5s ease-out;
+        opacity: 0; /* עד שהתמונה בפועל נטענת - ר' .card-fade-in + imgElement.onload ב-JS */
+    }
+    /* תיקון UX: האנימציה הייתה מוגדרת ישירות על .card-display, כך שהיא
+       רצה ברגע שהאלמנט נכנס ל-DOM - לפני שה-img בכלל סיימה להוריד את
+       הפיקסלים של התמונה. 0.5 שניות מאוחר יותר האנימציה כבר נגמרה, והתמונה
+       "קפצה" למסך בבת אחת ברגע שהיא נטענה. עכשיו האנימציה מופעלת רק
+       כש-JS מוסיף את המחלקה הזו ב-load event של התמונה עצמה (ר' ניהול
+       שליפת הקלפים למטה) - כך שהדהייה-פנימה קורית בדיוק כשיש מה להראות. */
+    .card-display.card-fade-in {
+        animation: cardEnter 0.5s ease-out forwards;
     }
     .card-id-label {
         font-size: 14px;
@@ -395,7 +416,7 @@
 
     <!-- בלוק ביניים: בחירה בין שיחה אישית לקבלת מסר, מוצג אחרי כל שליפת קלף -->
     <div class="path-choice-block" id="block-path-choice">
-        <button class="btn-main" id="btn-path-chat">לפיתוח האינטואיציה</button>
+        <button class="btn-main" id="btn-path-chat">לשיחה מפתחת</button>
         <button class="btn-outline" id="btn-path-message">לקבלת מסר אישי</button>
     </div>
 
@@ -450,7 +471,17 @@
     // --- התמדת שם/מגדר/אימייל ב-localStorage, כדי שלא לבקש אותם מהמשתמש בכל
     // כניסה. גלישה פרטית/localStorage חסום יכולים לגרום ל-getItem/setItem
     // לזרוק - לכן תמיד עטופים ב-try/catch, והדף ממשיך לעבוד גם אם אין אחסון.
-    const DCARD_LS_KEYS = { name: 'dcard_userName', gender: 'dcard_userGender', email: 'dcard_userEmail' };
+    const DCARD_LS_KEYS = {
+        name: 'dcard_userName',
+        gender: 'dcard_userGender',
+        email: 'dcard_userEmail',
+        // Freemium PLG, שלב 1: מונים לשימוש אנונימי - ר' dcardGetCount/
+        // dcardIncrementCount/triggerRegistrationWall למטה. נספרים רק
+        // בדפדפן (localStorage), אין עדיין אכיפה בצד השרת - מגבלה ידועה
+        // לשלב הזה (אפשר "לעקוף" ע"י ניקוי localStorage), לא באג.
+        anonMsgCount: 'dcard_anon_msg_count',
+        anonChatCount: 'dcard_anon_chat_count'
+    };
 
     function dcardGetLS(key) {
         try {
@@ -466,6 +497,48 @@
         } catch (e) {
             // פרטי/חסום - ממשיכים בלי לשמור, לא עוצרים את הזרימה.
         }
+    }
+
+    // Freemium PLG, שלב 1: מונה שימוש אנונימי בודד (הודעות/שאלות - ר'
+    // DCARD_LS_KEYS.anonMsgCount/anonChatCount). ערך לא-מספרי/חסר (למשל
+    // ביקור ראשון, או localStorage חסום) נחשב 0 - לא חוסם אף אחד בטעות.
+    function dcardGetCount(key) {
+        const n = parseInt(dcardGetLS(key), 10);
+        return isNaN(n) ? 0 : n;
+    }
+
+    function dcardIncrementCount(key) {
+        dcardSetLS(key, String(dcardGetCount(key) + 1));
+    }
+
+    // המגבלות עצמן מגיעות מה-PHP (Settings > DCard Quotas) דרך
+    // wp_localize_script (window.dcardSettings.anonMsgLimit/anonChatLimit -
+    // ר' DCard_Quotas::enqueue_frontend_settings). אם משום מה האובייקט חסר
+    // או הערך לא מספר תקין (לדוגמה: דף ישן ב-cache מלפני שהתכונה נוספה) -
+    // "נכשל פתוח" (Infinity, כלומר בלי מגבלה) ולא חוסם את כולם בטעות; 0
+    // תקין ונשמר ככוונה מפורשת של המנהל (אין בכלל שימוש חינמי אנונימי).
+    function dcardAnonLimit(kind) {
+        if (typeof window.dcardSettings !== 'object' || !window.dcardSettings) return Infinity;
+        const raw = (kind === 'chat') ? window.dcardSettings.anonChatLimit : window.dcardSettings.anonMsgLimit;
+        const n = parseInt(raw, 10);
+        return isNaN(n) ? Infinity : n;
+    }
+
+    // Freemium PLG, שלב 1: קיר הרשמה. כרגע רק לוג + ניסיון פתיחת פופאפ -
+    // בכוונה (per request) שלב ראשוני, לא זרימת הרשמה מלאה עדיין.
+    //
+    // *** TODO לפני עלייה לאוויר: למלא כאן את ה-ID האמיתי של פופאפ ההרשמה
+    // באלמנטור (0 הוא placeholder בלבד ולעולם לא יתאים לאף פופאפ אמיתי -
+    // ר' התקרית הקודמת בפרויקט הזה עם מספר מזהה שגוי של פופאפ 4954). ***
+    const REGISTRATION_WALL_POPUP_ID = 5031;
+
+    function triggerRegistrationWall() {
+        console.log('Limit reached');
+        if (!REGISTRATION_WALL_POPUP_ID) {
+            console.warn('[DCard Quota] REGISTRATION_WALL_POPUP_ID not set yet - cannot open the registration popup.');
+            return;
+        }
+        openPopupById(REGISTRATION_WALL_POPUP_ID);
     }
 
     // ברירת מחדל - משמשת רק אם אין עדיין ערכים שמורים ב-localStorage (ר' למטה)
@@ -504,6 +577,7 @@
     const btnDeckAction = document.getElementById('btn-deck-action');
     const visualDeck = document.getElementById('card-deck');
     const animationCards = document.querySelectorAll('.card-back');
+    const cardReaderApp = document.getElementById('card-reader-app');
     const block3Cards = document.getElementById('block-3');
     const cardsContainer = document.getElementById('cards-container');
     const block4Chat = document.getElementById('block-4');
@@ -547,8 +621,18 @@
     // 1. אתחול סשן. קריאה אחת בדיוק לכל טעינה - ר' למטה איפה זה נקרא בפועל:
     // מיד כאן למשתמש חוזר (יש כבר storedName/storedGender), או מתוך מאזין
     // ה-submit של הפופאפ למשתמש חדש (ר' תיקון באג 9 למטה).
+    // תיקון "נתקע על מבצע התחברות": קודם, כשל ב-/session/start (למשל 429 -
+    // יותר מדי בקשות מהכתובת הזו באותה שעה) לא דיווח כלום למשתמש (רק
+    // console.error) ולא איפשר ניסיון חוזר בכלל - sessionInitiated נשאר
+    // true לצמיתות, אז שום דבר לא קרא ל-initSession() שוב, וה-UI נתקע עם
+    // sessionToken שנשאר null. כעת: הודעה ברורה (sessionInitError, נבדלת
+    // ל-429) ו-sessionInitiated מתאפס בחזרה ל-false בכשל, כדי שלחיצה על
+    // כפתור הקופה (ר' btnDeckAction למטה) תוכל לנסות שוב, לא רק להתריע.
+    let sessionInitError = null;
+
     async function initSession() {
         sessionInitiated = true; // נקבע מיד (לא רק בהצלחה) - מונע מרוץ של קריאה כפולה
+        sessionInitError = null;
         try {
             const res = await fetch(`${API_BASE}/start`, {
                 method: 'POST',
@@ -569,9 +653,17 @@
                 userQuestion.placeholder = ( 'female' === userGender )
                     ? 'על מה תרצי לקבל הכוונה היום? כתבי את שאלתך כאן ולחצי Enter...'
                     : 'על מה תרצה לקבל הכוונה היום? כתוב את שאלתך כאן ולחץ Enter...';
+            } else if (res.status === 429) {
+                sessionInitError = 'יותר מדי בקשות מהדפדפן הזה בשעה האחרונה. אפשר לנסות שוב בעוד כמה דקות.';
+                sessionInitiated = false;
+            } else {
+                sessionInitError = 'לא הצלחנו להתחבר לשרת. אפשר לנסות שוב.';
+                sessionInitiated = false;
             }
         } catch (e) {
             console.error("שגיאה ביצירת סשן מול השרת", e);
+            sessionInitError = 'אין חיבור לשרת כרגע. אפשר לנסות שוב.';
+            sessionInitiated = false;
         }
     }
 
@@ -630,7 +722,9 @@
     // לא) היא בדיוק מה שגרם לקריסות שראינו בקונסול - ולמצב "לפעמים עובד
     // ולפעמים לא" בלי שום קשר הגיוני לזמן טעינה "גס". מקור: בעיה מתועדת של
     // אלמנטור עצמו - github.com/elementor/elementor/issues/17444.
-    function elementorPopupModuleReady() {
+    // פורמלית לפי popupId - פופאפ 4484 (onboarding) ו-4954 (הוראות) כל אחד
+    // צריך את הבדיקה הזו בנפרד, כי כל אחד הוא "document" נפרד באלמנטור.
+    function elementorPopupModuleReady(popupId) {
         return !!(
             window.elementorProFrontend &&
             elementorProFrontend.modules &&
@@ -638,7 +732,7 @@
             window.elementorFrontend &&
             elementorFrontend.documentsManager &&
             elementorFrontend.documentsManager.documents &&
-            elementorFrontend.documentsManager.documents['4484']
+            elementorFrontend.documentsManager.documents[String(popupId)]
         );
     }
 
@@ -734,7 +828,7 @@
             return; // המשתמש כבר שלח את הפופאפ בינתיים - אין מה לפתוח יותר.
         }
 
-        if (elementorPopupModuleReady()) {
+        if (elementorPopupModuleReady(4484)) {
             console.log('[DCard Popup] calling showPopup({id:4484}) (document ready, attemptsLeft=' + attemptsLeft + ')');
             try {
                 elementorProFrontend.modules.popup.showPopup({ id: 4484 });
@@ -753,6 +847,42 @@
             openOnboardingPopup(attemptsLeft - 1);
         }, 150);
     }
+
+    // תיקון באג 12 (ניקוי): לפי לוגים בדפדפן בפועל, הלולאה המקורית כאן
+    // (עד 400 ניסיונות, 60 שניות) נכנסה בכל מקרה לריצה ממושכת מול
+    // 4954 בזמן שהפופאפ הראשון עדיין "התנדנד" בין פתוח/סגור - זה (ולא רק
+    // הניחוש בתיקון באג 11) תרם לחוסר היציבות שדווח. לכן כאן, בשרשור
+    // מתוך submit_success בלבד, נשאר רק *ניסיון בדיקה/פתיחה בודד* - לא
+    // סבב polling. בדיקת מוכנות (elementorPopupModuleReady) נשארת (לא
+    // מוסרת כליל) כי קריאה ל-showPopup על document שעדיין לא נרשם
+    // באלמנטור מוכחת כקורסת (תיקון באג 3 למעלה) - ויתור מלא על הבדיקה
+    // הזו היה מחזיר קריסה ישירה, לא רק "לא נפתח".
+    function openPopupById(popupId) {
+        if (!elementorPopupModuleReady(popupId)) {
+            console.warn('[DCard Popup] popup document (id=' + popupId + ') not registered yet by Elementor - skipping open (no retry loop).');
+            return;
+        }
+        console.log('[DCard Popup] calling showPopup({id:' + popupId + '}) once');
+        try {
+            elementorProFrontend.modules.popup.showPopup({ id: popupId });
+        } catch (err) {
+            console.warn('[DCard Popup] showPopup threw despite readiness check (id=' + popupId + '):', err);
+        }
+    }
+
+    // דגל ל-submit_success (ר' תיקון באג 10 למטה) - מסמן שהשליחה האחרונה
+    // שתפסנו ב-capture הייתה באמת טופס ה-onboarding, כדי שמאזין ה-
+    // submit_success הגלובלי (שרץ על כל טופס בעמוד) יידע אם להגיב.
+    let onboardingFormJustSubmitted = false;
+
+    // תיקון באג 11 (מניעת הפעלה כפולה): בניגוד ל-onboardingFormJustSubmitted,
+    // שמתאפס בחזרה ל-false בכל פעם (ומאפשר להגיב לשליחה הבאה אם תהיה) -
+    // popupChained הוא מנעול חד-כיווני, שלא מתאפס לעולם. הגנה נוספת למקרה
+    // שבו submit_success מופעל יותר מפעם אחת מהפעלת אלמנטור עבור אותה
+    // שליחה בודדת (quirk מתועד בכמה גרסאות של אלמנטור) - בלי המנעול הזה,
+    // קריאה כפולה ל-keepOnboardingPopupClosed()/openPopupById(4954) יכולה
+    // לגרום לאותו "הבהוב" שכבר תוקן, רק מסיבה שונה.
+    let popupChained = false;
 
     // שמירת השם/מגדר שהוזנו בפופאפ ברגע השליחה. מאזין גלובלי (delegated,
     // capture) במקום סלקטור קבוע לכפתור/טופס - כי הפופאפ מוזרק ל-DOM ע"י
@@ -818,14 +948,60 @@
             initSession();
         }
 
-        // סגירה מפורשת מהצד שלנו - לא מסתמכים על כך שהפופאפ עצמו מוגדר
-        // להיסגר אחרי שליחה (Form Widget > Actions After Submit). משתמש
-        // ב-keepOnboardingPopupClosed (תיקון באג 5+7) ולא בקריאה חד-פעמית -
-        // לחיצה אמיתית על כפתור הסגירה, לא API פנימי, אז אין יותר צורך
-        // בהעברת event.
-        console.log('[DCard Popup] submit handler - closing via keepOnboardingPopupClosed()');
-        keepOnboardingPopupClosed();
+        // תיקון באג 10 ("הבהוב" - 4954 נפתח ומיד נסגר): הניסיון להגדיר את
+        // השרשור כ-Action מובנה באלמנטור (Actions After Submit > Open
+        // Popup) יצר לופ (אלמנטור כנראה הפעיל את הפעולה גם כ"סגירה" של
+        // הפופאפ הנוכחי וגם כ"פתיחה" בצורה שהתנגשה בעצמה) - הוסר משם
+        // לגמרי. השרשור חוזר לקוד שלנו, אבל לא מתוזמן מכאן (מה-submit
+        // הגולמי) - רק מתוך מאזין jQuery 'submit_success' (למטה), האירוע
+        // הרשמי שאלמנטור Pro מפעיל בעצמו *אחרי* שה-AJAX שלו כבר הסתיים
+        // בהצלחה. onboardingFormJustSubmitted מסמן לאותו מאזין שזה באמת
+        // הטופס שלנו ולא טופס אחר בעמוד.
+        console.log('[DCard Popup] submit handler - marking onboarding form as submitted, waiting for Elementor submit_success');
+        onboardingFormJustSubmitted = true;
     }, true);
+
+    // תיקון באג 13: מתברר (לוג בפועל + הסרת ה-Action המובנה באלמנטור
+    // שנעשתה בשלב קודם) שאחרי שה-Action "סגור פופאפ" הוסר מהגדרות הטופס
+    // באלמנטור, שום דבר כבר לא סוגר את 4484 - לא אנחנו (בוטל בתיקון באג 12
+    // הקודם) ולא אלמנטור עצמו (זו הייתה בדיוק ברירת המחדל שהוסרה). לכן
+    // חוזרים לסגור מפורשות מה-JS - אבל לא עם closePopup() בלי פרמטרים
+    // בכלל (זה מה שתועד כקורס, תיקון באג 3) אלא עם אירוע אמיתי בארגומנט
+    // השני: ל-submit_success יש אובייקט event אמיתי (jQuery), בניגוד לכל
+    // מקום קודם בקובץ הזה שניסה לקרוא ל-closePopup() בלי שום event זמין -
+    // זה בדיוק מה שהערת תיקון באג 3 אמרה שחסר. יחד עם זאת, תיקון באג 7
+    // כבר הראה בעבר שגם עם ארגומנט נכון, הקריאה הישירה ל-API לא תמיד
+    // אמינה (הצליחה בלי לזרוק, אבל לא סגרה בפועל) - אז יש try/catch עם
+    // fallback ל-keepOnboardingPopupClosed() (הלחיצה הבטוחה על כפתור
+    // הסגירה האמיתי + הסתרה כפויה) אם הקריאה הישירה זורקת.
+    if (typeof jQuery !== 'undefined') {
+        jQuery(document).on('submit_success', function (e) {
+            if (!onboardingFormJustSubmitted) return; // לא טופס ה-onboarding - מתעלמים
+            onboardingFormJustSubmitted = false;
+
+            if (popupChained) return; // ר' תיקון באג 11 למעלה - מנעול חד-כיווני נגד הפעלה כפולה
+            popupChained = true;
+
+            console.log('[DCard Popup] Elementor submit_success fired - closing onboarding popup (4484) via closePopup({}, event)');
+            try {
+                if (window.elementorProFrontend && elementorProFrontend.modules && elementorProFrontend.modules.popup) {
+                    elementorProFrontend.modules.popup.closePopup({}, e);
+                } else {
+                    throw new Error('elementorProFrontend.modules.popup not available');
+                }
+            } catch (err) {
+                console.warn('[DCard Popup] closePopup({}, e) threw/unavailable - falling back to safe close (click + force-hide):', err);
+                keepOnboardingPopupClosed();
+            }
+
+            console.log('[DCard Popup] opening instructions popup (4954) 100ms after submit_success, to let the close animation finish');
+            setTimeout(function () {
+                openPopupById(4954);
+            }, 100);
+        });
+    } else {
+        console.warn('[DCard Popup] jQuery not found - cannot listen for submit_success. Popup chaining for 4954 will not run.');
+    }
 
     // 1ב. הכתבה קולית (Web Speech API) - כפתורי מיקרופון בתיבת השאלה ובצ'אט.
     // כל שגיאה מוצגת עם alert() חוסם (לא הודעה שקטה שאפשר לפספס) ונרשמת
@@ -1026,6 +1202,11 @@
 
         chatHistory.appendChild(wrapper);
         chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        // מחזיר את ה-bubble עצמו (לא ה-wrapper) - נדרש כדי שקוד אחר (מעבר
+        // חלק למצב "שיחה פתוחה" אחרי הודעת "קבלת מסר", ר' runCardAI למטה)
+        // יוכל להוסיף לתוכו שורה נוספת בהמשך, בלי ליצור בועה נפרדת.
+        return msgDiv;
     }
 
     // חיווי המתנה: רק אנימציית שלוש נקודות (ללא טקסט), בשלושה שלבים לפי הזמן
@@ -1166,8 +1347,20 @@
     // 3. ניהול שליפת הקלפים והפנייה הראשונית למודל
     btnDeckAction.addEventListener('click', async function() {
         if (!sessionToken) {
-            alert("המערכת מבצעת התחברות לשרת, אנא המתן שניה ונסה שוב.");
-            return;
+            // תיקון "נתקע על מבצע התחברות": אם initSession() עדיין לא רצה
+            // בכלל, או שרצה ונכשלה (sessionInitiated התאפס ל-false, ר'
+            // initSession למעלה) - מנסים כאן ממש, לא רק מתריעים ומוותרים.
+            // המשתמש לוחץ שוב ביודעין (הכפתור "ערבוב קלפים"), אז זו בדיוק
+            // נקודת ה"ניסיון חוזר" הטבעית, בלי צורך בכפתור "נסה שוב" נפרד.
+            if (!sessionInitiated) {
+                await initSession();
+            }
+            if (!sessionToken) {
+                alert(sessionInitError || "המערכת מבצעת התחברות לשרת, אנא המתן שניה ונסה שוב.");
+                return;
+            }
+            // חוזר (retry) הצליח - sessionToken קיים כעת, ממשיכים בלי return
+            // להמשך ההתנהלות הרגילה של הלחיצה (למטה), לא רק "מתחברים ועוצרים".
         }
 
         if (appState === 'start' || appState === 'drawn') {
@@ -1210,6 +1403,11 @@
             cardWrapper.className = 'card-item';
             let imgElement = document.createElement('img');
             imgElement.className = 'card-display';
+            // מאזין load נקבע *לפני* src, כדי שגם אם התמונה כבר בקאש הדפדפן
+            // ונטענת כמעט מידית, המאזין כבר רשום ולא נפספס.
+            imgElement.addEventListener('load', function () {
+                imgElement.classList.add('card-fade-in');
+            });
             imgElement.src = `/wp-content/uploads/im_${formattedCardId}.jpg`;
         //    let idLabel = document.createElement('span');
         //    idLabel.className = 'card-id-label';
@@ -1252,6 +1450,47 @@
         }
     });
 
+    // מעבר חלק ממסלול "קבלת מסר" (חד-פעמי) ל"שיחה פתוחה" (chat), בלי
+    // reload/ניווט - רק הצגת כפתור מתחת להודעת ה-AI שכבר הוצגה, ובלחיצה
+    // עליו: הוספת שורה נוספת (gender-aware) *לתוך* אותה בועה עצמה (כאילו
+    // הסוכן כתב אותה כחלק מהתשובה), והחלפת מצב הסשן כך שההודעה הבאה של
+    // המשתמש תעבור ב-/turn (כמו כל שיחה אישית רגילה) ולא תתחיל קריאה
+    // חדשה - chatModeActive הוא הדגל היחיד שמסלול השיחה הרגיל (btnPathChat)
+    // כבר קורא לו בכל מקום אחר בקובץ הזה, אז זו לא התנהגות נפרדת.
+    function offerDeepenIntoChat(aiBubble) {
+        const deepenWrapper = document.createElement('div');
+        deepenWrapper.style.clear = 'both';
+        deepenWrapper.style.textAlign = 'center';
+        deepenWrapper.style.margin = '14px 0';
+
+        const deepenBtn = document.createElement('button');
+        deepenBtn.type = 'button';
+        deepenBtn.className = 'btn-outline';
+        deepenBtn.textContent = 'רוצה להעמיק במסר? (מעבר לשיחה מפתחת)';
+        deepenWrapper.appendChild(deepenBtn);
+        chatHistory.appendChild(deepenWrapper);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        deepenBtn.addEventListener('click', function () {
+            deepenWrapper.remove(); // לחיצה חד-פעמית - לא רלוונטי יותר אחרי המעבר לשיחה
+
+            // שורה נוספת לתוך הבועה הקיימת, לא בועה נפרדת - "כאילו הסוכן
+            // הקליד אותה" כפי שהתבקש. אותו דפוס DOM בטוח (textNode + <br>,
+            // לא innerHTML) כמו ב-appendMessage עצמה (תיקון QA 4.1).
+            if (aiBubble) {
+                aiBubble.appendChild(document.createElement('br'));
+                aiBubble.appendChild(document.createElement('br'));
+                const followUpText = ( 'female' === userGender ) ? 'מה תרצי לשאול?' : 'מה תרצה לשאול?';
+                aiBubble.appendChild(document.createTextNode(followUpText));
+            }
+
+            chatModeActive = true; // מכאן ואילך - כמו אחרי btnPathChat - גם בקלפים נוספים
+            chatInputArea.style.display = '';
+            chatInput.focus();
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        });
+    }
+
     // קריאה בפועל ל-AI עבור הקלף שנשלף, לפי המסלול שנבחר.
     async function runCardAI(cardId, mode) {
         showTyping();
@@ -1277,13 +1516,20 @@
             const cardData = await cardRes.json();
 
             if (cardData.aiReply) {
-                appendMessage('ai', cardData.aiReply);
+                const aiBubble = appendMessage('ai', cardData.aiReply);
                 if (mode === 'chat') {
                     // רק במסלול שיחה אישית יש המשך אפשרי - כולל הצעת קלף נוסף.
                     maybeOfferAnotherCard(cardData.nextAction);
+                } else {
+                    // Freemium PLG, שלב 1: סופרים רק עכשיו - אחרי הצלחה בפועל,
+                    // לא בלחיצה על הכפתור (ר' btnPathMessage, שם נבדקת המגבלה
+                    // *לפני* הקריאה). מסלול "קבלת מסר" הוא מה שהמגבלה הזו
+                    // (dcard_anon_msg_limit) סופרת - ר' הערה ב-DCard_Quotas.
+                    dcardIncrementCount(DCARD_LS_KEYS.anonMsgCount);
+                    // מסלול "קבלת מסר": אפשרות מעבר חלק לשיחה פתוחה (לא
+                    // reload/ניווט) - כפתור מתחת להודעה עצמה, לא בתוכה.
+                    offerDeepenIntoChat(aiBubble);
                 }
-                // במסלול "קבלת מסר" התהליך מסתיים בהודעה אחת: תיבת ההקלדה
-                // נשארת מוסתרת (הייתה מוסתרת כבר מרגע השליפה) ואין המשך שיחה.
             } else {
                 // תיקון: cardData.error הוא טקסט טכני מיועד ללוגים (למשל "המודל
                 // לא החזיר JSON תקין גם אחרי ניסיון חוזר") - לא מיועד למשתמש,
@@ -1311,6 +1557,16 @@
 
     btnPathMessage.addEventListener('click', () => {
         if (pendingCardId === null) return;
+
+        // Freemium PLG, שלב 1: בדיקה *לפני* הקריאה בפועל - חוסמים את
+        // הקריאה עצמה, לא רק משהו אחריה. משאירים את מסך בחירת המסלול כמו
+        // שהוא (לא מאפסים pendingCardId) כדי שעדיין אפשר לבחור "שיחה
+        // אישית" במקום, שנספר במגבלה נפרדת (anonChatCount).
+        if (dcardGetCount(DCARD_LS_KEYS.anonMsgCount) >= dcardAnonLimit('msg')) {
+            triggerRegistrationWall();
+            return;
+        }
+
         resetUserQuestionCount(); // מסלול קבלת מסר לא כולל שיחה, אבל מאפסים ליתר ביטחון
         pathChoiceBlock.style.display = 'none';
         // תיבת ההקלדה נשארת מוסתרת למשך שאר הסשן - זה מסלול חד-פעמי.
@@ -1328,6 +1584,14 @@
         const text = chatInput.value.trim();
         if (!text || !sessionToken) return;
         if (userQuestionCount >= MAX_USER_QUESTIONS) return; // הגיע למגבלה, התיבה כבר אמורה להיות מוסתרת
+
+        // Freemium PLG, שלב 1: "שיחה פתוחה" (Intuition Chat) - שאלת טקסט
+        // חופשית. נבדק *לפני* שליחת המשתמש עצמו לצ'אט, בדיוק כמו ב-
+        // btnPathMessage למעלה - לא שולחים אפילו את ה-fetch אם המגבלה הגיעה.
+        if (dcardGetCount(DCARD_LS_KEYS.anonChatCount) >= dcardAnonLimit('chat')) {
+            triggerRegistrationWall();
+            return;
+        }
 
         appendMessage('user', text);
         chatInput.value = '';
@@ -1347,6 +1611,9 @@
             const data = await res.json();
             if (data.aiReply) {
                 appendMessage('ai', data.aiReply);
+                // Freemium PLG, שלב 1: סופרים רק אחרי הצלחה בפועל (אותו עקרון
+                // כמו ב-runCardAI למעלה), לא בלחיצה על "שלח" עצמה.
+                dcardIncrementCount(DCARD_LS_KEYS.anonChatCount);
                 // הסוכן עצמו קובע מתי אין עוד מה לשאול (סימני הבנה, ר' שלב ט'
                 // בהוראות) - זה יכול לקרות הרבה לפני השאלה ה-15, ואז אסור
                 // להמשיך את השיחה רק כי המונה שלנו עוד לא הגיע למגבלה.
@@ -1415,8 +1682,29 @@
                 headers: dcardHeaders(),
                 body: JSON.stringify({ session_token: sessionToken, email: "" })
             });
-            block4Chat.innerHTML = "<h3 style='text-align:center;'>תודה! הסשן הסתיים.</h3>";
-            block5Actions.style.display = 'none';
+
+            // מסך סיום: מחליפים את כל #card-reader-app (כל הבלוקים 1-5) בתמונת
+            // הקלף האחרון שנשלף + טקסט פרידה - זה העיצוב שהמשתמש ביקש לשחזר.
+            // card-display:last-child נבחר מתוך cards-container (לא ממשתנה
+            // נפרד) כדי לקבל בדיוק את התמונה שכבר מוצגת בפועל על המסך, בלי
+            // תלות בפירוק/בנייה חדשה של ה-URL. אם מאיזושהי סיבה לא נשלף אף
+            // קלף בסשן הזה (יצא לפני ששלף קלף ראשון) - מוצג רק הטקסט, בלי
+            // תמונה שבורה.
+            const lastCardImg = document.querySelector('#cards-container .card-display:last-child');
+            const lastCardSrc = lastCardImg ? lastCardImg.src : '';
+            cardReaderApp.innerHTML =
+                '<div style="text-align:center; padding: 40px 20px;">' +
+                (lastCardSrc ? '<img src="' + lastCardSrc + '" alt="קלף אחרון שנשלף" style="max-width:220px; width:100%; height:auto; border-radius:12px; margin-bottom:20px;" />' : '') +
+                '<h3>תודה לך. אשמח שנתראה בקרוב.</h3>' +
+                '</div>';
+
+            // תיקון "מסך תקוע": מסך הסיום לעיל הושאר פתוח לצמיתות קודם, בלי
+            // שום דרך חזרה - המשתמש פשוט נתקע עליו. השהיה של 2.5 שניות
+            // *אחרי* שהמסך הזה כבר נראה (לא לפני) נותנת למשתמש רגע לקרוא את
+            // הטקסט, ואז מפנה אותו החוצה לעמוד הבית במקום להשאיר אותו תקוע.
+            setTimeout(function () {
+                window.location.href = 'https://nuriteldar.co.il';
+            }, 2500);
         }
     });
 

@@ -143,6 +143,26 @@ class DCard_REST_Controller {
 			),
 		) );
 
+		// Freemium PLG, שלב 2: Webhook מטופס ההרשמה של אלמנטור - לא קריאה
+		// מהפרונטאנד שלנו עצמו, אז verify_nonce_if_present (כמו שאר ה-
+		// routes) לא רלוונטי כאן: ה-Webhook של אלמנטור הוא קריאת HTTP
+		// שרת-לשרת, לא קוד שרץ בדפדפן המשתמש, ולכן לעולם לא ישלח X-WP-Nonce
+		// משלנו - "רך" (soft, מאפשר בלי nonce) היה שווה ערך בפועל ל-
+		// __return_true, אז אין טעם בבדיקה הנוספת הזו כאן. ההגנה היחידה
+		// כרגע היא rate limiting (DCard_Rate_Limiter::check_register, ר'
+		// session_register_inner) - אין עדיין secret/חתימה משותפת לאימות
+		// שהבקשה באמת הגיעה מאלמנטור ולא מכל מי שמנחש את ה-URL; ר' הערה
+		// על זה בתשובה שאחרי הקוד.
+		register_rest_route( self::NAMESPACE_, '/register', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'session_register' ),
+			'permission_callback' => '__return_true',
+			'args'                => array(
+				'email' => array( 'required' => false ),
+				'name'  => array( 'required' => false ),
+			),
+		) );
+
 		register_rest_route( self::NAMESPACE_, '/session/end', array(
 			'methods'             => 'POST',
 			'callback'            => array( $this, 'session_end' ),
@@ -654,6 +674,58 @@ class DCard_REST_Controller {
 	}
 
 	// ---------------------------------------------------------------
+	// POST /register  (Freemium PLG, שלב 2 - Webhook מטופס ההרשמה באלמנטור)
+	// ---------------------------------------------------------------
+	public function session_register( WP_REST_Request $request ) {
+		return $this->safely( 'session_register', function () use ( $request ) {
+			return $this->session_register_inner( $request );
+		} );
+	}
+
+	private function session_register_inner( WP_REST_Request $request ) {
+		$ip = DCard_Rate_Limiter::client_ip();
+		if ( ! DCard_Rate_Limiter::check_register( $ip ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'יותר מדי בקשות. נסו שוב בעוד קצת.' ), 429 );
+		}
+
+		// שמות השדות כפי שאלמנטור בפועל שולח אותם ב-Webhook לא ידועים
+		// מראש בלי לראות את תצורת הטופס - נבדקים כמה חלופות סבירות (גם
+		// 'email'/'name' הפשוטים, גם form_fields[email] כמו שראינו בטופס
+		// ה-onboarding הקיים ב-elementor-code.html) במקום לנחש שם אחד בלבד
+		// ולהיכשל בשקט אם הוא לא תואם.
+		$email_raw = $this->first_nonempty_param( $request, array( 'email', 'user_email', 'form_fields[email]' ) );
+		$name_raw  = $this->first_nonempty_param( $request, array( 'name', 'user_name', 'full_name', 'form_fields[name]' ) );
+
+		$email = $email_raw ? sanitize_email( $email_raw ) : '';
+		$name  = sanitize_text_field( (string) $name_raw );
+
+		if ( ! $email || ! is_email( $email ) ) {
+			DCard_Logger::warning( 'POST /register without a valid email - check the Elementor webhook field names/mapping', array(
+				'received_keys' => array_keys( $request->get_params() ),
+			) );
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'כתובת אימייל לא תקינה או חסרה' ), 400 );
+		}
+
+		$user_id = DCard_Users::upsert_by_email( $email, $name );
+		if ( null === $user_id ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת המשתמש' ), 500 );
+		}
+
+		// המכסות המוגדלות עצמן (Settings > DCard Quotas) - מוחזרות כאן כך
+		// שהפרונטאנד יוכל לשמור אותן ליד user_id ב-localStorage. האכיפה
+		// בפועל (להשתמש בהן במקום anonMsgLimit/anonChatLimit) היא עדיין
+		// עבודה עתידית בצד ה-JS - ר' הערה ב-class-dcard-quotas.php וב-
+		// class-dcard-users.php; ה-route הזה רק יוצר/מעדכן את המשתמש
+		// ומחזיר את המספרים, לא משנה את לוגיקת הבדיקה הקיימת.
+		return new WP_REST_Response( array(
+			'success'     => true,
+			'user_id'     => $user_id,
+			'regMsgLimit' => (int) get_option( DCard_Quotas::OPTION_REG_MSG_LIMIT, DCard_Quotas::DEFAULT_REG_MSG_LIMIT ),
+			'regChatLimit'=> (int) get_option( DCard_Quotas::OPTION_REG_CHAT_LIMIT, DCard_Quotas::DEFAULT_REG_CHAT_LIMIT ),
+		), 200 );
+	}
+
+	// ---------------------------------------------------------------
 	// Helpers
 	// ---------------------------------------------------------------
 
@@ -714,6 +786,21 @@ class DCard_REST_Controller {
 		}
 
 		return $data;
+	}
+
+	/**
+	 * ר' session_register_inner() - שם שדה גמיש כי תצורת ה-Webhook של
+	 * אלמנטור לא ידועה מראש. מחזיר את הערך הראשון שבאמת לא ריק מבין
+	 * השמות המועמדים, או מחרוזת ריקה אם אין אף אחד.
+	 */
+	private function first_nonempty_param( WP_REST_Request $request, array $param_names ) {
+		foreach ( $param_names as $param_name ) {
+			$value = $request->get_param( $param_name );
+			if ( is_string( $value ) && '' !== trim( $value ) ) {
+				return trim( $value );
+			}
+		}
+		return '';
 	}
 
 	private function sanitize_card_image_urls( $raw ) {
