@@ -13,12 +13,30 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'DCARD_PLUGIN_FILE', __FILE__ );
 define( 'DCARD_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DCARD_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'DCARD_DB_VERSION', '1.1.0' ); // הועלה: הוספת טבלת wp_dcard_users (ר' class-dcard-users.php)
+define( 'DCARD_DB_VERSION', '1.2.0' ); // הועלה: Cardcom + anti account-sharing (users מורחב, model_pricing, usage_logs, transactions)
+
+// *** אבטחה: הסוד הזה מזהה שבקשה ל-/webhook/payment באמת הגיעה מקארדקום.
+// הוגדר כאן, בקובץ פלאגין רגיל (לא wp-config.php), בדיוק כפי שהתבקש -
+// אבל זו בדיוק הסיבה שקבצי קוד אחרים בפרויקט הזה (class-dcard-settings.php)
+// מעדיפים לתת למפתח constants ב-wp-config.php לגבור על ערך בקוד: קובץ
+// הפלאגין הזה בדרך כלל חלק מ-repo/גיבויים/deploy logs, ו"סוד" ששם הוא
+// לא סוד אמיתי לאורך זמן. מומלץ, כשנוח, לעבור לכלל הזה:
+//   if ( ! defined( 'DCARD_WEBHOOK_SECRET' ) ) { define( 'DCARD_WEBHOOK_SECRET', '...' ); }
+// עם הערך האמיתי מוגדר ב-wp-config.php בלבד (לא כאן) - כך שאפשר להחליף
+// את הסוד בלי deploy קוד, ובלי שהוא יושב בגיבוי/git history כלל. ***
+if ( ! defined( 'DCARD_WEBHOOK_SECRET' ) ) {
+	define( 'DCARD_WEBHOOK_SECRET', 'MySecretDcardKey2026' );
+}
 
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-logger.php';
+require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-plans.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-activator.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-db.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-users.php';
+require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-model-pricing.php';
+require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-usage-logs.php';
+require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-transactions.php';
+require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-elementor-hooks.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-settings.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-quotas.php';
 require_once DCARD_PLUGIN_DIR . 'includes/class-dcard-cards.php';
@@ -32,6 +50,17 @@ register_activation_hook( __FILE__, array( 'DCard_Activator', 'activate' ) );
 
 add_action( 'plugins_loaded', function () {
 	DCard_Activator::maybe_upgrade();
+} );
+
+// Anti account-sharing (שלב 3, המשך): ר' ההערה המלאה בראש class-dcard-
+// elementor-hooks.php - זו הדרך היחידה להחזיר deviceToken בפועל לדפדפן.
+// 'elementor_pro/forms/new_record' הוא action שאלמנטור Pro עצמה מפעילה -
+// אם אלמנטור Pro לא פעיל באתר, ה-add_action הפנימי כאן פשוט לא ירוץ
+// לעולם (אין בעיה/שגיאה, רק feature לא-רלוונטי שלא מופעל).
+add_action( 'plugins_loaded', function () {
+	if ( class_exists( 'DCard_Elementor_Hooks' ) ) {
+		DCard_Elementor_Hooks::register();
+	}
 } );
 
 add_action( 'admin_menu', function () {

@@ -451,8 +451,38 @@
     // --- הגדרות משתמש ו-API ---
     // הנתיב היחסי ל-REST API של וורדפרס
     const API_BASE = '/wp-json/dcard/v1/session';
+
+    // *** TODO להחליף לקישור האמיתי שלנו - זה כרגע placeholder בלבד! ***
+    // כתובת הבסיס של דף התשלום בקארדקום - ה-Redirect לאחר שליחת טופס
+    // התשלום (5066) נעשה ישירות מה-JS (ר' submit_success למטה), לא
+    // מה-Action המובנה של אלמנטור - כי זה האחרון לא יודע לקרוא מ-
+    // localStorage כדי לשרשר את ExternalId באופן דינמי.
+    const CARDCOM_PAYMENT_URL = 'https://secure.cardcom.solutions/EA/EA5/fxGKTgwmtUyAFyQOvObXIA/PaymentSP';
+
     let sessionToken = null;
     let sessionInitiated = false; // ר' תיקון באג 9 - מונע קריאה כפולה ל-initSession()
+
+    // תיקון מרוץ (דווח בפועל): "n.getModal is not a function" בקונסול
+    // התגלה כנובע מ-openOnboardingPopup() עצמה (ר' המסר המדויק - אין בו
+    // "(id=...)", בניגוד להודעה המקבילה ב-openPopupById) - לולאת ה-
+    // polling שלה (עד 400 ניסיונות, מתחילה בטעינת העמוד למשתמש חדש)
+    // קוראת showPopup({id:4484}) מחדש אם היא "מגיעה לתורה" בדיוק סביב
+    // הרגע שהמשתמש שולח את הטופס - גם אם הבדיקה הקיימת שם (dcardGetLS
+    // על name/gender) אמורה לתפוס את זה, דגל זיכרון סינכרוני, שנקבע
+    // כבר בשורה הראשונה האפשרית בתוך ה-capture handler של ה-submit (לא
+    // מחכה לכתיבת localStorage בפועל), סוגר את חלון התזמון חזק יותר.
+    let onboardingPopupAbort = false;
+
+    // תיקון קריסה (דווח בפועל, משתמשים חוזרים): הוכרז קודם ממש לפני
+    // cancelOnboardingPopupGuard()/keepOnboardingPopupClosed() (למטה
+    // בקובץ), אבל keepOnboardingPopupClosed() נקרא *מוקדם יותר בפועל*
+    // מתוך "page load decision" (storedName && storedGender, גם למטה
+    // אבל לפני ההכרזה ההיא) - var מתבצע hoisting לשם עצמו, אבל ה-
+    // *השמה* (= []) עדיין רצה רק כשהשורה ההיא עצמה מגיעה בזרימה -
+    // כלומר ברגע שמשתמש חוזר קרא ל-keepOnboardingPopupClosed(), המשתנה
+    // עדיין undefined (לא []), ו-.forEach קורס. הפתרון: הכרזה+אתחול כאן
+    // ממש, מוקדם מאוד בסקריפט - ודאי לפני כל קוד אחר שיכול לקרוא לו.
+    var onboardingPopupGuardTimeoutIds = [];
 
     // תיקון QA 4.3: window.dcardRestNonce מוזרק ב-wp_head (ר' dcard-ai-reader-
     // backend.php) - קיים בדרך כלל, אבל לא מובטח (למשל דף שהוגש מ-cache ישן
@@ -460,10 +490,19 @@
     // typeof במקום הנחה שהוא קיים. היעדרו לא עוצר כלום בצד השרת (בדיקה
     // "רכה" - ר' verify_nonce_if_present ב-class-dcard-rest-controller.php),
     // רק מוותר על השכבה הנוספת הזו לקריאה הספציפית.
+    // Anti account-sharing (שלב 3): מצרף X-Dcard-Device-Token לכל קריאה,
+    // אם יש טוקן שמור ב-localStorage (ר' DCARD_LS_KEYS.deviceToken,
+    // נשמר מתוך submit_success של טופס ההרשמה - ר' למטה). משתמש אנונימי
+    // (שלא נרשם) פשוט אין לו טוקן שמור, אז הכותרת הזו לא נשלחת כלל - בלי
+    // שום שינוי בהתנהגות הקיימת לשימוש אנונימי/חינמי.
     function dcardHeaders() {
         var headers = { 'Content-Type': 'application/json' };
         if (typeof window.dcardRestNonce === 'string' && window.dcardRestNonce) {
             headers['X-WP-Nonce'] = window.dcardRestNonce;
+        }
+        var deviceToken = dcardGetLS(DCARD_LS_KEYS.deviceToken);
+        if (deviceToken) {
+            headers['X-Dcard-Device-Token'] = deviceToken;
         }
         return headers;
     }
@@ -480,7 +519,14 @@
         // בדפדפן (localStorage), אין עדיין אכיפה בצד השרת - מגבלה ידועה
         // לשלב הזה (אפשר "לעקוף" ע"י ניקוי localStorage), לא באג.
         anonMsgCount: 'dcard_anon_msg_count',
-        anonChatCount: 'dcard_anon_chat_count'
+        anonChatCount: 'dcard_anon_chat_count',
+        // Anti account-sharing (שלב 3) - נשמרים מתוך submit_success של טופס
+        // ההרשמה באלמנטור (ר' המאזין החדש למטה). userId ו-deviceToken הם
+        // זוג: deviceToken תקף רק כל עוד הוא תואם למה שהשרת שמר עבור אותו
+        // userId כרגע - התחברות חדשה ממכשיר אחר מנפיקה טוקן חדש ומבטלת את
+        // זה שנשמר כאן, כך שהבקשה הבאה מהמכשיר הזה תידחה (403) ב-/session/start.
+        userId: 'dcard_userId',
+        deviceToken: 'dcard_deviceToken'
     };
 
     function dcardGetLS(key) {
@@ -524,6 +570,19 @@
         return isNaN(n) ? Infinity : n;
     }
 
+    // תיקון: מבוי סתום אחרי הרשמה - משתמש שנרשם (יש לו userId/deviceToken
+    // שמורים, ר' submit_success למעלה) עדיין נחסם ע"י המכסה האנונימית
+    // המקומית (anonMsgCount/anonChatCount - נשארו כמו שהם מלפני ההרשמה,
+    // אין להם קשר לקרדיטים האמיתיים בשרת). הפתרון: בדיקה מקומית בכלל לא
+    // רלוונטית יותר למשתמש רשום - עוקפים אותה לחלוטין ותמיד שולחים את
+    // הבקשה לשרת, שהוא היחיד שמכיר את current_credits האמיתי ואוכף אותו
+    // (ר' session_card_selected_inner ב-class-dcard-rest-controller.php -
+    // מחזיר 403/code=credits_exhausted כשנגמר, וה-fetch handlers למטה
+    // כבר יודעים להגיב ל-403 הזה ולפתוח את פופאפ התשלום 5066).
+    function dcardIsRegistered() {
+        return !!(dcardGetLS(DCARD_LS_KEYS.userId) && dcardGetLS(DCARD_LS_KEYS.deviceToken));
+    }
+
     // Freemium PLG, שלב 1: קיר הרשמה. כרגע רק לוג + ניסיון פתיחת פופאפ -
     // בכוונה (per request) שלב ראשוני, לא זרימת הרשמה מלאה עדיין.
     //
@@ -532,13 +591,56 @@
     // ר' התקרית הקודמת בפרויקט הזה עם מספר מזהה שגוי של פופאפ 4954). ***
     const REGISTRATION_WALL_POPUP_ID = 5031;
 
+    // תיקון לולאה אינסופית: triggerRegistrationWall() נקרא שוב ושוב ברצף
+    // מהיר (דווח בפועל) - פותח את הפופאפ, וממשיך לנסות שוב ושוב בלי
+    // שהמשתמש עשה שום דבר. אין כאן fetch בכלל (הבדיקה ב-btnPathMessage/
+    // btnSend רצה *לפני* כל קריאת רשת, אז שום בקשה לא נשלחת בענף הזה) -
+    // אז "הניסיון החוזר" הוא פתיחת הפופאפ עצמה, לא בקשת HTTP. לא משנה מה
+    // בדיוק גרם להפעלה הכפולה/חזרתית (listener כפול, trigger של הפופאפ
+    // עצמו וכו') - המנעול הזה עוצר כל הפעלה חזרה בטווח קצר, בלי תלות
+    // בסיבה. עדיין לא "חד-כיווני" לצמיתות: אחרי שה-cooldown חולף, לחיצה
+    // *חדשה* ואמיתית של המשתמש (למשל ניסיון נוסף אחרי שסגר את הפופאפ)
+    // עדיין פותחת אותו שוב כרגיל - רק מונע את הלולאה הצפופה.
+    let registrationWallLastShownAt = 0;
+    const REGISTRATION_WALL_COOLDOWN_MS = 3000;
+
     function triggerRegistrationWall() {
+        const now = Date.now();
+        if (now - registrationWallLastShownAt < REGISTRATION_WALL_COOLDOWN_MS) {
+            console.log('[DCard Quota] triggerRegistrationWall() called again within cooldown - ignoring (stopping potential loop), waiting for the user.');
+            return;
+        }
+        registrationWallLastShownAt = now;
+
         console.log('Limit reached');
         if (!REGISTRATION_WALL_POPUP_ID) {
             console.warn('[DCard Quota] REGISTRATION_WALL_POPUP_ID not set yet - cannot open the registration popup.');
             return;
         }
         openPopupById(REGISTRATION_WALL_POPUP_ID);
+    }
+
+    // קיר התשלום (5066) - נפתח כשהשרת מחזיר 403/code=credits_exhausted
+    // (ר' session_card_selected_inner ב-class-dcard-rest-controller.php),
+    // כלומר למשתמש *רשום* שכבר אין לו קרדיטים - לא אותו דבר כמו
+    // triggerRegistrationWall (זה האחרון למשתמש אנונימי שמגיע למגבלה
+    // המקומית, שאף פעם לא רצה יותר לאחר הרשמה - ר' dcardIsRegistered).
+    // Cooldown נפרד משלו, לא משתף את registrationWallLastShownAt, כדי
+    // ששני הקירות לא "יחסמו" זה את זה בטעות אם שניהם קרו קרוב בזמן.
+    const PAYMENT_WALL_POPUP_ID = 5066;
+    let paymentWallLastShownAt = 0;
+    const PAYMENT_WALL_COOLDOWN_MS = 3000;
+
+    function triggerPaymentWall() {
+        const now = Date.now();
+        if (now - paymentWallLastShownAt < PAYMENT_WALL_COOLDOWN_MS) {
+            console.log('[DCard Quota] triggerPaymentWall() called again within cooldown - ignoring.');
+            return;
+        }
+        paymentWallLastShownAt = now;
+
+        console.log('[DCard Quota] Credits exhausted (server) - opening payment wall (5066).');
+        openPopupById(PAYMENT_WALL_POPUP_ID);
     }
 
     // ברירת מחדל - משמשת רק אם אין עדיין ערכים שמורים ב-localStorage (ר' למטה)
@@ -634,10 +736,20 @@
         sessionInitiated = true; // נקבע מיד (לא רק בהצלחה) - מונע מרוץ של קריאה כפולה
         sessionInitError = null;
         try {
+            // Anti account-sharing (שלב 3): userId נשלח רק אם יש אחד שמור
+            // (משתמש שנרשם בעבר) - אנונימי שולח undefined, ו-JSON.stringify
+            // משמיט מפתח עם undefined לגמרי מהגוף, אז השרת מתייחס לזה
+            // כאילו לא נשלח בכלל (ר' claimed_user_id ב-session_start_inner).
+            // X-Dcard-Device-Token (אם קיים) כבר מצורף דרך dcardHeaders().
+            const storedUserId = dcardGetLS(DCARD_LS_KEYS.userId);
             const res = await fetch(`${API_BASE}/start`, {
                 method: 'POST',
                 headers: dcardHeaders(),
-                body: JSON.stringify({ userName, userGender })
+                body: JSON.stringify({
+                    userName,
+                    userGender,
+                    user_id: storedUserId ? Number(storedUserId) : undefined
+                })
             });
             const data = await res.json();
             if (data.session_token) {
@@ -656,6 +768,14 @@
             } else if (res.status === 429) {
                 sessionInitError = 'יותר מדי בקשות מהדפדפן הזה בשעה האחרונה. אפשר לנסות שוב בעוד כמה דקות.';
                 sessionInitiated = false;
+            } else if (res.status === 403 && data.code === 'device_mismatch') {
+                // Anti account-sharing: המכשיר הזה כבר לא תואם לטוקן השמור
+                // בשרת (למשל התחברות מאוחרת יותר ממכשיר אחר, ר' issue_device_
+                // token בצד השרת) - לא "נסה שוב", זו הודעה קבועה. לא מאפסים
+                // sessionInitiated חזרה ל-false כאן בכוונה: ניסיון חוזר מיידי
+                // יחזור על אותה שגיאה בדיוק, אין טעם לאפשר לחיצה חזרה על
+                // הקופה "לנסות שוב" כמו בכשלים הזמניים האחרים.
+                sessionInitError = data.error || 'החשבון הזה מחובר כרגע ממכשיר אחר. התחבר/י מחדש כדי להמשיך כאן.';
             } else {
                 sessionInitError = 'לא הצלחנו להתחבר לשרת. אפשר לנסות שוב.';
                 sessionInitiated = false;
@@ -788,13 +908,71 @@
     // "שאלה חדשה" (location.reload גורם לאותו מרוץ מחדש בכל טעינה). הפתרון:
     // לא מסתפקים בניסיון סגירה אחד - ממשיכים לנסות שוב כמה פעמים במהלך
     // השניות הראשונות אחרי הטעינה, כדי לכסות גם פתיחה מאוחרת של ה-trigger.
+    // תיקון באג 15: closeOnboardingPopupViaButton/forceHideOnboardingPopup
+    // כבר מתוחמות (scoped) בוודאות ל-#elementor-popup-modal-4484 - לא
+    // יכולות לגעת ב-DOM של 4954 בכלל, גם טכנית. בפועל (דווח + לוג מדויק:
+    // "closeOnboardingPopupIfOpen...clicked" מופיע 6 פעמים אחרי ש-4954
+    // כבר נפתח) ההשפעה על 4954 לא מגיעה מה-DOM query שלנו, אלא מהתנהגות
+    // פנימית של אלמנטור: לחיצה (אפילו סינתטית) על .dialog-close-button
+    // של 4484 מפעילה מנגנון ניהול דיאלוגים משותף/גלובלי באלמנטור שסוגר
+    // את "הפופאפ הפעיל כרגע" - ולא בהכרח ספציפית את 4484 - וברגע ש-4954
+    // כבר נפתח, הוא הפך ל"הפעיל כרגע" מנקודת המבט הזו. ה-guardDelays
+    // (עד 5 שניות) היו ממשיכים ללחוץ על כפתור הסגירה של 4484 הרבה אחרי
+    // שהשרשור כולו כבר עבר ל-4954.
+    //
+    // הפתרון: לא עוד DOM query "מדויק יותר" (היא כבר מדויקת) - עוצרים את
+    // כל הטיימאאוטים שעדיין ממתינים מה-guard הזה, ברגע שעוברים לפתוח
+    // פופאפ אחר (ר' cancelOnboardingPopupGuard, נקרא מתוך ה-submit_success
+    // handler של השרשור, ממש לפני openPopupById(4954)). שימוש חוזר
+    // קודם ב-keepOnboardingPopupClosed() (מהעמסת העמוד, למשתמש חוזר) לא
+    // נוגע בזה בכלל - שם אין פתיחת פופאפ אחר אחריו שדורשת ביטול.
+    //
+    // (ההכרזה/אתחול בפועל של onboardingPopupGuardTimeoutIds הועברו
+    // למעלה בסקריפט, ליד onboardingPopupAbort - תיקון קריסה: var כאן
+    // היה undefined עדיין בזמן קריאה מוקדמת ל-keepOnboardingPopupClosed()
+    // ממשתמש חוזר, לפני ששורת ה-var הזו עצמה הייתה מגיעה בזרימה.)
+    function cancelOnboardingPopupGuard() {
+        // Safeguard: גם אם משהו ישתנה בעתיד ויגרום לזה להיות לא-מערך
+        // (undefined/null/כל דבר אחר) - לא קורסים, רק מתעלמים בשקט.
+        if (Array.isArray(onboardingPopupGuardTimeoutIds)) {
+            onboardingPopupGuardTimeoutIds.forEach(function (id) { clearTimeout(id); });
+        }
+        onboardingPopupGuardTimeoutIds = [];
+    }
+
     function keepOnboardingPopupClosed() {
+        cancelOnboardingPopupGuard(); // קריאה חופפת לא מכפילה טיימאאוטים
         var guardDelays = [0, 300, 700, 1200, 2000, 3000, 5000];
         guardDelays.forEach(function (delay) {
-            setTimeout(function () {
+            onboardingPopupGuardTimeoutIds.push(setTimeout(function () {
                 closeOnboardingPopupIfOpen();
-            }, delay);
+            }, delay));
         });
+    }
+
+    // גרסה כללית (לא רק 4484) של closeOnboardingPopupViaButton/
+    // forceHideOnboardingPopup - אותה שיטה בדיוק (לחיצה על כפתור הסגירה
+    // האמיתי + הסתרה כפויה ב-CSS, scoped לקונטיינר הספציפי לפי ID), כדי
+    // לסגור כל פופאפ אחר (5031/5066 וכו') בלי להסתמך על ה-API הפנימי
+    // הלא-אמין של אלמנטור (ר' תיקון באג 13/14 למעלה). forceCloseOnboarding
+    // Popup/keepOnboardingPopupClosed נשארות ייעודיות ל-4484 (עם ה-guard
+    // loop שלהן) ולא נוגעות בפונקציה הזו - זו רק לסגירה חד-פעמית של
+    // פופאפ אחר, בלי לולאת retry.
+    function forceClosePopupById(popupId) {
+        var selector = '#elementor-popup-modal-' + popupId;
+        var closeBtn = document.querySelector(selector + ' .dialog-close-button');
+        if (closeBtn) {
+            try {
+                closeBtn.click();
+            } catch (err) {
+                console.warn('[DCard Popup] forceClosePopupById(' + popupId + ') - clicking close button threw:', err);
+            }
+        }
+        var modal = document.querySelector(selector);
+        if (modal) {
+            modal.style.setProperty('display', 'none', 'important');
+        }
+        console.log('[DCard Popup] forceClosePopupById(' + popupId + ') - close button ' + (closeBtn ? 'found and clicked' : 'not found') + ', force-hide ' + (modal ? 'applied' : 'container not found'));
     }
 
     // תיקון באג 1: קריאה חד-פעמית (if/else) כאן נכשלה בשקט ברוב הפעמים, כי
@@ -822,6 +1000,11 @@
     // בתחילת הסקריפט), אם הערכים כבר נשמרו - ואם כן, לוותר על הפתיחה.
     function openOnboardingPopup(attemptsLeft) {
         if (typeof attemptsLeft === 'undefined') attemptsLeft = 400; // ~60 שניות ב-150ms לבדיקה
+
+        if (onboardingPopupAbort) {
+            console.log('[DCard Popup] openOnboardingPopup: aborted (onboarding form submit already started) - skipping open.');
+            return;
+        }
 
         if (dcardGetLS(DCARD_LS_KEYS.name) && dcardGetLS(DCARD_LS_KEYS.gender)) {
             console.log('[DCard Popup] openOnboardingPopup: data got saved in the meantime - skipping open (attemptsLeft=' + attemptsLeft + ')');
@@ -905,6 +1088,12 @@
         const genderFemaleBox = form.querySelector('#form-field-user_gender-1');
         if (!nameField && !genderMaleBox && !genderFemaleBox) return; // לא טופס ה-onboarding - לא נוגעים
 
+        // ר' תיקון המרוץ למעלה (onboardingPopupAbort) - נקבע ברגע הראשון
+        // האפשרי בתוך ה-handler הזה, סינכרונית, לפני כל קוד אחר (כולל
+        // preventDefault/שמירת localStorage) - סוגר את חלון התזמון
+        // בצורה הדוקה ביותר שאפשר נגד openOnboardingPopup().
+        onboardingPopupAbort = true;
+
         console.log('[DCard Popup] onboarding form submit detected. nameField found:', !!nameField, 'genderMaleBox found:', !!genderMaleBox, 'genderFemaleBox found:', !!genderFemaleBox);
 
         // preventDefault משלנו - לא מתוך הנחה שה-JS הפנימי של Elementor
@@ -961,19 +1150,16 @@
         onboardingFormJustSubmitted = true;
     }, true);
 
-    // תיקון באג 13: מתברר (לוג בפועל + הסרת ה-Action המובנה באלמנטור
-    // שנעשתה בשלב קודם) שאחרי שה-Action "סגור פופאפ" הוסר מהגדרות הטופס
-    // באלמנטור, שום דבר כבר לא סוגר את 4484 - לא אנחנו (בוטל בתיקון באג 12
-    // הקודם) ולא אלמנטור עצמו (זו הייתה בדיוק ברירת המחדל שהוסרה). לכן
-    // חוזרים לסגור מפורשות מה-JS - אבל לא עם closePopup() בלי פרמטרים
-    // בכלל (זה מה שתועד כקורס, תיקון באג 3) אלא עם אירוע אמיתי בארגומנט
-    // השני: ל-submit_success יש אובייקט event אמיתי (jQuery), בניגוד לכל
-    // מקום קודם בקובץ הזה שניסה לקרוא ל-closePopup() בלי שום event זמין -
-    // זה בדיוק מה שהערת תיקון באג 3 אמרה שחסר. יחד עם זאת, תיקון באג 7
-    // כבר הראה בעבר שגם עם ארגומנט נכון, הקריאה הישירה ל-API לא תמיד
-    // אמינה (הצליחה בלי לזרוק, אבל לא סגרה בפועל) - אז יש try/catch עם
-    // fallback ל-keepOnboardingPopupClosed() (הלחיצה הבטוחה על כפתור
-    // הסגירה האמיתי + הסתרה כפויה) אם הקריאה הישירה זורקת.
+    // תיקון באג 14: closePopup({}, e) חזר וקרס בדרך חדשה כל פעם שנוסה -
+    // תיקון באג 3: בלי event בכלל; תיקון באג 7: "הצליח" בלי לסגור בפועל;
+    // תיקון באג 13 הנוכחי: "n.getModal is not a function", שמתברר (ר'
+    // openOnboardingPopup למעלה ותיקון המרוץ שם) שבעצם נבע ממרוץ מול
+    // openOnboardingPopup, לא מה-event שמועבר. אבל בהינתן כמה פעמים
+    // ה-API הישיר הזה כשל בדרכים שונות ולא קשורות, הגיע הזמן להפסיק
+    // להסתמך עליו בכלל בשרשור הזה. הסגירה הבטוחה (keepOnboardingPopupClosed
+    // - לחיצה על כפתור הסגירה האמיתי + הסתרה כפויה ב-CSS, שתי דרכים
+    // שאינן תלויות באובייקט ה-Modal הפנימי של אלמנטור) היא עכשיו הדרך
+    // *הראשית* כאן, לא fallback שרק מופעל אם ה-API נכשל.
     if (typeof jQuery !== 'undefined') {
         jQuery(document).on('submit_success', function (e) {
             if (!onboardingFormJustSubmitted) return; // לא טופס ה-onboarding - מתעלמים
@@ -982,25 +1168,119 @@
             if (popupChained) return; // ר' תיקון באג 11 למעלה - מנעול חד-כיווני נגד הפעלה כפולה
             popupChained = true;
 
-            console.log('[DCard Popup] Elementor submit_success fired - closing onboarding popup (4484) via closePopup({}, event)');
-            try {
-                if (window.elementorProFrontend && elementorProFrontend.modules && elementorProFrontend.modules.popup) {
-                    elementorProFrontend.modules.popup.closePopup({}, e);
-                } else {
-                    throw new Error('elementorProFrontend.modules.popup not available');
-                }
-            } catch (err) {
-                console.warn('[DCard Popup] closePopup({}, e) threw/unavailable - falling back to safe close (click + force-hide):', err);
-                keepOnboardingPopupClosed();
-            }
+            console.log('[DCard Popup] Elementor submit_success fired - closing onboarding popup (4484) via keepOnboardingPopupClosed() (safe DOM close, not the Elementor API)');
+            keepOnboardingPopupClosed();
 
             console.log('[DCard Popup] opening instructions popup (4954) 100ms after submit_success, to let the close animation finish');
             setTimeout(function () {
+                // ר' תיקון באג 15 למעלה - מבטל כל ניסיון סגירה שעדיין מתוזמן
+                // על 4484 *לפני* שפותחים את 4954, כדי שאף לחיצה מאוחרת על
+                // כפתור הסגירה של 4484 לא תגיע אחרי ש-4954 כבר "הפופאפ הפעיל".
+                cancelOnboardingPopupGuard();
                 openPopupById(4954);
             }, 100);
         });
     } else {
         console.warn('[DCard Popup] jQuery not found - cannot listen for submit_success. Popup chaining for 4954 will not run.');
+    }
+
+    // Anti account-sharing (שלב 3): מאזין עצמאי ונפרד מזה שלמעלה - לא
+    // קשור לפופאפ ה-onboarding, לא תלוי ב-onboardingFormJustSubmitted/
+    // popupChained (אלה ספציפיים לטופס השם/מגדר). מאזין לכל submit_success
+    // באתר ופשוט שומר dcardUserId/dcardDeviceToken אם הם קיימים בתשובה -
+    // כך שהוא מתעלם בשקט מכל שליחת טופס אחרת (כולל טופס ה-onboarding
+    // עצמו), בלי צורך לזהות "איזה טופס" במפורש.
+    //
+    // response.data.dcard* מגיע מ-$ajax_handler->add_response_data() שרץ
+    // בתוך class-dcard-elementor-hooks.php (PHP, elementor_pro/forms/
+    // new_record) - לא מ-/register (ר' ההערה המלאה שם להסבר המלא למה
+    // ה-webhook עצמו לא יכול להחזיר את זה לדפדפן בשום צורה). לא אומת
+    // live - חשוב לבדוק ב-console שה-response.data מכיל בפועל את
+    // dcardDeviceToken אחרי שליחת טופס ההרשמה, ולתקן את הנתיב (למשל אם
+    // אלמנטור עוטף את זה ב-response.data.data או מבנה דומה) אם לא.
+    // תיקון: פופאפ ה-onboarding (שם+מגדר, בלי אימייל) נתקע/לא נסגר אחרי
+    // שליחה (דווח בפועל) - התשובה שהשרת מחזיר לו לא מכילה שום שדה dcard*
+    // בכלל (ההרשמה/הנפקת הטוקן רצות רק מתוך elementor_pro/forms/
+    // new_record כשנמצא שדה email בטופס - ר' class-dcard-elementor-
+    // hooks.php; לטופס הזה אין email, אז הוא פשוט לא רלוונטי למאזין הזה).
+    // ה-guard הראשון למטה (!response.data.dcardDeviceToken) אמור כבר
+    // למנוע קריסה בשרשרת && הקצרה - אבל try/catch מלא מסביב לכל גוף
+    // ה-handler הוא רשת ביטחון מוחלטת: לא "יכול" לקרוס בשום אופן, ועוד
+    // יותר חשוב - שגיאה לא-צפויה כאן לא עוצרת listeners אחרים שנרשמו על
+    // אותו submit_success (quirk מתועד ב-jQuery: חריגה שלא נתפסת
+    // בהנדלר אחד יכולה לעצור הנדלרים הבאים באותה הפעלת trigger - כולל,
+    // אם זה מה שקרה בפועל, את הסגירה של פופאפ ה-onboarding עצמה).
+    if (typeof jQuery !== 'undefined') {
+        jQuery(document).on('submit_success', function (e, response) {
+          try {
+            if (!response || !response.data || !response.data.dcardDeviceToken) return;
+
+            dcardSetLS(DCARD_LS_KEYS.userId, String(response.data.dcardUserId));
+            dcardSetLS(DCARD_LS_KEYS.deviceToken, response.data.dcardDeviceToken);
+            console.log('[DCard Account] device token saved from submit_success (userId=' + response.data.dcardUserId + ', formKind=' + response.data.dcardFormKind + ')');
+
+            // חלק 1 (תיקון לולאה + הפרדת פופאפים): dcardFormKind מגיע
+            // מ-DCard_Elementor_Hooks::is_payment_popup() בצד השרת (לא
+            // מנוחשים כאן ב-JS איזה פופאפ זה היה) - 'payment' = פופאפ
+            // 5066 (התשלום הסופי). לטופס תשלום: שומרים את הטוקן ועוצרים
+            // כאן *לחלוטין* - לא מתחילים סשן, לא ממשיכים שום דבר - נותנים
+            // לאלמנטור עצמו לנווט לקארדקום (ה-Redirect המוגדר על הטופס
+            // הזה, בפעולה נפרדת שרצה אחרי submit_success). כל טופס אחר
+            // (כולל Grace/5031) ממשיך כרגיל - בפועל "להמשיך כרגיל" כאן
+            // פירושו פשוט לא לעצור כלום, בדיוק כמו לפני השינוי הזה: אין
+            // קריאה אוטומטית חדשה ל-initSession()/לשליפת קלף מכאן - זה
+            // היה בדיוק סוג ה"ניסיון חוזר אוטומטי" שתוקן בבאג הלולאה
+            // הקודם. המשתמש פשוט מנסה את הפעולה שנחסמה (קבלת מסר/שליחת
+            // שאלה) שוב בעצמו, ועם הקרדיטים החדשים (ר' DCard_Plans
+            // למעלה) היא תעבור בהצלחה בפעם הזו.
+            // תיקון: טופס ה-Grace/Lead (5031) היה נשאר פתוח לאחר שליחה -
+            // ה-branch הזה היה היעדר לגמרי (רק 'payment' נסגר בעבר).
+            // בניגוד ל-4484 (שיש לו keepOnboardingPopupClosed הייעודי עם
+            // guard loop, כי שם יש גם trigger "On Page Load" לדאוג לו) -
+            // 5031/5066 נפתחים רק תכנותית (triggerRegistrationWall/
+            // submit לקארדקום), אז סגירה חד-פעמית (forceClosePopupById,
+            // ר' למעלה) מספיקה - אין "trigger מתחרה" שידרוש guard loop.
+            if ('lead' === response.data.dcardFormKind) {
+                console.log('[DCard Account] lead/Grace form (5031) - token saved, closing the popup so the user can return to drawing cards.');
+                forceClosePopupById(5031);
+                // לא עוצרים (אין return) - "להמשיך כרגיל" בפועל: שום פעולה
+                // נוספת נדרשת מכאן, המשתמש ינסה את הפעולה שנחסמה שוב
+                // בעצמו (ר' תיקון החסימה המקומית למטה ב-btnPathMessage/
+                // btnSend - עם הטוקן השמור, הבדיקה המקומית לא תחסום יותר).
+            }
+
+            if ('payment' === response.data.dcardFormKind) {
+                console.log('[DCard Account] payment form (5066) - token saved, redirecting to Cardcom ourselves (Elementor\'s own Redirect action was removed - it can\'t read localStorage to build the URL dynamically).');
+
+                // forceClosePopupById - לא closePopup({}, e) - ר' תיקון
+                // באג 13/14 למעלה: ה-API הישיר הזה כשל בדרכים שונות
+                // ולא קשורות כל פעם שנוסה (כולל קורבנות צד: "n.getModal
+                // is not a function" על פופאפ *אחר*). לא עוד try/catch
+                // עם API גולמי - ישר הדרך הבטוחה, בדיוק כמו לעיל ל-5031.
+                forceClosePopupById(5066);
+
+                // response.data.dcardUserId הוא המקור הטרי ביותר (מגיע
+                // ישר מהתשובה הזו) - עדיף על לקרוא בחזרה מ-localStorage
+                // (ששמרנו אליו רק שורות מעלה, אבל אין טעם לקרוא במקום
+                // להשתמש בערך שכבר בידינו). dcardGetLS כ-fallback בלבד,
+                // ליתר ביטחון, אם מאיזושהי סיבה השדה הזה חסר בתשובה הזו.
+                const userId = response.data.dcardUserId || dcardGetLS(DCARD_LS_KEYS.userId);
+                if (!userId) {
+                    console.error('[DCard Account] no userId available - cannot build the Cardcom redirect URL. Staying on the page.');
+                    return;
+                }
+
+                window.location.href = CARDCOM_PAYMENT_URL + '?ExternalId=' + encodeURIComponent(userId);
+                return;
+            }
+          } catch (err) {
+              // ר' ההערה מעל ה-listener הזה - חריגה כאן לא אמורה לעולם
+              // להגיע לכאן בפועל (ה-guard בתחילת הפונקציה מטפל בכל מקרה
+              // הצפוי), אבל אם בכל זאת קרה משהו לא צפוי - נרשם ל-console
+              // ונבלע בשקט, לא מופץ החוצה כדי לא לפגוע בהנדלרים אחרים.
+              console.error('[DCard Account] unexpected error in submit_success handler (swallowed, not propagated):', err);
+          }
+        });
     }
 
     // 1ב. הכתבה קולית (Web Speech API) - כפתורי מיקרופון בתיבת השאלה ובצ'אט.
@@ -1515,6 +1795,16 @@
             });
             const cardData = await cardRes.json();
 
+            // תיקון: פתיחת קיר התשלום (5066) כשהשרת מחזיר 403/code=
+            // credits_exhausted - למשתמש רשום שסיים את הקרדיטים שלו (ר'
+            // הסרת הבדיקה המקומית ב-btnPathMessage/btnSend למעלה: עכשיו
+            // השרת הוא שמחליט, לא localStorage, אז חייבים להגיב לתשובה שלו).
+            if (403 === cardRes.status && 'credits_exhausted' === cardData.code) {
+                stopTyping(); // אין appendMessage בענף הזה - חיווט ה"מקליד" לא יתנקה לבד
+                triggerPaymentWall();
+                return;
+            }
+
             if (cardData.aiReply) {
                 const aiBubble = appendMessage('ai', cardData.aiReply);
                 if (mode === 'chat') {
@@ -1562,7 +1852,11 @@
         // הקריאה עצמה, לא רק משהו אחריה. משאירים את מסך בחירת המסלול כמו
         // שהוא (לא מאפסים pendingCardId) כדי שעדיין אפשר לבחור "שיחה
         // אישית" במקום, שנספר במגבלה נפרדת (anonChatCount).
-        if (dcardGetCount(DCARD_LS_KEYS.anonMsgCount) >= dcardAnonLimit('msg')) {
+        //
+        // תיקון: !dcardIsRegistered() - למשתמש רשום, הבדיקה המקומית הזו
+        // לא רלוונטית בכלל (ר' ההערה על dcardIsRegistered למעלה) - מדלגים
+        // עליה לחלוטין ונותנים לבקשה לצאת לשרת, שאוכף קרדיטים בעצמו.
+        if (!dcardIsRegistered() && dcardGetCount(DCARD_LS_KEYS.anonMsgCount) >= dcardAnonLimit('msg')) {
             triggerRegistrationWall();
             return;
         }
@@ -1588,7 +1882,8 @@
         // Freemium PLG, שלב 1: "שיחה פתוחה" (Intuition Chat) - שאלת טקסט
         // חופשית. נבדק *לפני* שליחת המשתמש עצמו לצ'אט, בדיוק כמו ב-
         // btnPathMessage למעלה - לא שולחים אפילו את ה-fetch אם המגבלה הגיעה.
-        if (dcardGetCount(DCARD_LS_KEYS.anonChatCount) >= dcardAnonLimit('chat')) {
+        // !dcardIsRegistered() - ר' ההערה ב-btnPathMessage למעלה.
+        if (!dcardIsRegistered() && dcardGetCount(DCARD_LS_KEYS.anonChatCount) >= dcardAnonLimit('chat')) {
             triggerRegistrationWall();
             return;
         }
@@ -1601,6 +1896,7 @@
         // סיים מעצמו קודם, מסמנים לשרת שזו פנייה אחרונה כדי שיסכם ולא ימשיך לשאול.
         const isFinalTurn = userQuestionCount >= MAX_USER_QUESTIONS;
         let agentEndedConversation = false;
+        let creditsExhausted = false; // ר' ה-finally למטה - מונע lockChatInput עם הודעה שגויה אם זה קרה בדיוק בתור האחרון
 
         try {
             const res = await fetch(`${API_BASE}/turn`, {
@@ -1609,6 +1905,22 @@
                 body: JSON.stringify({ session_token: sessionToken, message: text, is_final_turn: isFinalTurn })
             });
             const data = await res.json();
+
+            // ר' ההערה המלאה ב-runCardAI למעלה - אותה תגובה ל-403/
+            // credits_exhausted, למען אחידות. *** עדיין לא אוכף בפועל:
+            // session_turn_inner (ה-endpoint הזה) לא בודק קרדיטים בכלל
+            // כרגע - רק session_card_selected_inner (שליפת קלף) כן. כלומר
+            // משתמש רשום שעבר למצב "שיחה פתוחה" יכול כרגע לשלוח הודעות
+            // חופשיות בלי הגבלה בפועל, גם אחרי שנגמרו לו הקרדיטים - פער
+            // מכוון-לעכשיו, לא טעות: לא התבקש כאן, רק מוכן לאותה הרחבה
+            // עתידית אם וכשיתבקש. ***
+            if (403 === res.status && 'credits_exhausted' === data.code) {
+                stopTyping();
+                creditsExhausted = true;
+                triggerPaymentWall();
+                return;
+            }
+
             if (data.aiReply) {
                 appendMessage('ai', data.aiReply);
                 // Freemium PLG, שלב 1: סופרים רק אחרי הצלחה בפועל (אותו עקרון
@@ -1631,7 +1943,10 @@
         } finally {
             // הנעילה תמיד קורית כאן (לא רק בענף ההצלחה) - גם אם התשובה חזרה
             // כשגיאה על השאלה ה-15, כדי שהמונה בפועל והמצב הנעול תמיד יסתנכרנו.
-            if (agentEndedConversation) {
+            if (creditsExhausted) {
+                // לא נועלים עם הודעת "מקסימום שאלות" שגויה - פופאפ התשלום
+                // (triggerPaymentWall) כבר הוצג, זה ההודעה הרלוונטית כאן.
+            } else if (agentEndedConversation) {
                 lockChatInput('קיבלת תשובה לשאלה שלך. אפשר לשלוח את השיחה במייל למטה, או ללחוץ "שאלה חדשה" כדי להתחיל מחדש.');
             } else if (isFinalTurn) {
                 lockChatInput('הגעת למקסימום השאלות לקריאה זו. לקריאה חדשה לחץ על הכפתור למטה.');

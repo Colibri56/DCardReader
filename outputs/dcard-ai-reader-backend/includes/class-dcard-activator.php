@@ -5,19 +5,31 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class DCard_Activator {
 
-	public static function activate() {
+	/**
+	 * ר' DCard_Users::ensure_table_exists() (ואותה מתודה בכל אחת מהשלוש
+	 * האחרות) - כל טבלה כאן גם "מתקנת את עצמה" באופן עצמאי אם חסרה,
+	 * בלי תלות ב-dcard_db_version. activate()/maybe_upgrade() כאן הם
+	 * עדיין הדרך ה"רגילה" (רצה אוטומטית בטעינה הראשונה אחרי deploy),
+	 * אבל לא קריטית יותר - deploy חלקי לא יכול להשאיר טבלה חסרה לצמיתות
+	 * כמו שקרה בעבר (ר' ההערה שכבר הייתה ב-class-dcard-users.php).
+	 */
+	private static function create_all_tables() {
 		self::create_table();
 		DCard_Users::create_table();
+		DCard_Model_Pricing::create_table();
+		DCard_Model_Pricing::seed_defaults_if_empty();
+		DCard_Usage_Logs::create_table();
+		DCard_Transactions::create_table();
+	}
+
+	public static function activate() {
+		self::create_all_tables();
 		update_option( 'dcard_db_version', DCARD_DB_VERSION );
 	}
 
 	public static function maybe_upgrade() {
 		if ( get_option( 'dcard_db_version' ) !== DCARD_DB_VERSION ) {
-			self::create_table();
-			// נוסף כאן (לא רק ב-activate()) כדי שהתקנות קיימות של הפלאגין
-			// יקבלו את טבלת wp_dcard_users החדשה גם בלי הפעלה/כיבוי מחדש -
-			// ר' עליית DCARD_DB_VERSION ב-dcard-ai-reader-backend.php.
-			DCard_Users::create_table();
+			self::create_all_tables();
 			update_option( 'dcard_db_version', DCARD_DB_VERSION );
 		}
 	}

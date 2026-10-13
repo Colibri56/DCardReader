@@ -111,6 +111,13 @@ class DCard_REST_Controller {
 			'args'                => array(
 				'userName'   => array( 'required' => false ),
 				'userGender' => array( 'required' => true ),
+				// Anti account-sharing (שלב 3) - אופציונלי: משתמש אנונימי
+				// (אין dcard_userId ב-localStorage) פשוט לא שולח את זה
+				// בכלל, וממשיך להיות משתמש אנונימי לגמרי כמו קודם - ר'
+				// device_token_mismatch() למטה. רק משתמש שבאמת נרשם
+				// (ויש לו user_id) חייב גם לשלוח כותרת X-Dcard-Device-Token
+				// תואמת כדי להתקדם.
+				'user_id'    => array( 'required' => false ),
 			),
 		) );
 
@@ -158,8 +165,31 @@ class DCard_REST_Controller {
 			'callback'            => array( $this, 'session_register' ),
 			'permission_callback' => '__return_true',
 			'args'                => array(
-				'email' => array( 'required' => false ),
-				'name'  => array( 'required' => false ),
+				'email'  => array( 'required' => false ),
+				'name'   => array( 'required' => false ),
+				'phone'  => array( 'required' => false ),
+				'gender' => array( 'required' => false ),
+			),
+		) );
+
+		// Webhook (IPN) מקארדקום. permission_callback פתוח - אותה סיבה
+		// כמו ב-/register: קריאת webhook שרת-לשרת לעולם לא תישא X-WP-
+		// Nonce. האבטחה כאן היא secret (ר' payment_webhook_inner) - נבדק
+		// בתוך ה-handler, לא ב-permission_callback, כדי שהודעת השגיאה
+		// תהיה אחידה עם שאר הפלאגין (JSON דרך safely(), לא WP_Error גולמי).
+		register_rest_route( self::NAMESPACE_, '/webhook/payment', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'payment_webhook' ),
+			'permission_callback' => '__return_true',
+			'args'                => array(
+				'secret'                               => array( 'required' => false ),
+				'ResponseCode'                          => array( 'required' => false ),
+				'ExtReadInvoiceHead_ExternalId'         => array( 'required' => false ),
+				'ExtReadInvoiceLines_ProductID'         => array( 'required' => false ),
+				'ExtReadInvoiceHead_InvoiceNumber'      => array( 'required' => false ),
+				'ExtReadInvoiceHead_TotalIncludeVAT'    => array( 'required' => false ),
+				'ExtReadInvoiceHead_InvoiceDate'        => array( 'required' => false ),
+				'ExtReadInvoiceHead_CustMobilePH'       => array( 'required' => false ),
 			),
 		) );
 
@@ -235,6 +265,33 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'error' => 'יותר מדי בקשות. נסו שוב בעוד קצת.' ), 429 );
 		}
 
+		// Anti account-sharing (שלב 3): נבדק *רק* אם הבקשה בכלל טוענת
+		// להיות של משתמש רשום (user_id > 0 - מגיע מ-dcard_userId שנשמר
+		// ב-localStorage, ר' elementor-code.html). משתמש אנונימי לא שולח
+		// user_id בכלל ועובר בלי שום שינוי בהתנהגות הקיימת - הבדיקה הזו
+		// אף פעם לא חוסמת שימוש אנונימי/חינמי.
+		//
+		// כש-user_id כן נשלח, חייבת להגיע גם כותרת X-Dcard-Device-Token
+		// שתואמת *בדיוק* לטוקן השמור על אותו user_id כרגע (ר'
+		// DCard_Users::verify_device_token) - אם היא חסרה, או שהתחברות
+		// מאוחרת יותר ממכשיר אחר כבר הנפיקה טוקן חדש (ר' issue_device_
+		// token - כל הנפקה מחליפה את הקודמת), הבקשה הזו נדחית ב-403.
+		// זה בדיוק מנגנון מניעת שיתוף החשבון: שני מכשירים לא יכולים
+		// להיות "מחוברים" בתור אותו משתמש רשום בו-זמנית.
+		$claimed_user_id = absint( $request->get_param( 'user_id' ) );
+		if ( $claimed_user_id > 0 ) {
+			$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+			if ( ! DCard_Users::verify_device_token( $claimed_user_id, $device_token ) ) {
+				DCard_Logger::warning( 'Device token missing/mismatched on /session/start - rejecting (possible account sharing)', array(
+					'claimed_user_id' => $claimed_user_id,
+				) );
+				return new WP_REST_Response( array(
+					'error' => 'החשבון הזה מחובר כרגע ממכשיר אחר. התחבר/י מחדש כדי להמשיך כאן.',
+					'code'  => 'device_mismatch',
+				), 403 );
+			}
+		}
+
 		$user_name   = sanitize_text_field( (string) $request->get_param( 'userName' ) );
 		$user_gender = sanitize_text_field( (string) $request->get_param( 'userGender' ) );
 
@@ -296,6 +353,25 @@ class DCard_REST_Controller {
 		$session = DCard_DB::get_session( $session_token );
 		if ( ! $session || 'active' !== $session['status'] ) {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
+		}
+
+		// Freemium PLG, אכיפת קרדיטים (שלב 4): מזוהה כאן, לא דרך פרמטר
+		// נפרד - X-Dcard-Device-Token כבר מצורף אוטומטית לכל קריאה
+		// מה-frontend (ר' dcardHeaders()), אז כל endpoint יכול לזהות
+		// "זה משתמש רשום?" בלי תלות בזה שהקורא ידע לשלוח user_id בנפרד.
+		// משתמש אנונימי (אין header כזה / לא תואם) - $registered_user
+		// נשאר null, וממשיך בדיוק כמו קודם: אין שום בדיקת קרדיטים בכלל,
+		// המכסה האנונימית עדיין רק בצד הלקוח (localStorage) כפי שהייתה.
+		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( $registered_user && ! DCard_Users::has_credits( $registered_user['id'] ) ) {
+			DCard_Logger::info( 'session_card_selected - registered user out of credits, rejecting with 403', array( 'user_id' => $registered_user['id'] ) );
+			return new WP_REST_Response( array(
+				'success' => false,
+				'error'   => 'נגמרו הקרדיטים שלך במסלול הנוכחי. אפשר לשדרג כדי להמשיך.',
+				'code'    => 'credits_exhausted',
+			), 403 );
 		}
 
 		// Testing mode: the first card of a session is always the forced one,
@@ -441,6 +517,13 @@ class DCard_REST_Controller {
 
 		// Only commit the card + state once we have a usable AI response.
 		DCard_DB::add_drawn_card( $session_token, $card_id );
+
+		// ר' הבדיקה למעלה - מורידים קרדיט רק עכשיו, אחרי הצלחה בפועל (לא
+		// בלחיצה/בקשה עצמה) ורק אם זוהה משתמש רשום. no-op למסלול ללא
+		// הגבלה (DCard_Users::deduct_credit כבר בודק את זה בעצמה).
+		if ( $registered_user ) {
+			DCard_Users::deduct_credit( $registered_user['id'] );
+		}
 		$this->persist_memory_update( $session_token, $session['state'], $data['memory_update'], count( $candidate_ids ) );
 		// Recorded so /session/end knows which email intro text to use (DCard_Mailer).
 		// MUST run after persist_memory_update(): that call writes a full state
@@ -693,11 +776,15 @@ class DCard_REST_Controller {
 		// 'email'/'name' הפשוטים, גם form_fields[email] כמו שראינו בטופס
 		// ה-onboarding הקיים ב-elementor-code.html) במקום לנחש שם אחד בלבד
 		// ולהיכשל בשקט אם הוא לא תואם.
-		$email_raw = $this->first_nonempty_param( $request, array( 'email', 'user_email', 'form_fields[email]' ) );
-		$name_raw  = $this->first_nonempty_param( $request, array( 'name', 'user_name', 'full_name', 'form_fields[name]' ) );
+		$email_raw  = $this->first_nonempty_param( $request, array( 'email', 'user_email', 'form_fields[email]' ) );
+		$name_raw   = $this->first_nonempty_param( $request, array( 'name', 'user_name', 'full_name', 'form_fields[name]' ) );
+		$phone_raw  = $this->first_nonempty_param( $request, array( 'phone', 'user_phone', 'form_fields[phone]' ) );
+		$gender_raw = $this->first_nonempty_param( $request, array( 'gender', 'user_gender', 'form_fields[gender]' ) );
 
-		$email = $email_raw ? sanitize_email( $email_raw ) : '';
-		$name  = sanitize_text_field( (string) $name_raw );
+		$email  = $email_raw ? sanitize_email( $email_raw ) : '';
+		$name   = sanitize_text_field( (string) $name_raw );
+		$phone  = sanitize_text_field( (string) $phone_raw );
+		$gender = in_array( $gender_raw, array( 'male', 'female' ), true ) ? $gender_raw : '';
 
 		if ( ! $email || ! is_email( $email ) ) {
 			DCard_Logger::warning( 'POST /register without a valid email - check the Elementor webhook field names/mapping', array(
@@ -706,8 +793,14 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'כתובת אימייל לא תקינה או חסרה' ), 400 );
 		}
 
-		$user_id = DCard_Users::upsert_by_email( $email, $name );
-		if ( null === $user_id ) {
+		// Anti account-sharing (שלב 3): register_and_issue_device_token
+		// עושה upsert + הנפקת device_token חדש באותה קריאה - ר' ההערה
+		// המלאה עליה ב-class-dcard-users.php למה זו נקודת הכניסה
+		// המשותפת (גם ל-route הזה, גם ל-hook על elementor_pro/forms/
+		// new_record ב-class-dcard-elementor-hooks.php), ולמה מומלץ
+		// שרק אחת מהשתיים תרוץ בפועל על אותה שליחת טופס.
+		$result = DCard_Users::register_and_issue_device_token( $email, $name, $phone, $gender );
+		if ( null === $result ) {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת המשתמש' ), 500 );
 		}
 
@@ -718,11 +811,154 @@ class DCard_REST_Controller {
 		// class-dcard-users.php; ה-route הזה רק יוצר/מעדכן את המשתמש
 		// ומחזיר את המספרים, לא משנה את לוגיקת הבדיקה הקיימת.
 		return new WP_REST_Response( array(
-			'success'     => true,
-			'user_id'     => $user_id,
-			'regMsgLimit' => (int) get_option( DCard_Quotas::OPTION_REG_MSG_LIMIT, DCard_Quotas::DEFAULT_REG_MSG_LIMIT ),
-			'regChatLimit'=> (int) get_option( DCard_Quotas::OPTION_REG_CHAT_LIMIT, DCard_Quotas::DEFAULT_REG_CHAT_LIMIT ),
+			'success'      => true,
+			'user_id'      => $result['user_id'],
+			'deviceToken'  => $result['device_token'], // ר' הערת השם ב-class-dcard-users.php - לא אותו דבר כמו session_token של קריאת קלפים
+			'currentPlan'  => $result['current_plan'],
+			'credits'      => $result['credits'],
+			'regMsgLimit'  => (int) get_option( DCard_Quotas::OPTION_REG_MSG_LIMIT, DCard_Quotas::DEFAULT_REG_MSG_LIMIT ),
+			'regChatLimit' => (int) get_option( DCard_Quotas::OPTION_REG_CHAT_LIMIT, DCard_Quotas::DEFAULT_REG_CHAT_LIMIT ),
 		), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// POST /webhook/payment  (שלד בלבד - שלב 3, הכנה ל-Cardcom)
+	// ---------------------------------------------------------------
+	public function payment_webhook( WP_REST_Request $request ) {
+		return $this->safely( 'payment_webhook', function () use ( $request ) {
+			return $this->payment_webhook_inner( $request );
+		} );
+	}
+
+	/**
+	 * IPN מקארדקום. *** עדיין לא מאומת מול payload אמיתי - שם השדות
+	 * וההנחות למטה (ProductID כ-substring, ExternalId = dcardUserId,
+	 * אין הבדל מתועד בין SKU חודשי/שנתי) מבוססים על התיאור שסופק, לא על
+	 * בקשה אמיתית שראינו. יש להריץ עסקת בדיקה אמיתית מקארדקום ולהשוות
+	 * ל-WooCommerce > Status > Logs (מקור dcard-ai-reader) לפני production. ***
+	 */
+	private function payment_webhook_inner( WP_REST_Request $request ) {
+		// 1. אבטחה: secret יכול להגיע ב-query string (למשל webhook/payment?secret=...)
+		// או בגוף ה-POST - שניהם נבדקים דרך get_param() (WP_REST_Request
+		// ממזג את שניהם). ללא secret תואם - 403, לא מידע נוסף על הסיבה
+		// (לא לעזור לניסיונות ניחוש).
+		$secret = (string) $request->get_param( 'secret' );
+		if ( ! $secret || ! hash_equals( DCARD_WEBHOOK_SECRET, $secret ) ) {
+			DCard_Logger::warning( 'POST /webhook/payment - missing/invalid secret, rejecting', array(
+				'received_keys' => array_keys( $request->get_params() ),
+			) );
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'Unauthorized' ), 403 );
+		}
+
+		// 2. סטטוס העסקה - '0' = הצלחה (לפי התיעוד). השוואת מחרוזות בכוונה
+		// (לא ==) כי ResponseCode יכול להגיע כ-int 0 או כמחרוזת "0" תלוי
+		// בפורמט השליחה - (string) מנרמל את שניהם לפני ההשוואה.
+		$response_code = (string) $request->get_param( 'ResponseCode' );
+		if ( '0' !== $response_code ) {
+			DCard_Logger::info( 'POST /webhook/payment - ResponseCode != 0, ignoring (not a successful transaction)', array( 'ResponseCode' => $response_code ) );
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'Transaction not successful' ), 200 ); // 200 בכוונה - קארדקום לא צריכה לנסות שוב, זו לא "שגיאה" מהצד שלנו
+		}
+
+		// 3. זיהוי המשתמש - ExternalId הוא ה-dcardUserId שאנחנו שלחנו
+		// לקארדקום כשהתחלנו את התשלום (ר' get_nested_param למטה - תומך גם
+		// במפתח "שטוח" עם קו תחתון וגם במבנה JSON מקונן עם נקודה, כי לא
+		// ידוע מראש איזה מהשניים קארדקום שולחת בפועל). לא אימייל בכוונה -
+		// יכול להשתנות, ExternalId לא.
+		$external_id = $this->get_nested_param( $request, 'ExtReadInvoiceHead', 'ExternalId' );
+		$user_id     = absint( $external_id );
+
+		$user = $user_id > 0 ? DCard_Users::get_by_id( $user_id ) : null;
+		if ( ! $user ) {
+			DCard_Logger::warning( 'POST /webhook/payment - no user found for ExternalId', array( 'external_id' => $external_id ) );
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא (ExternalId לא תקין)' ), 404 );
+		}
+
+		// 4. זיהוי מסלול מהמק"ט - ExtReadInvoiceLines יכול להיות שדה שטוח
+		// (שורת חשבונית בודדת) או מערך (כמה שורות) - נבדקות שתי החלופות.
+		$product_id = (string) $request->get_param( 'ExtReadInvoiceLines_ProductID' );
+		if ( ! $product_id ) {
+			$lines = $request->get_param( 'ExtReadInvoiceLines' );
+			if ( is_array( $lines ) && isset( $lines[0]['ProductID'] ) ) {
+				$product_id = (string) $lines[0]['ProductID'];
+			}
+		}
+
+		$plan_id = DCard_Plans::map_product_id_to_plan( $product_id );
+		if ( ! $plan_id ) {
+			DCard_Logger::warning( 'POST /webhook/payment - could not map ProductID to a known plan', array( 'product_id' => $product_id ) );
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'מק"ט לא מוכר' ), 400 );
+		}
+
+		// 5. פרטי העסקה לטבלת ה-transactions.
+		$cardcom_transaction_id = (string) $request->get_param( 'ExtReadInvoiceHead_InvoiceNumber' );
+		$amount                 = (float) $request->get_param( 'ExtReadInvoiceHead_TotalIncludeVAT' );
+		$transaction_date_raw   = (string) $request->get_param( 'ExtReadInvoiceHead_InvoiceDate' );
+		$phone                  = sanitize_text_field( (string) $request->get_param( 'ExtReadInvoiceHead_CustMobilePH' ) );
+
+		if ( ! $cardcom_transaction_id ) {
+			DCard_Logger::warning( 'POST /webhook/payment - missing ExtReadInvoiceHead_InvoiceNumber (dedup key)', array() );
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'InvoiceNumber חסר' ), 400 );
+		}
+
+		// strtotime בעדינות: תאריך לא תקין/בפורמט לא מוכר -> null (לא
+		// '1970-01-01' מטעה) - record_if_new() עצמה כבר יודעת להשתמש ב-
+		// "עכשיו" כברירת מחדל כש-null מועבר לה.
+		$transaction_date = null;
+		if ( $transaction_date_raw ) {
+			$ts = strtotime( $transaction_date_raw );
+			$transaction_date = $ts ? gmdate( 'Y-m-d H:i:s', $ts ) : null;
+		}
+
+		$transaction_result = DCard_Transactions::record_if_new(
+			$user['id'], $cardcom_transaction_id, $plan_id, $amount, 'ILS', $transaction_date
+		);
+
+		// כפילות (אותה התראת webhook נשלחה פעמיים - קארדקום, כמו כל
+		// webhook פיננסי, עשויה לשלוח retry) - לא כשל, אבל גם לא מפעילים
+		// set_plan()/update_phone_if_empty() שוב על עסקה שכבר טופלה.
+		if ( 'duplicate' === $transaction_result ) {
+			return new WP_REST_Response( array( 'success' => true, 'duplicate' => true ), 200 );
+		}
+
+		if ( null === $transaction_result ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת העסקה' ), 500 );
+		}
+
+		// 6. עדכון בפועל: מסלול+קרדיטים (DCard_Users::set_plan - קורא ל-
+		// DCard_Plans::credits_for_plan, לא קשיח), תפוגה (30/365 יום לפי
+		// המק"ט - ר' DCard_Plans::plan_duration_days), וטלפון (רק אם ריק).
+		$expires_at = gmdate( 'Y-m-d H:i:s', strtotime( '+' . DCard_Plans::plan_duration_days( $product_id ) . ' days' ) );
+		DCard_Users::set_plan( $user['id'], $plan_id, $expires_at );
+		DCard_Users::update_phone_if_empty( $user['id'], $phone );
+
+		return new WP_REST_Response( array(
+			'success'  => true,
+			'user_id'  => $user['id'],
+			'plan_id'  => $plan_id,
+			'credits'  => DCard_Plans::credits_for_plan( $plan_id ),
+			'expires_at' => $expires_at,
+		), 200 );
+	}
+
+	/**
+	 * קוראת גם מפתח "שטוח" עם קו תחתון (ExtReadInvoiceHead_ExternalId -
+	 * כך PHP ממיר נקודות בשמות פרמטרים ב-form/query בפועל) וגם מבנה JSON
+	 * מקונן (ExtReadInvoiceHead: { ExternalId: ... }, אם קארדקום שולחת
+	 * JSON גולמי שלא עובר את ההמרה האוטומטית הזו) - לא ידוע מראש איזה
+	 * משני הפורמטים קארדקום באמת שולחת, אז שניהם נבדקים.
+	 */
+	private function get_nested_param( WP_REST_Request $request, $group, $key ) {
+		$flat = $request->get_param( $group . '_' . $key );
+		if ( $flat ) {
+			return $flat;
+		}
+
+		$nested = $request->get_param( $group );
+		if ( is_array( $nested ) && isset( $nested[ $key ] ) ) {
+			return $nested[ $key ];
+		}
+
+		return null;
 	}
 
 	// ---------------------------------------------------------------
