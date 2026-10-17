@@ -37,15 +37,18 @@ class DCard_Quotas {
 	const DEFAULT_REG_MSG_LIMIT   = 10;
 	const DEFAULT_REG_CHAT_LIMIT  = 30;
 
+	// תיקון איחוד תפריטים: קודם add_menu_page() נפרד ("DCard Quotas") - עכשיו
+	// תת-תפריט של ה-CPT "הקורא בקלפים" (projective_card), לצד "הגדרות AI"
+	// (DCard_Settings) ותת-התפריטים האוטומטיים של ה-CPT עצמו. כל התוסף
+	// נגיש כעת מתפריט ניהול אחד, כפי שהתבקש.
 	public static function register_menu() {
-		add_menu_page(
-			'קורא בקלפים - הגדרות',   // page_title
-			'DCard Quotas',           // menu_title (לפי השם שהתבקש, לזיהוי מהיר בתפריט)
+		add_submenu_page(
+			'edit.php?post_type=projective_card',
+			'ניהול מכסות',
+			'ניהול מכסות',
 			'manage_options',
 			'dcard-quotas',
-			array( __CLASS__, 'render_page' ),
-			'dashicons-chart-bar',
-			58 // ליד תפריטי Settings/Plugins, לא באמצע תפריטי תוכן
+			array( __CLASS__, 'render_page' )
 		);
 	}
 

@@ -65,10 +65,15 @@ class DCard_Settings {
 		'claude-sonnet-5-5' => array( 'label' => 'Anthropic: claude-sonnet-5-5', 'provider' => 'claude' ),
 	);
 
+	// תיקון איחוד תפריטים: קודם add_options_page() - תת-תפריט של Settings,
+	// "נעלם" מהמשתמש כי הוא לא מצפה לחפש הגדרות AI שם. עכשיו תת-תפריט
+	// של ה-CPT "הקורא בקלפים" (projective_card, ר' class-cards-manager.php)
+	// עצמו - בדיוק לצד "כל הקלפים"/"הוספת קלף חדש" שה-CPT כבר יוצר אוטומטית.
 	public static function register_menu() {
-		add_options_page(
-			'DCard AI',
-			'DCard AI',
+		add_submenu_page(
+			'edit.php?post_type=projective_card',
+			'הגדרות AI',
+			'הגדרות AI',
 			'manage_options',
 			'dcard-ai-settings',
 			array( __CLASS__, 'render_page' )
