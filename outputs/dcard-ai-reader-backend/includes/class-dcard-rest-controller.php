@@ -172,12 +172,20 @@ class DCard_REST_Controller {
 			),
 		) );
 
-		// Webhook (IPN) מקארדקום. permission_callback פתוח - אותה סיבה
-		// כמו ב-/register: קריאת webhook שרת-לשרת לעולם לא תישא X-WP-
-		// Nonce. האבטחה כאן היא secret (ר' payment_webhook_inner) - נבדק
-		// בתוך ה-handler, לא ב-permission_callback, כדי שהודעת השגיאה
-		// תהיה אחידה עם שאר הפלאגין (JSON דרך safely(), לא WP_Error גולמי).
-		register_rest_route( self::NAMESPACE_, '/webhook/payment', array(
+		// Webhook (IPN) מקארדקום. תיקון: הנתיב הקודם - /webhook/payment -
+		// חזר 404 לקארדקום גם אחרי רענון Permalinks. המילה "payment"
+		// בנתיב עצמו כנראה מזוהה ע"י WAF/תוסף אבטחה בשרת כטריגר חסימה
+		// לבקשות POST חיצוניות (לפני שהבקשה מגיעה בכלל לוורדפרס/לקוד
+		// הזה - אין שום דרך לתקן את זה מתוך PHP). שם הנתיב הוחלף לניטרלי -
+		// /webhook/ipn-update - בלי לשנות שום דבר בלוגיקה/בשמות הפונקציות
+		// עצמן. *** יש לעדכן את הכתובת שמוגדרת בממשק קארדקום בהתאם (ר'
+		// התשובה המלאה). ***
+		// permission_callback פתוח - אותה סיבה כמו ב-/register: קריאת
+		// webhook שרת-לשרת לעולם לא תישא X-WP-Nonce. האבטחה כאן היא
+		// secret (ר' payment_webhook_inner) - נבדק בתוך ה-handler, לא
+		// ב-permission_callback, כדי שהודעת השגיאה תהיה אחידה עם שאר
+		// הפלאגין (JSON דרך safely(), לא WP_Error גולמי).
+		register_rest_route( self::NAMESPACE_, '/webhook/ipn-update', array(
 			'methods'             => 'POST',
 			'callback'            => array( $this, 'payment_webhook' ),
 			'permission_callback' => '__return_true',
@@ -191,6 +199,19 @@ class DCard_REST_Controller {
 				'ExtReadInvoiceHead_InvoiceDate'        => array( 'required' => false ),
 				'ExtReadInvoiceHead_CustMobilePH'       => array( 'required' => false ),
 			),
+		) );
+
+		// Freemium PLG: סנכרון מצב מנוי (plan/credits) בדפדפן - נקרא
+		// בטעינת עמוד אחרי חזרה מקארדקום (ר' elementor-code.html), כדי
+		// שה-UI יוכל לדעת שהתשלום הצליח בלי לחכות לפעולה נוספת מהמשתמש.
+		// GET, לא POST - קריאת מידע בלבד, שום דבר לא משתנה בשרת. מזהה
+		// את המשתמש רק דרך X-Dcard-Device-Token (אותו header שכל קריאה
+		// אחרת כבר שולחת) - בלי Device Token תקף, 404 (לא 200 עם נתונים
+		// ריקים - "אין משתמש כזה" הוא באמת false, לא "אין קרדיטים").
+		register_rest_route( self::NAMESPACE_, '/account/status', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'account_status' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
 		) );
 
 		register_rest_route( self::NAMESPACE_, '/session/end', array(
@@ -596,6 +617,23 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
 		}
 
+		// Freemium PLG, אכיפת קרדיטים - אותו מנגנון כמו ב-session_card_
+		// selected_inner (ר' ההערה המלאה שם): זיהוי דרך X-Dcard-Device-
+		// Token בלבד, לא דרך פרמטר. סוגר את הפער שהיה קודם - "שיחה
+		// פתוחה" הייתה היחידה שלא נבדקת, אז משתמש רשום שעבר למצב הזה
+		// יכול היה לשלוח הודעות בלי הגבלה אחרי שהקרדיטים נגמרו.
+		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( $registered_user && ! DCard_Users::has_credits( $registered_user['id'] ) ) {
+			DCard_Logger::info( 'session_turn - registered user out of credits, rejecting with 403', array( 'user_id' => $registered_user['id'] ) );
+			return new WP_REST_Response( array(
+				'success' => false,
+				'error'   => 'נגמרו הקרדיטים שלך במסלול הנוכחי. אפשר לשדרג כדי להמשיך.',
+				'code'    => 'credits_exhausted',
+			), 403 );
+		}
+
 		if ( ! empty( $session['drawn_cards'] ) ) {
 			$session['state']['stage'] = $this->stage_after_draw( $session['state']['stage'], count( $session['drawn_cards'] ) );
 		}
@@ -688,6 +726,12 @@ class DCard_REST_Controller {
 			'provider' => $result['provider'],
 			'model'    => $result['model'],
 		) );
+
+		// ר' הבדיקה למעלה - מורידים קרדיט רק אחרי הצלחה בפועל, רק אם
+		// זוהה משתמש רשום (אותו עקרון כמו session_card_selected_inner).
+		if ( $registered_user ) {
+			DCard_Users::deduct_credit( $registered_user['id'] );
+		}
 
 		return new WP_REST_Response( array(
 			'aiReply'      => $data['speak'],
@@ -822,7 +866,7 @@ class DCard_REST_Controller {
 	}
 
 	// ---------------------------------------------------------------
-	// POST /webhook/payment  (שלד בלבד - שלב 3, הכנה ל-Cardcom)
+	// POST /webhook/ipn-update  (שלד בלבד - שלב 3, הכנה ל-Cardcom)
 	// ---------------------------------------------------------------
 	public function payment_webhook( WP_REST_Request $request ) {
 		return $this->safely( 'payment_webhook', function () use ( $request ) {
@@ -838,13 +882,24 @@ class DCard_REST_Controller {
 	 * ל-WooCommerce > Status > Logs (מקור dcard-ai-reader) לפני production. ***
 	 */
 	private function payment_webhook_inner( WP_REST_Request $request ) {
-		// 1. אבטחה: secret יכול להגיע ב-query string (למשל webhook/payment?secret=...)
+		// 0. לוג גולמי, לפני כל בדיקה (גם secret) - בכוונה error_log() ולא
+		// DCard_Logger: זה כותב ל-error log הרגיל של PHP/וורדפרס (debug.log
+		// אם WP_DEBUG_LOG מופעל, או error log השרת), בלי תלות ב-WooCommerce
+		// פעיל. המטרה: לדעת *בוודאות* אם קארדקום בכלל פגעה ב-endpoint הזה,
+		// ובאיזו צורה בדיוק - לפני שמשהו כאן מספיק לדחות/לפרש את הבקשה.
+		// אם אין שום שורה כזו ביומן אחרי ניסיון תשלום אמיתי - ה-URL/ה-
+		// secret שהוזנו בממשק קארדקום שגויים, זו לא בעיית parsing בקוד.
+		error_log( '[DCard Webhook] /webhook/ipn-update RAW payload: ' . wp_json_encode( $request->get_params() ) );
+		error_log( '[DCard Webhook] /webhook/ipn-update RAW headers: ' . wp_json_encode( $request->get_headers() ) );
+		error_log( '[DCard Webhook] /webhook/ipn-update HTTP method: ' . $request->get_method() );
+
+		// 1. אבטחה: secret יכול להגיע ב-query string (למשל webhook/ipn-update?secret=...)
 		// או בגוף ה-POST - שניהם נבדקים דרך get_param() (WP_REST_Request
 		// ממזג את שניהם). ללא secret תואם - 403, לא מידע נוסף על הסיבה
 		// (לא לעזור לניסיונות ניחוש).
 		$secret = (string) $request->get_param( 'secret' );
 		if ( ! $secret || ! hash_equals( DCARD_WEBHOOK_SECRET, $secret ) ) {
-			DCard_Logger::warning( 'POST /webhook/payment - missing/invalid secret, rejecting', array(
+			DCard_Logger::warning( 'POST /webhook/ipn-update - missing/invalid secret, rejecting', array(
 				'received_keys' => array_keys( $request->get_params() ),
 			) );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'Unauthorized' ), 403 );
@@ -855,22 +910,52 @@ class DCard_REST_Controller {
 		// בפורמט השליחה - (string) מנרמל את שניהם לפני ההשוואה.
 		$response_code = (string) $request->get_param( 'ResponseCode' );
 		if ( '0' !== $response_code ) {
-			DCard_Logger::info( 'POST /webhook/payment - ResponseCode != 0, ignoring (not a successful transaction)', array( 'ResponseCode' => $response_code ) );
+			DCard_Logger::info( 'POST /webhook/ipn-update - ResponseCode != 0, ignoring (not a successful transaction)', array( 'ResponseCode' => $response_code ) );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'Transaction not successful' ), 200 ); // 200 בכוונה - קארדקום לא צריכה לנסות שוב, זו לא "שגיאה" מהצד שלנו
 		}
 
-		// 3. זיהוי המשתמש - ExternalId הוא ה-dcardUserId שאנחנו שלחנו
-		// לקארדקום כשהתחלנו את התשלום (ר' get_nested_param למטה - תומך גם
-		// במפתח "שטוח" עם קו תחתון וגם במבנה JSON מקונן עם נקודה, כי לא
-		// ידוע מראש איזה מהשניים קארדקום שולחת בפועל). לא אימייל בכוונה -
-		// יכול להשתנות, ExternalId לא.
-		$external_id = $this->get_nested_param( $request, 'ExtReadInvoiceHead', 'ExternalId' );
-		$user_id     = absint( $external_id );
+		// 3. זיהוי המשתמש - שכבה ראשונה: ReturnValue (ר' הערה ב-elementor-
+		// code.html). שכבה שנייה (Fallback): לוג IPN אמיתי מקארדקום (re-
+		// transmit ידני) הראה ש-ReturnValue *לא קיים בכלל* ב-payload של
+		// המוצר הספציפי הזה - כלומר דף התשלום הזה לא מהדהד פרמטרים
+		// חיצוניים מה-URL בחזרה ב-IPN. חוזרים לתוכנית המקורית: אימייל
+		// (ExtReadInvoiceHead_Email, דרך get_nested_param - תומך גם
+		// מפתח שטוח עם קו תחתון וגם מבנה מקונן). הסיכון הידוע (אימייל
+		// שהלקוח שינה בקארדקום לא יתאים לשורה הקיימת) מתועד, לא נפתר -
+		// אין כרגע חלופה אחרת שקארדקום בפועל מחזירה עבור המוצר הזה.
+		$return_value = $request->get_param( 'ReturnValue' );
+		$user_id      = absint( $return_value );
+		error_log( '[DCard Webhook] parsed ReturnValue=' . wp_json_encode( $return_value ) . ' -> user_id=' . $user_id );
 
 		$user = $user_id > 0 ? DCard_Users::get_by_id( $user_id ) : null;
+
+		$email_from_ipn = null;
+		$email_decoded  = null;
+
 		if ( ! $user ) {
-			DCard_Logger::warning( 'POST /webhook/payment - no user found for ExternalId', array( 'external_id' => $external_id ) );
-			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא (ExternalId לא תקין)' ), 404 );
+			$email_from_ipn = $this->get_nested_param( $request, 'ExtReadInvoiceHead', 'Email' );
+
+			// תיקון אומת מתוך לוג IPN אמיתי: האימייל מגיע עדיין מקודד-URL
+			// (%2b במקום +, %40 במקום @) - כלומר לא עבר את הפענוח הרגיל
+			// שפרסור POST/GET סטנדרטי כבר אמור לעשות לבד. urldecode()
+			// מפורש כאן על ערך שכבר *לא* מקודד הוא no-op בטוח (אין %XX
+			// לפענח) - אז זה לא מסוכן גם אם ההנחה הזו שגויה במקרה אחר.
+			$email_decoded = $email_from_ipn ? urldecode( $email_from_ipn ) : null;
+
+			error_log( '[DCard Webhook] ReturnValue missing/invalid - falling back to email lookup. raw email=' . wp_json_encode( $email_from_ipn ) . ', urldecode()-ed email=' . wp_json_encode( $email_decoded ) );
+
+			if ( $email_decoded && is_email( sanitize_email( $email_decoded ) ) ) {
+				$user = DCard_Users::get_by_email( sanitize_email( $email_decoded ) );
+			}
+		}
+
+		if ( ! $user ) {
+			DCard_Logger::warning( 'POST /webhook/ipn-update - no user found via ReturnValue or email fallback', array(
+				'return_value'   => $return_value,
+				'email_raw'      => $email_from_ipn,
+				'email_decoded'  => $email_decoded,
+			) );
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא (ReturnValue ואימייל לא תואמים)' ), 404 );
 		}
 
 		// 4. זיהוי מסלול מהמק"ט - ExtReadInvoiceLines יכול להיות שדה שטוח
@@ -883,9 +968,11 @@ class DCard_REST_Controller {
 			}
 		}
 
+		error_log( '[DCard Webhook] parsed ProductID=' . wp_json_encode( $product_id ) );
+
 		$plan_id = DCard_Plans::map_product_id_to_plan( $product_id );
 		if ( ! $plan_id ) {
-			DCard_Logger::warning( 'POST /webhook/payment - could not map ProductID to a known plan', array( 'product_id' => $product_id ) );
+			DCard_Logger::warning( 'POST /webhook/ipn-update - could not map ProductID to a known plan', array( 'product_id' => $product_id ) );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'מק"ט לא מוכר' ), 400 );
 		}
 
@@ -896,7 +983,7 @@ class DCard_REST_Controller {
 		$phone                  = sanitize_text_field( (string) $request->get_param( 'ExtReadInvoiceHead_CustMobilePH' ) );
 
 		if ( ! $cardcom_transaction_id ) {
-			DCard_Logger::warning( 'POST /webhook/payment - missing ExtReadInvoiceHead_InvoiceNumber (dedup key)', array() );
+			DCard_Logger::warning( 'POST /webhook/ipn-update - missing ExtReadInvoiceHead_InvoiceNumber (dedup key)', array() );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'InvoiceNumber חסר' ), 400 );
 		}
 
@@ -931,6 +1018,16 @@ class DCard_REST_Controller {
 		DCard_Users::set_plan( $user['id'], $plan_id, $expires_at );
 		DCard_Users::update_phone_if_empty( $user['id'], $phone );
 
+		// תיקון: לפני כן לא היה שום לוג על הצלחה - רק על כשלים. בלי זה,
+		// "האם ה-webhook בכלל התקבל והעודכן?" דרש בדיקת DB ישירה כל פעם.
+		DCard_Logger::info( 'POST /webhook/ipn-update - plan updated successfully', array(
+			'user_id'                => $user['id'],
+			'plan_id'                => $plan_id,
+			'cardcom_transaction_id' => $cardcom_transaction_id,
+			'credits'                => DCard_Plans::credits_for_plan( $plan_id ),
+			'expires_at'             => $expires_at,
+		) );
+
 		return new WP_REST_Response( array(
 			'success'  => true,
 			'user_id'  => $user['id'],
@@ -959,6 +1056,32 @@ class DCard_REST_Controller {
 		}
 
 		return null;
+	}
+
+	// ---------------------------------------------------------------
+	// GET /account/status
+	// ---------------------------------------------------------------
+	public function account_status( WP_REST_Request $request ) {
+		return $this->safely( 'account_status', function () use ( $request ) {
+			return $this->account_status_inner( $request );
+		} );
+	}
+
+	private function account_status_inner( WP_REST_Request $request ) {
+		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+		$user          = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( ! $user ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
+		}
+
+		return new WP_REST_Response( array(
+			'success'        => true,
+			'user_id'        => (int) $user['id'],
+			'current_plan'   => $user['current_plan'],
+			'current_credits'=> (int) $user['current_credits'],
+			'plan_expires_at'=> $user['plan_expires_at'],
+		), 200 );
 	}
 
 	// ---------------------------------------------------------------

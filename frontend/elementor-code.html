@@ -452,11 +452,11 @@
     // הנתיב היחסי ל-REST API של וורדפרס
     const API_BASE = '/wp-json/dcard/v1/session';
 
-    // *** TODO להחליף לקישור האמיתי שלנו - זה כרגע placeholder בלבד! ***
     // כתובת הבסיס של דף התשלום בקארדקום - ה-Redirect לאחר שליחת טופס
     // התשלום (5066) נעשה ישירות מה-JS (ר' submit_success למטה), לא
     // מה-Action המובנה של אלמנטור - כי זה האחרון לא יודע לקרוא מ-
-    // localStorage כדי לשרשר את ExternalId באופן דינמי.
+    // localStorage כדי לשרשר את ReturnValue (dcard_userId, ר' תיקון
+    // מיפוי ה-SKU/זיהוי המשתמש) באופן דינמי.
     const CARDCOM_PAYMENT_URL = 'https://secure.cardcom.solutions/EA/EA5/fxGKTgwmtUyAFyQOvObXIA/PaymentSP';
 
     let sessionToken = null;
@@ -526,7 +526,14 @@
         // userId כרגע - התחברות חדשה ממכשיר אחר מנפיקה טוקן חדש ומבטלת את
         // זה שנשמר כאן, כך שהבקשה הבאה מהמכשיר הזה תידחה (403) ב-/session/start.
         userId: 'dcard_userId',
-        deviceToken: 'dcard_deviceToken'
+        deviceToken: 'dcard_deviceToken',
+        // State recovery: הטקסט שהמשתמש כתב נשמר כאן ממש לפני פתיחת קיר
+        // התשלום (403/credits_exhausted - ר' triggerPaymentWall), כדי
+        // שאחרי חזרה מקארדקום (ניווט מלא, לא SPA - כל מצב ה-JS האחר,
+        // כולל sessionToken/drawnCards/היסטוריית הצ'אט, אכן הולך לאיבוד)
+        // לפחות הטקסט שהוא כתב לא יאבד. נקרא בחזרה ומנוקה פעם אחת בלבד
+        // בטעינת העמוד - ר' "שחזור שאלה תקועה" למטה.
+        pendingQuestion: 'dcard_pendingQuestion'
     };
 
     function dcardGetLS(key) {
@@ -631,6 +638,38 @@
     let paymentWallLastShownAt = 0;
     const PAYMENT_WALL_COOLDOWN_MS = 3000;
 
+    // תיקון: שדה האימייל בפופאפ 5066 נשאר ריק, כי שום דבר לא מילא אותו -
+    // והטופס שם, ללא email, לא נתן ל-DCard_Elementor_Hooks::on_new_record
+    // (PHP) לזהות את המשתמש בכלל, כלומר לא היה response.data.dcard* -
+    // וזה בעצם הסיבה האמיתית שגם ה-redirect לקארדקום לא קרה (ה-guard
+    // הראשון ב-submit_success החזיר מוקדם). ממלאים את השדה כאן, רגע לפני
+    // שהפופאפ נפתח - הקונטיינר שלו קיים ב-DOM גם כשהוא מוסתר (אותה הנחה
+    // שכל שאר הקוד כאן כבר מסתמך עליה ל-4484/4954/5031/5066). מנחשים
+    // את השדה בכמה אסטרטגיות (type=email קודם, name/id שמכילים "email"
+    // אחר כך) ולא שם ספציפי, כי לא ידוע מראש ה-id המדויק שהוגדר בעורך.
+    // מפעילים גם 'input' כדי שכל ולידציה חיה של אלמנטור (למשל נעילת
+    // כפתור השליחה עד שהשדה "תקין") תזהה את השינוי התכנותי.
+    function populateEmailFieldInPopup(popupId) {
+        const storedEmail = dcardGetLS(DCARD_LS_KEYS.email);
+        if (!storedEmail) return;
+
+        const container = document.querySelector('#elementor-popup-modal-' + popupId);
+        if (!container) return;
+
+        const emailField = container.querySelector('input[type="email"]')
+            || container.querySelector('input[name*="email" i]')
+            || container.querySelector('input[id*="email" i]');
+        if (!emailField) {
+            console.warn('[DCard Account] populateEmailFieldInPopup(' + popupId + ') - no email-like input found.');
+            return;
+        }
+
+        emailField.value = storedEmail;
+        emailField.dispatchEvent(new Event('input', { bubbles: true }));
+        emailField.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log('[DCard Account] populateEmailFieldInPopup(' + popupId + ') - filled from localStorage.');
+    }
+
     function triggerPaymentWall() {
         const now = Date.now();
         if (now - paymentWallLastShownAt < PAYMENT_WALL_COOLDOWN_MS) {
@@ -640,6 +679,7 @@
         paymentWallLastShownAt = now;
 
         console.log('[DCard Quota] Credits exhausted (server) - opening payment wall (5066).');
+        populateEmailFieldInPopup(PAYMENT_WALL_POPUP_ID);
         openPopupById(PAYMENT_WALL_POPUP_ID);
     }
 
@@ -830,6 +870,45 @@
     } else {
         console.log('[DCard Popup] missing data -> will try to OPEN, session will start once the popup is submitted');
         openOnboardingPopup();
+    }
+
+    // State recovery: שחזור שאלה שנקטעה ע"י קיר תשלום (403/credits_exhausted)
+    // ממש לפני ניווט לקארדקום - ר' DCARD_LS_KEYS.pendingQuestion והשמירה
+    // ב-runCardAI/btnSend. חד-פעמי: המפתח מוחק את עצמו תמיד (גם אם ריק),
+    // כדי שלא "יחזור" שוב בטעות בטעינה עתידית לא-קשורה. לא מפעילים שליחה
+    // אוטומטית בכוונה - אחרי כל הלולאות שתוקנו בפרויקט הזה סביב "ניסיון
+    // חוזר אוטומטי", שחזור הטקסט בלבד (לא פעולה) הוא הבחירה הבטוחה; לחיצה
+    // מפורשת של המשתמש על "ערבוב קלפים" היא שמתחילה סשן חדש בפועל - הדף
+    // כולו נטען מחדש אחרי קארדקום, אין סשן/קלפים/היסטוריית צ'אט קודמים
+    // לשחזר, רק הטקסט שהספיק להיכתב.
+    var pendingQuestion = dcardGetLS(DCARD_LS_KEYS.pendingQuestion);
+    if (pendingQuestion) {
+        try { localStorage.removeItem(DCARD_LS_KEYS.pendingQuestion); } catch (lsErr) { /* פרטי/חסום - ממשיכים בלי לנקות */ }
+        if (userQuestion) {
+            userQuestion.value = pendingQuestion;
+            console.log('[DCard Account] restored pending question into the question box after returning from payment.');
+        }
+    }
+
+    // Freemium PLG: סנכרון plan/credits בחזרה מתשלום - GET /account/status
+    // (ר' class-dcard-rest-controller.php). *** לא קריטי לאכיפה עצמה -
+    // השרת בודק קרדיטים מחדש בכל בקשה אמיתית בלי קשר למה ששמור כאן;
+    // זה רק לדיבוג/console ול-UI עתידי שמציג "נשארו לך X קרדיטים". ***
+    // no-op בשקט אם אין deviceToken שמור (משתמש אנונימי) - dcardIsRegistered
+    // כבר קיים בדיוק לבדיקה הזו (ר' btnPathMessage/btnSend למעלה).
+    if (dcardIsRegistered()) {
+        fetch('/wp-json/dcard/v1/account/status', {
+            method: 'GET',
+            headers: dcardHeaders()
+        }).then(function (res) { return res.json(); }).then(function (data) {
+            if (data && data.success) {
+                console.log('[DCard Account] synced account status on load - plan=' + data.current_plan + ', credits=' + data.current_credits);
+            } else {
+                console.warn('[DCard Account] account status sync returned no success - deviceToken may be stale:', data);
+            }
+        }).catch(function (err) {
+            console.warn('[DCard Account] account status sync failed (non-fatal):', err);
+        });
     }
 
     // תיקון באג 3 (השורש האמיתי של "getModal is not a function" / "Cannot
@@ -1217,7 +1296,33 @@
 
             dcardSetLS(DCARD_LS_KEYS.userId, String(response.data.dcardUserId));
             dcardSetLS(DCARD_LS_KEYS.deviceToken, response.data.dcardDeviceToken);
-            console.log('[DCard Account] device token saved from submit_success (userId=' + response.data.dcardUserId + ', formKind=' + response.data.dcardFormKind + ')');
+            // תיקון: האימייל לא היה נשמר בכלל - DCARD_LS_KEYS.email כבר
+            // קיים (מוגדר למעלה), פשוט לא מולא אף פעם. dcardEmail מגיע
+            // מ-DCard_Elementor_Hooks::on_new_record (PHP) - הערך שהוא
+            // *בפועל* קלט מהטופס, לא ניחוש של שם שדה כאן ב-JS.
+            if (response.data.dcardEmail) {
+                dcardSetLS(DCARD_LS_KEYS.email, response.data.dcardEmail);
+            }
+
+            // תיקון: is_payment_popup() בצד השרת (לפי $record->get('post_id'))
+            // לא זיהה נכון את 5066 בפועל - formKind חזר 'lead' גם לטופס
+            // התשלום, ש-redirect לקארדקום תלוי בו לחלוטין. לא מסתפקים
+            // בתשובת השרת כמקור יחיד - בודקים גם מה-DOM: אם הטופס שבאמת
+            // נשלח (e.target, שהוא ה-<form> עצמו לפי jQuery) נמצא בתוך
+            // #elementor-popup-modal-5066, זה *בוודאות* טופס התשלום, לא
+            // משנה מה השרת חשב - דורסים forKind בהתאם. הפוך לא נדרש
+            // (אין "בטעות payment במקום lead" מדווח) - רק הכיוון הזה.
+            var formKind = response.data.dcardFormKind;
+            try {
+                if (e && e.target && typeof e.target.closest === 'function' && e.target.closest('#elementor-popup-modal-5066')) {
+                    console.log('[DCard Account] DOM check: submitted form is inside #elementor-popup-modal-5066 - overriding formKind to "payment" regardless of server value (' + formKind + ').');
+                    formKind = 'payment';
+                }
+            } catch (domErr) {
+                console.warn('[DCard Account] DOM-based formKind check threw - keeping server value:', domErr);
+            }
+
+            console.log('[DCard Account] device token saved from submit_success (userId=' + response.data.dcardUserId + ', formKind=' + formKind + ')');
 
             // חלק 1 (תיקון לולאה + הפרדת פופאפים): dcardFormKind מגיע
             // מ-DCard_Elementor_Hooks::is_payment_popup() בצד השרת (לא
@@ -1240,7 +1345,7 @@
             // 5031/5066 נפתחים רק תכנותית (triggerRegistrationWall/
             // submit לקארדקום), אז סגירה חד-פעמית (forceClosePopupById,
             // ר' למעלה) מספיקה - אין "trigger מתחרה" שידרוש guard loop.
-            if ('lead' === response.data.dcardFormKind) {
+            if ('lead' === formKind) {
                 console.log('[DCard Account] lead/Grace form (5031) - token saved, closing the popup so the user can return to drawing cards.');
                 forceClosePopupById(5031);
                 // לא עוצרים (אין return) - "להמשיך כרגיל" בפועל: שום פעולה
@@ -1249,7 +1354,7 @@
                 // btnSend - עם הטוקן השמור, הבדיקה המקומית לא תחסום יותר).
             }
 
-            if ('payment' === response.data.dcardFormKind) {
+            if ('payment' === formKind) {
                 console.log('[DCard Account] payment form (5066) - token saved, redirecting to Cardcom ourselves (Elementor\'s own Redirect action was removed - it can\'t read localStorage to build the URL dynamically).');
 
                 // forceClosePopupById - לא closePopup({}, e) - ר' תיקון
@@ -1270,7 +1375,16 @@
                     return;
                 }
 
-                window.location.href = CARDCOM_PAYMENT_URL + '?ExternalId=' + encodeURIComponent(userId);
+                // תיקון: קארדקום לא מחזירה ExternalId בכלל במוצר הזה -
+                // ReturnValue הוא הפרמטר הסטנדרטי של קארדקום עצמה ל"נוסע
+                // סמוי" שחוזר בדיוק כמו שנשלח ב-IPN (ר' payment_webhook_
+                // inner ב-class-dcard-rest-controller.php, שקורא אותו
+                // משם כעת) - לא תלוי באימייל, שיכול להשתנות במסך התשלום.
+                const cardcomRedirectUrl = CARDCOM_PAYMENT_URL + '?ReturnValue=' + encodeURIComponent(userId);
+                // דרוש: לבדוק בעיניים שה-ReturnValue באמת מצורף לפני
+                // שהדף עוזב - ר' החקירה למה קארדקום לא מחזירה אותו ב-IPN.
+                console.log('[DCard Account] redirecting to Cardcom:', cardcomRedirectUrl);
+                window.location.href = cardcomRedirectUrl;
                 return;
             }
           } catch (err) {
@@ -1801,6 +1915,12 @@
             // השרת הוא שמחליט, לא localStorage, אז חייבים להגיב לתשובה שלו).
             if (403 === cardRes.status && 'credits_exhausted' === cardData.code) {
                 stopTyping(); // אין appendMessage בענף הזה - חיווט ה"מקליד" לא יתנקה לבד
+                // State recovery: שומרים את השאלה המקורית (תיבה 1) כדי
+                // שלא תאבד אחרי ניווט מלא לקארדקום וחזרה - ר' DCARD_LS_KEYS.
+                // pendingQuestion למעלה ו"שחזור שאלה תקועה" בתחילת הסקריפט.
+                if (userQuestion && userQuestion.value && userQuestion.value.trim()) {
+                    dcardSetLS(DCARD_LS_KEYS.pendingQuestion, userQuestion.value.trim());
+                }
                 triggerPaymentWall();
                 return;
             }
@@ -1907,16 +2027,22 @@
             const data = await res.json();
 
             // ר' ההערה המלאה ב-runCardAI למעלה - אותה תגובה ל-403/
-            // credits_exhausted, למען אחידות. *** עדיין לא אוכף בפועל:
-            // session_turn_inner (ה-endpoint הזה) לא בודק קרדיטים בכלל
-            // כרגע - רק session_card_selected_inner (שליפת קלף) כן. כלומר
-            // משתמש רשום שעבר למצב "שיחה פתוחה" יכול כרגע לשלוח הודעות
-            // חופשיות בלי הגבלה בפועל, גם אחרי שנגמרו לו הקרדיטים - פער
-            // מכוון-לעכשיו, לא טעות: לא התבקש כאן, רק מוכן לאותה הרחבה
-            // עתידית אם וכשיתבקש. ***
+            // credits_exhausted. (העדכון ב-session_turn_inner שסגר את
+            // הפער הזה בצד השרת בוצע בשלב מאוחר יותר - גם ה-endpoint הזה
+            // נאכף כעת, לא רק שליפת קלף.)
             if (403 === res.status && 'credits_exhausted' === data.code) {
                 stopTyping();
                 creditsExhausted = true;
+                // State recovery: text (לא chatInput.value - זה כבר נוקה
+                // כמה שורות מעלה, לפני ה-fetch) הוא ההודעה שהמשתמש ממש
+                // כתב, שנקטעה באמצע השיחה הפתוחה. אותו מפתח כמו ב-
+                // runCardAI - שחזור השאלה בטעינה הבאה לא מבדיל מאיפה
+                // היא הגיעה, הוא פשוט מחזיר אותה לתיבה הראשונה (block-1) -
+                // הדף עצמו נטען מחדש מלא אחרי קארדקום, אין "להמשיך שיחה
+                // בדיוק מאותה נקודה" (שיחה/קלפים שנשלפו כבר אבדו).
+                if (text) {
+                    dcardSetLS(DCARD_LS_KEYS.pendingQuestion, text);
+                }
                 triggerPaymentWall();
                 return;
             }

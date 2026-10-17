@@ -116,6 +116,13 @@ class DCard_Elementor_Hooks {
 			$ajax_handler->add_response_data( 'dcardDeviceToken', $result['device_token'] );
 			$ajax_handler->add_response_data( 'dcardCurrentPlan', $result['current_plan'] );
 			$ajax_handler->add_response_data( 'dcardCredits', $result['credits'] );
+			// תיקון: פופאפ 5066 (תשלום) לא נדרש לאסוף email מחדש - הפתרון
+			// הוא שה-JS ממלא את שדה ה-email שלו אוטומטית מ-localStorage לפני
+			// שהמשתמש בכלל שולח (ר' submit_success + populateEmailField
+			// ב-elementor-code.html) - כאן רק מחזירים את ה-email שבאמת
+			// נקלט בטופס הזה, כדי שה-JS ישמור אותו בעצמו (ולא יצטרך לנחש
+			// איזה שדה ב-DOM הוא שדה ה-email).
+			$ajax_handler->add_response_data( 'dcardEmail', $email );
 			// ר' הערת is_payment_popup() למעלה - כך ה-JS (submit_success)
 			// יודע אם לעצור אחרי שמירת הטוקן (תשלום - אלמנטור עצמו מנווט
 			// לקארדקום) או להמשיך בזרימה הרגילה (Grace/כל טופס אחר).

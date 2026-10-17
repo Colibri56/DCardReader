@@ -13,22 +13,38 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class DCard_Plans {
 
-	const FREE   = 'free';
-	const NARKIS = 'narkis';
-	const NURIT  = 'nurit';
+	const FREE         = 'free';
+	const NARKIS       = 'narkis';
+	const NURIT        = 'nurit';
+	const NURIT_YEARLY = 'nurit_yearly'; // מק"ט 603 - אותם קרדיטים כמו NURIT, רק תוקף 365 יום במקום 30
 
 	// ערך "ללא הגבלה" מוסכם - לא Infinity/null, כדי שאפשר לשמור אותו
 	// כ-INT רגיל בעמודת current_credits (INT) מבלי טיפול מיוחד ב-DB.
 	const UNLIMITED_CREDITS = 999999;
 
 	/**
+	 * מק"טים (ExtReadInvoiceLines_ProductID) כפי שאומתו בפועל מתוך לוג
+	 * ה-IPN האמיתי של קארדקום (לא ניחוש substring כמו קודם) - כל אחד
+	 * ממופה למסלול ולמשך התוקף שלו (ימים) באותו מקום, כדי שלא יהיו שני
+	 * מקורות אמת נפרדים (אחד למסלול, אחד למשך) שיכולים להתגלגל.
+	 */
+	private static function cardcom_sku_map() {
+		return array(
+			'601' => array( 'plan' => self::NARKIS,       'days' => 30 ),
+			'602' => array( 'plan' => self::NURIT,        'days' => 30 ),
+			'603' => array( 'plan' => self::NURIT_YEARLY, 'days' => 365 ),
+		);
+	}
+
+	/**
 	 * @return array<string, array{label: string, credits: int}>
 	 */
 	public static function all() {
 		return array(
-			self::FREE   => array( 'label' => 'חינמי',    'credits' => self::free_plan_credits() ),
-			self::NARKIS => array( 'label' => 'נרקיס',    'credits' => 15 ),
-			self::NURIT  => array( 'label' => 'נורית',    'credits' => self::UNLIMITED_CREDITS ),
+			self::FREE         => array( 'label' => 'חינמי',         'credits' => self::free_plan_credits() ),
+			self::NARKIS       => array( 'label' => 'נרקיס',         'credits' => 15 ),
+			self::NURIT        => array( 'label' => 'נורית',         'credits' => self::UNLIMITED_CREDITS ),
+			self::NURIT_YEARLY => array( 'label' => 'נורית (שנתי)',  'credits' => self::UNLIMITED_CREDITS ),
 		);
 	}
 
@@ -68,36 +84,27 @@ class DCard_Plans {
 	}
 
 	/**
-	 * מיפוי מק"ט (Cardcom ExtReadInvoiceLines_ProductID) למסלול - בדיוק
-	 * כפי שהתבקש (substring, לא התאמה מדויקת): מכיל 'narkis' -> narkis,
-	 * מכיל 'nurit' -> nurit. null אם אין התאמה (ולא "free" בשקט - עסקת
-	 * תשלום בפועל עם מק"ט לא מוכר היא מצב שצריך להיבדק, לא להיפול
-	 * אוטומטית למסלול החינמי).
+	 * מיפוי מק"ט (Cardcom ExtReadInvoiceLines_ProductID) למסלול - מק"טים
+	 * מספריים מדויקים שאומתו מתוך לוג ה-IPN האמיתי של קארדקום (601/602/
+	 * 603), לא substring על שם מילולי כמו בניחוש הקודם. null אם המק"ט
+	 * לא מוכר - עסקת תשלום בפועל עם מק"ט לא מוכר היא מצב שצריך להיבדק,
+	 * לא להיפול אוטומטית למסלול החינמי.
 	 */
 	public static function map_product_id_to_plan( $product_id ) {
-		$product_id = strtolower( (string) $product_id );
-		if ( false !== strpos( $product_id, 'narkis' ) ) {
-			return self::NARKIS;
-		}
-		if ( false !== strpos( $product_id, 'nurit' ) ) {
-			return self::NURIT;
-		}
-		return null;
+		$sku = self::cardcom_sku_map();
+		$product_id = trim( (string) $product_id );
+		return isset( $sku[ $product_id ] ) ? $sku[ $product_id ]['plan'] : null;
 	}
 
 	/**
-	 * משך תוקף המסלול בימים - 365 רק אם המק"ט מכיל סימן מפורש לשנתי
-	 * (כמה חלופות סבירות, לא ידוע בלי לראות מק"טים אמיתיים של קארדקום),
-	 * אחרת 30 (חודשי, ברירת המחדל הסבירה). *** לא מאומת - אם למק"טים
-	 * השנתיים בפועל יש תבנית אחרת, להוסיף אותה כאן. ***
+	 * משך תוקף בימים - לפי אותו מיפוי מק"ט מדויק (לא ניחוש substring
+	 * "שנתי"/"yearly" כמו קודם). 30 (ברירת מחדל סבירה) למק"ט לא מוכר -
+	 * map_product_id_to_plan() כבר דוחה את העסקה לפני שמגיעים לכאן בכלל
+	 * במקרה כזה, אז זה למעשה "לא אמור לקרות", רק הגנה.
 	 */
 	public static function plan_duration_days( $product_id ) {
-		$product_id = strtolower( (string) $product_id );
-		foreach ( array( 'yearly', 'annual', 'year', 'שנתי' ) as $yearly_hint ) {
-			if ( false !== strpos( $product_id, $yearly_hint ) ) {
-				return 365;
-			}
-		}
-		return 30;
+		$sku = self::cardcom_sku_map();
+		$product_id = trim( (string) $product_id );
+		return isset( $sku[ $product_id ] ) ? (int) $sku[ $product_id ]['days'] : 30;
 	}
 }
