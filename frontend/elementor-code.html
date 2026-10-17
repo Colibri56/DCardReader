@@ -443,6 +443,12 @@
         <button class="btn-outline">סיום ויציאה</button>
         <button class="btn-outline">שליחת הדיאלוג במייל</button>
         <button class="btn-outline" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
+
+        <div class="feedback-macro-block" id="feedback-macro-block">
+            <textarea id="feedback-macro-text" placeholder="משהו שחשוב לנו לדעת על החוויה שלך?" rows="2"></textarea>
+            <button class="btn-outline" id="btn-feedback-macro-submit">שליחת משוב</button>
+            <div id="feedback-macro-thanks" style="display:none;">תודה על המשוב! 🙏</div>
+        </div>
     </div>
 
 </div>
@@ -505,6 +511,34 @@
             headers['X-Dcard-Device-Token'] = deviceToken;
         }
         return headers;
+    }
+
+    // מנגנון משוב (Feedback) - שני endpoints חדשים ב-class-api-feedback.php
+    // (namespace TheCardReaderCore), לא קשורים ל-API_BASE/session הקיים.
+    // session_id בשני ה-payloads הוא sessionToken הקיים - אותו מזהה שכל
+    // שאר הקוד בקובץ הזה כבר משתמש בו.
+    const FEEDBACK_API_BASE = '/wp-json/dcard/v1/feedback';
+
+    // 'מסר יומי' (קבלת מסר) לעומת 'שיחה מפתחת' (שיחה אישית) - נגזר מ-
+    // chatModeActive, שכבר קיים ומסמן בדיוק את ההבדל הזה בכל מקום אחר בקובץ.
+    function currentFlowType() {
+        return chatModeActive ? 'שיחה מפתחת' : 'מסר יומי';
+    }
+
+    function sendMicroFeedback(messageId, feedbackValue) {
+        return fetch(`${FEEDBACK_API_BASE}/micro`, {
+            method: 'POST',
+            headers: dcardHeaders(),
+            body: JSON.stringify({
+                type: 'micro',
+                session_id: sessionToken,
+                message_id: messageId,
+                feedback: feedbackValue,
+                timestamp: new Date().toISOString()
+            })
+        }).catch(function (err) {
+            console.warn('[DCard Feedback] micro feedback failed to send:', err);
+        });
     }
 
     // --- התמדת שם/מגדר/אימייל ב-localStorage, כדי שלא לבקש אותם מהמשתמש בכל
@@ -1594,6 +1628,54 @@
         wrapper.style.width = "100%";
         wrapper.appendChild(msgDiv);
 
+        // משוב מיקרו (לייק/דיסלייק) - רק על הודעות AI, לא על הודעות המשתמש
+        // עצמו. messageId נשמר על ה-bubble (לא רק במשתנה מקומי) למקרה שיהיה
+        // צורך לאתר אותו מבחוץ בעתיד.
+        if (role === 'ai') {
+            const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+            msgDiv.dataset.messageId = messageId;
+
+            const feedbackRow = document.createElement('div');
+            feedbackRow.style.clear = 'both';
+            feedbackRow.style.textAlign = 'right';
+            feedbackRow.style.margin = '2px 0 8px';
+
+            const likeBtn = document.createElement('button');
+            likeBtn.type = 'button';
+            likeBtn.textContent = '👍';
+            likeBtn.className = 'dcard-feedback-btn';
+            likeBtn.style.border = 'none';
+            likeBtn.style.background = 'transparent';
+            likeBtn.style.cursor = 'pointer';
+            likeBtn.style.fontSize = '16px';
+
+            const dislikeBtn = document.createElement('button');
+            dislikeBtn.type = 'button';
+            dislikeBtn.textContent = '👎';
+            dislikeBtn.className = 'dcard-feedback-btn';
+            dislikeBtn.style.border = 'none';
+            dislikeBtn.style.background = 'transparent';
+            dislikeBtn.style.cursor = 'pointer';
+            dislikeBtn.style.fontSize = '16px';
+
+            // מניעת שליחה כפולה: שני הכפתורים מושבתים אחרי הלחיצה הראשונה
+            // על אחד מהם, בלי קשר להצלחת ה-fetch - זו בחירת המשתמש, לא
+            // תלויה ברשת.
+            function handleFeedbackClick(value, chosenBtn, otherBtn) {
+                likeBtn.disabled = true;
+                dislikeBtn.disabled = true;
+                chosenBtn.style.opacity = '1';
+                otherBtn.style.opacity = '0.3';
+                sendMicroFeedback(messageId, value);
+            }
+            likeBtn.addEventListener('click', function () { handleFeedbackClick('like', likeBtn, dislikeBtn); });
+            dislikeBtn.addEventListener('click', function () { handleFeedbackClick('dislike', dislikeBtn, likeBtn); });
+
+            feedbackRow.appendChild(likeBtn);
+            feedbackRow.appendChild(dislikeBtn);
+            wrapper.appendChild(feedbackRow);
+        }
+
         chatHistory.appendChild(wrapper);
         chatHistory.scrollTop = chatHistory.scrollHeight;
 
@@ -2192,5 +2274,39 @@
         } catch (e) {
             alert("אירעה שגיאת תקשורת ולא הצלחנו לשלוח את המייל. נסה שוב.");
         }
+    });
+
+    // 6. משוב מאקרו (טקסט חופשי) - בלוק 5, מתחת לכפתורי הסיום.
+    const feedbackMacroText = document.getElementById('feedback-macro-text');
+    const btnFeedbackMacroSubmit = document.getElementById('btn-feedback-macro-submit');
+    const feedbackMacroThanks = document.getElementById('feedback-macro-thanks');
+
+    btnFeedbackMacroSubmit.addEventListener('click', function () {
+        const text = feedbackMacroText.value.trim();
+        if (!text) return;
+
+        btnFeedbackMacroSubmit.disabled = true; // מניעת שליחה כפולה - לפני ה-fetch, לא רק אחריו
+        feedbackMacroText.disabled = true;
+
+        fetch(`${FEEDBACK_API_BASE}/macro`, {
+            method: 'POST',
+            headers: dcardHeaders(),
+            body: JSON.stringify({
+                type: 'macro',
+                session_id: sessionToken,
+                text: text,
+                flow_type: currentFlowType(),
+                timestamp: new Date().toISOString()
+            })
+        }).then(function () {
+            feedbackMacroText.style.display = 'none';
+            btnFeedbackMacroSubmit.style.display = 'none';
+            feedbackMacroThanks.style.display = 'block';
+        }).catch(function (err) {
+            console.warn('[DCard Feedback] macro feedback failed to send:', err);
+            // משאירים את הטופס פתוח לניסיון חוזר - רק כשל ברשת, לא בחירת המשתמש
+            btnFeedbackMacroSubmit.disabled = false;
+            feedbackMacroText.disabled = false;
+        });
     });
 </script>
