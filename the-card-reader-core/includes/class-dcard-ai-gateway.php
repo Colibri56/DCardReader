@@ -231,9 +231,13 @@ class DCard_AI_Gateway {
 	 * already has it and this keeps the two always in sync.
 	 */
 	private static function call_provider( $provider, $model, $api_key, $user_json, $extra_system_instruction = '' ) {
-		return ( 'claude' === $provider )
-			? self::call_claude( $model, $api_key, $user_json, $extra_system_instruction )
-			: self::call_openai( $model, $api_key, $user_json, $extra_system_instruction );
+		if ( 'claude' === $provider ) {
+			return self::call_claude( $model, $api_key, $user_json, $extra_system_instruction );
+		}
+		if ( 'gemini' === $provider ) {
+			return self::call_gemini( $model, $api_key, $user_json, $extra_system_instruction );
+		}
+		return self::call_openai( $model, $api_key, $user_json, $extra_system_instruction );
 	}
 
 	/**
@@ -442,6 +446,96 @@ class DCard_AI_Gateway {
 		}
 
 		return $body['choices'][0]['message']['content'];
+	}
+
+	/**
+	 * *** לא מאומת מול קריאה אמיתית ל-API - נוסף כדי שבחירת מודל Gemini
+	 * ב-Settings תהיה פונקציונלית, לא רק תהרוס/תיזרק שגיאת "method not
+	 * found". צורת הבקשה/תשובה כאן (contents/parts, systemInstruction,
+	 * responseMimeType, candidates[0].content.parts[0].text) מבוססת על
+	 * התיעוד הכללי של Google Generative Language API (v1beta), לא על
+	 * אימות live - כמו עם claude/openai, תעריפים/שמות מודל קונקרטיים יכולים
+	 * להשתנות; לבדוק בפועל מול Google AI Studio/Vertex AI לפני production. ***
+	 */
+	private static function call_gemini( $model, $api_key, $user_json, $extra_system_instruction = '' ) {
+		$system_text = self::system_prompt();
+		if ( '' !== $extra_system_instruction ) {
+			$system_text .= "\n\n" . $extra_system_instruction;
+		}
+
+		$url = sprintf(
+			'https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s',
+			rawurlencode( $model ),
+			rawurlencode( $api_key )
+		);
+
+		$response = wp_remote_post( $url, array(
+			'timeout' => self::request_timeout(),
+			'headers' => array(
+				'content-type' => 'application/json',
+			),
+			'body' => wp_json_encode( array(
+				'systemInstruction' => array(
+					'parts' => array( array( 'text' => $system_text ) ),
+				),
+				'contents' => array(
+					array(
+						'role'  => 'user',
+						'parts' => array( array( 'text' => $user_json ) ),
+					),
+				),
+				// המודל כבר מונחה (סעיף 10) להחזיר JSON בלבד - responseMimeType
+				// הוא אכיפה נוספת בצד ה-API עצמו, אותו עקרון כמו response_format
+				// ב-call_openai() למעלה.
+				'generationConfig' => array(
+					'responseMimeType' => 'application/json',
+				),
+			), JSON_UNESCAPED_UNICODE ),
+		) );
+
+		if ( is_wp_error( $response ) ) {
+			DCard_Logger::error( 'Gemini wp_remote_post failed', array(
+				'code'    => $response->get_error_code(),
+				'message' => $response->get_error_message(),
+			) );
+			return $response;
+		}
+
+		$code     = wp_remote_retrieve_response_code( $response );
+		$raw_body = wp_remote_retrieve_body( $response );
+		$body     = json_decode( $raw_body, true );
+
+		if ( $code < 200 || $code >= 300 ) {
+			// מזהה מודל לא קיים/לא נתמך הוא בדיוק המקרה שתועד בראש הקובץ -
+			// הפרטים המלאים (כולל שם המודל שנדחה) ללוג בלבד, לא לקליינט.
+			DCard_Logger::error( 'Gemini API returned non-2xx', array(
+				'http_code'    => $code,
+				'model'        => $model,
+				'body_snippet' => mb_substr( (string) $raw_body, 0, 800 ),
+			) );
+
+			$error_message = isset( $body['error']['status'] ) ? $body['error']['status'] : 'unknown';
+			$message       = sprintf(
+				'Gemini דחה את הבקשה (HTTP %d, %s). הפרטים המלאים ב-WooCommerce > Status > Logs.',
+				$code,
+				$error_message
+			);
+			return new WP_Error( 'dcard_gemini_error', $message );
+		}
+
+		if ( isset( $body['usageMetadata'] ) && is_array( $body['usageMetadata'] ) ) {
+			DCard_Logger::usage( 'Gemini', $body['usageMetadata'] );
+		}
+
+		if ( ! isset( $body['candidates'][0]['content']['parts'][0]['text'] ) ) {
+			DCard_Logger::warning( 'Gemini API 2xx but unexpected body shape', array(
+				'finish_reason' => isset( $body['candidates'][0]['finishReason'] ) ? $body['candidates'][0]['finishReason'] : null,
+				'body_snippet'  => mb_substr( (string) $raw_body, 0, 800 ),
+			) );
+			return '';
+		}
+
+		return $body['candidates'][0]['content']['parts'][0]['text'];
 	}
 
 	/**

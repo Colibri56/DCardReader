@@ -37,6 +37,7 @@ class DCard_Settings {
 	const OPTION_MODEL_CHAT   = 'dcard_ai_model_chat';   // שיחה אישית
 	const OPTION_ANTHROPIC_KEY = 'dcard_anthropic_api_key';
 	const OPTION_OPENAI_KEY    = 'dcard_openai_api_key';
+	const OPTION_GEMINI_KEY    = 'dcard_gemini_api_key';
 	const OPTION_CLOSING_NEW_USER = 'dcard_closing_text_new_user';
 	const OPTION_CLOSING_REGISTERED = 'dcard_closing_text_registered';
 	const OPTION_FORCE_CARD = 'dcard_force_card_id'; // A/B testing: '' = random draw
@@ -55,6 +56,13 @@ class DCard_Settings {
 	const MODEL_CHOICES = array(
 		'gpt-4o-mini'       => array( 'label' => 'OpenAI: gpt-4o-mini', 'provider' => 'openai' ),
 		'gpt-4o'            => array( 'label' => 'OpenAI: gpt-4o', 'provider' => 'openai' ),
+		// תיקון: המפתח האמיתי 'claude-haiku-4-5' נמצא חסר לגמרי מהרשימה -
+		// הוחלף בטעות (אולי באותה פעולה שהוסיפה לראשונה את 'claude-haiku-5-5'
+		// הלא-מאומת) ב-'claude-haiku-5-5' בלבד. זו לא "שינוי שם", זו מחיקה
+		// בפועל של מודל אמיתי: DEFAULT_MODEL (למעלה) עדיין מצביע במפורש על
+		// 'claude-haiku-4-5' - בלעדיו ברשימה, get_model_for_mode()/
+		// $model_sanitizer לא היו מוצאים אותו תקין בכלל. שוחזר כאן כערך
+		// נפרד, לא נמחק/לא הוחלף.
 		'claude-haiku-4-5'  => array( 'label' => 'Anthropic: claude-haiku-4-5', 'provider' => 'claude' ),
 		'claude-sonnet-5'   => array( 'label' => 'Anthropic: claude-sonnet-5', 'provider' => 'claude' ),
 		// Released 2026-09-28. Same per-token price as claude-sonnet-5 ($2/$10
@@ -63,6 +71,22 @@ class DCard_Settings {
 		// already handled: call_claude() scans content blocks for the first
 		// {type:"text"} one instead of assuming index 0, and max_tokens is 4096.
 		'claude-sonnet-5-5' => array( 'label' => 'Anthropic: claude-sonnet-5-5', 'provider' => 'claude' ),
+
+		// *** לא מאומת - הוספו לפי בקשה מפורשת, לאחר אזהרה מפורשת שהשמות
+		// האלה לא תואמים שום מודל מוכר/מוכרז של אף ספק (מקור: שאילתה
+		// השערתית לקלוד ששאל "מה המודלים העדכניים", לא הכרזה רשמית).
+		// המזהים האלה סבירים ל-404 live בפועל (אותה תקרית בדיוק שההערה
+		// בראש הקובץ הזה מתעדת: 'model: <id>' חוזר מה-API, מגיע לתמליל
+		// ולוג WooCommerce) - לאשר/להחליף מול תיעוד רשמי של כל ספק לפני
+		// הסתמכות אמיתית. provider 'gemini' עדיין לא קיים ב-get_api_key()/
+		// DCard_AI_Gateway::call_provider() - נוסף באותו commit כדי שהבחירה
+		// הזו תהיה פונקציונלית, לא רק שם ברשימה (ר' הערה שם לגבי צורת
+		// הבקשה/תשובה של Gemini - גם היא לא מאומתת מול API אמיתי). ***
+		'gpt-6-luna'            => array( 'label' => 'OpenAI: GPT-6 Luna (לא מאומת)', 'provider' => 'openai' ),
+		'claude-haiku-5.5'      => array( 'label' => 'Anthropic: Claude Haiku 5.5 (לא מאומת)', 'provider' => 'claude' ),
+		'gemini-3.5-flash-lite' => array( 'label' => 'Google: Gemini 3.5 Flash-Lite (לא מאומת)', 'provider' => 'gemini' ),
+		'gemini-3.6-flash'      => array( 'label' => 'Google: Gemini 3.6 Flash (לא מאומת)', 'provider' => 'gemini' ),
+		'gemini-3.8-flash'      => array( 'label' => 'Google: Gemini 3.8 Flash (לא מאומת)', 'provider' => 'gemini' ),
 	);
 
 	// תיקון איחוד תפריטים: קודם add_options_page() - תת-תפריט של Settings,
@@ -124,6 +148,10 @@ class DCard_Settings {
 		) );
 
 		register_setting( self::OPTION_GROUP, self::OPTION_OPENAI_KEY, array(
+			'sanitize_callback' => 'sanitize_text_field',
+		) );
+
+		register_setting( self::OPTION_GROUP, self::OPTION_GEMINI_KEY, array(
 			'sanitize_callback' => 'sanitize_text_field',
 		) );
 
@@ -257,7 +285,7 @@ class DCard_Settings {
 	}
 
 	/**
-	 * @param string $provider 'claude' | 'openai'
+	 * @param string $provider 'claude' | 'openai' | 'gemini'
 	 */
 	public static function get_api_key( $provider ) {
 		if ( 'claude' === $provider ) {
@@ -265,6 +293,13 @@ class DCard_Settings {
 				return DCARD_ANTHROPIC_API_KEY;
 			}
 			return get_option( self::OPTION_ANTHROPIC_KEY, '' );
+		}
+
+		if ( 'gemini' === $provider ) {
+			if ( defined( 'DCARD_GEMINI_API_KEY' ) && DCARD_GEMINI_API_KEY ) {
+				return DCARD_GEMINI_API_KEY;
+			}
+			return get_option( self::OPTION_GEMINI_KEY, '' );
 		}
 
 		if ( defined( 'DCARD_OPENAI_API_KEY' ) && DCARD_OPENAI_API_KEY ) {
@@ -478,6 +513,16 @@ class DCard_Settings {
 							<?php if ( defined( 'DCARD_OPENAI_API_KEY' ) && DCARD_OPENAI_API_KEY ) : ?>
 								<p class="description">מוגדר כרגע דרך קבוע ב-wp-config.php - הערך כאן מתעלם.</p>
 							<?php endif; ?>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="dcard_gemini_key">Google Gemini API Key</label></th>
+						<td>
+							<input type="password" id="dcard_gemini_key" name="<?php echo esc_attr( self::OPTION_GEMINI_KEY ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_GEMINI_KEY, '' ) ); ?>" class="regular-text" autocomplete="off" />
+							<?php if ( defined( 'DCARD_GEMINI_API_KEY' ) && DCARD_GEMINI_API_KEY ) : ?>
+								<p class="description">מוגדר כרגע דרך קבוע ב-wp-config.php - הערך כאן מתעלם.</p>
+							<?php endif; ?>
+							<p class="description">נדרש רק אם נבחר אחד ממודלי Gemini (לא מאומתים - ר' הערה ב-MODEL_CHOICES).</p>
 						</td>
 					</tr>
 					<tr>

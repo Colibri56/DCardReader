@@ -309,6 +309,83 @@
         color: white;
     }
 
+    /* משוב מיקרו (לייק/דיסלייק) - פיל (pill) עדין מתחת לבועת AI, לא שני
+       אייקונים צפים בלי הקשר ולא כפתורים "כבדים". הכלאה מכוונת בין השתיים. */
+    .dcard-feedback-pill {
+        display: inline-flex;
+        gap: 15px;
+        background: rgba(0,0,0,0.04);
+        padding: 6px 16px;
+        border-radius: 20px;
+        align-items: center;
+        border: none;
+    }
+
+    /* משוב מאקרו - שורת קלט בסטייל וואטסאפ: פיל מעוגל אחד, לא textarea
+       גדולה + כפתור טקסט נפרד כמו קודם. ה-RTL של #card-reader-app עצמו
+       (direction: rtl) דואג לכך שהמיקרופון (ראשון ב-DOM) יישב מימין
+       והשליחה (אחרונה ב-DOM) משמאל - בדיוק סדר אפליקציות צ'אט מוכרות ב-RTL. */
+    .feedback-macro-block {
+        width: 100%;
+        margin-top: 4px;
+    }
+    .feedback-macro-bar {
+        display: flex;
+        align-items: flex-end;
+        gap: 6px;
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 24px;
+        padding: 5px 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    /* .btn-mic עצמה (גודל/צבע/מצב recording) כבר מוגדרת למעלה - בכוונה לא
+       מוגדרת כ-position:absolute כמו בתיבת השאלה (בלוק 1), כי כאן היא
+       חלק משורת flex רגילה, לא פינה בתוך שדה טקסט עצמאי. */
+    .feedback-macro-bar .btn-mic {
+        width: 38px;
+        height: 38px;
+    }
+    .feedback-macro-bar textarea {
+        flex: 1;
+        border: none;
+        outline: none;
+        resize: none;
+        background: transparent;
+        font-family: inherit;
+        font-size: 15px;
+        line-height: 1.4;
+        max-height: 120px; /* תקרת ה"הרחבה האוטומטית" - ר' ה-JS שמכוון את הגובה */
+        padding: 9px 4px;
+    }
+    .feedback-send-btn {
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        border: none;
+        border-radius: 50%;
+        background: #8B1E3F;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.2s, opacity 0.2s;
+    }
+    .feedback-send-btn:hover {
+        background: #6e1731;
+    }
+    .feedback-send-btn:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+    #feedback-macro-thanks {
+        text-align: center;
+        margin-top: 8px;
+        color: #555;
+        font-size: 14px;
+    }
+
     /* מסגרת "קבלת מסר אישי" בבורדו כמו שאר האתר, לא באפור כמו שאר כפתורי ה-outline */
     #btn-path-message {
         border-color: #8B1E3F;
@@ -445,8 +522,21 @@
         <button class="btn-outline" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
 
         <div class="feedback-macro-block" id="feedback-macro-block">
-            <textarea id="feedback-macro-text" placeholder="משהו שחשוב לנו לדעת על החוויה שלך?" rows="2"></textarea>
-            <button class="btn-outline" id="btn-feedback-macro-submit">שליחת משוב</button>
+            <div class="feedback-macro-bar">
+                <button type="button" class="btn-mic" id="btn-mic-feedback" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                    <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                </button>
+                <textarea id="feedback-macro-text" placeholder="שתף אותנו בתחושות שלך..." rows="1"></textarea>
+                <button type="button" class="feedback-send-btn" id="btn-feedback-macro-submit" title="שליחה" aria-label="שליחה">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M2.5 21l19-9-19-9v7l14 2-14 2z"/>
+                    </svg>
+                </button>
+            </div>
             <div id="feedback-macro-thanks" style="display:none;">תודה על המשוב! 🙏</div>
         </div>
     </div>
@@ -761,6 +851,7 @@
     const chatHistory = document.getElementById('chat-history');
     const chatInput = document.getElementById('ai-reply-input');
     const btnMicChat = document.getElementById('btn-mic-chat');
+    const btnMicFeedback = document.getElementById('btn-mic-feedback');
     const chatInputArea = document.querySelector('.chat-input-area');
     const btnSend = document.querySelector('.btn-send');
     // סקופ ל-block-5 בלבד: כפתור "קבלת מסר" משתמש גם הוא ב-btn-outline,
@@ -1580,6 +1671,12 @@
 
         attachVoiceButton(btnMic, userQuestion, 'question');    // בלוק 1: תיבת השאלה
         chatMicController = attachVoiceButton(btnMicChat, chatInput, 'chat'); // בלוק 4: שיחה אישית עם ה-AI
+        // שורת משוב מאקרו (בלוק 5) - document.getElementById ישיר, לא קבוע
+        // feedbackMacroText (שמוכרז רק מאוחר יותר בקובץ, ליד handler
+        // השליחה) - כדי לא להיתקע על תלות סדר הכרזות.
+        if (btnMicFeedback) {
+            attachVoiceButton(btnMicFeedback, document.getElementById('feedback-macro-text'), 'feedback');
+        }
     })();
 
     // 2. פונקציות עזר לבניית בועות צ'אט
@@ -1635,10 +1732,15 @@
             const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
             msgDiv.dataset.messageId = messageId;
 
+            // תיקון UI: פיל (pill) עדין - ר' .dcard-feedback-pill ב-CSS -
+            // במקום שני אייקונים צפים בלי שום מסגרת חזותית. clear:both
+            // עדיין נדרש כאן בקוד (לא ב-CSS של ה-pill עצמו), כדי שהשורה
+            // הזו תמיד תתחיל מתחת לבועה, לא תצוף לידה.
             const feedbackRow = document.createElement('div');
+            feedbackRow.className = 'dcard-feedback-pill';
             feedbackRow.style.clear = 'both';
-            feedbackRow.style.textAlign = 'right';
-            feedbackRow.style.margin = '2px 0 8px';
+            feedbackRow.style.margin = '4px 0 8px';
+            feedbackRow.style.float = 'right'; // יישור לבועת ה-AI (ר' float בבועה עצמה למעלה)
 
             const likeBtn = document.createElement('button');
             likeBtn.type = 'button';
@@ -2276,10 +2378,19 @@
         }
     });
 
-    // 6. משוב מאקרו (טקסט חופשי) - בלוק 5, מתחת לכפתורי הסיום.
+    // 6. משוב מאקרו (טקסט חופשי, שורת קלט בסטייל וואטסאפ) - בלוק 5.
     const feedbackMacroText = document.getElementById('feedback-macro-text');
     const btnFeedbackMacroSubmit = document.getElementById('btn-feedback-macro-submit');
     const feedbackMacroThanks = document.getElementById('feedback-macro-thanks');
+    const feedbackMacroBar = document.querySelector('.feedback-macro-bar');
+
+    // הרחבה אוטומטית (עד התקרה שנקבעה ב-CSS, max-height) - שורה אחת
+    // כברירת מחדל, גדל רק אם המשתמש בפועל כותב הרבה. 'auto' לפני המדידה
+    // כדי שהגובה יכול גם *להתכווץ* חזרה (למשל אחרי מחיקת טקסט), לא רק לגדול.
+    feedbackMacroText.addEventListener('input', function () {
+        feedbackMacroText.style.height = 'auto';
+        feedbackMacroText.style.height = feedbackMacroText.scrollHeight + 'px';
+    });
 
     btnFeedbackMacroSubmit.addEventListener('click', function () {
         const text = feedbackMacroText.value.trim();
@@ -2299,8 +2410,9 @@
                 timestamp: new Date().toISOString()
             })
         }).then(function () {
-            feedbackMacroText.style.display = 'none';
-            btnFeedbackMacroSubmit.style.display = 'none';
+            // מחליפים את כל ה-pill (לא רק שדה/כפתור בודדים) בהודעת התודה -
+            // כך גם המיקרופון שבפנים נעלם בבת אחת, בלי שרידים ויזואליים.
+            if (feedbackMacroBar) feedbackMacroBar.style.display = 'none';
             feedbackMacroThanks.style.display = 'block';
         }).catch(function (err) {
             console.warn('[DCard Feedback] macro feedback failed to send:', err);
