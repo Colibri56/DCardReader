@@ -26,8 +26,8 @@ class DCard_AI_Gateway {
 	// via DCard_Settings::get_model_for_mode() / get_provider_for_model() -
 	// independently for 'direct' (קבלת מסר) and 'chat' (שיחה אישית). That's
 	// what makes A/B testing between models a Settings-page change instead
-	// of a code deploy. See DCard_Settings::MODEL_CHOICES for the list of
-	// models this can be pointed at.
+	// of a code deploy. See DCard_Settings::get_model_choices() (loaded from
+	// data/ai-models.json) for the list of models this can be pointed at.
 
 	// Was 28s on the theory that a proxy/CDN in front of the site would cut
 	// the connection around there anyway, so it's better for our own code to
@@ -326,8 +326,9 @@ class DCard_AI_Gateway {
 
 		if ( $code < 200 || $code >= 300 ) {
 			// The raw reason (can literally be the string "model: <id>" for an
-			// unknown/retired model - see DCard_Settings::MODEL_CHOICES if that's
-			// what's happening) goes to the WooCommerce log only, never to the client.
+			// unknown/retired model - see data/ai-models.json's "verified" flags
+			// if that's what's happening) goes to the WooCommerce log only, never
+			// to the client.
 			DCard_Logger::error( 'Claude API returned non-2xx', array(
 				'http_code'    => $code,
 				'model'        => $model,

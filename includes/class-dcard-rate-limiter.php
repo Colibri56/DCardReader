@@ -13,6 +13,13 @@ class DCard_Rate_Limiter {
 	const MAX_SESSION_STARTS_PER_HOUR = 20;
 	const MAX_TURNS_PER_HOUR          = 120;
 	const MAX_REGISTRATIONS_PER_HOUR  = 30; // /register - ר' DCard_REST_Controller::session_register_inner()
+	// /session/card-selected - אותה עלות בדיוק כמו /session/turn (קריאת AI
+	// אחת), אבל עד כה היה ה-route היחיד שקורא ל-AI בלי שום rate limit -
+	// פרצה ממשית: session_token תקף מאפשר להלחיץ את ה-endpoint הזה בלי
+	// שום בלם per-request (הגבלת 3 הקלפים לסשן ב-session_card_selected_inner
+	// לא מגבילה קצב, רק כמות קלפים *באותו* סשן אחד). אותו רף כמו turns -
+	// שתי קריאות ה-AI האלה שוות עלות, אין סיבה שיהיה סף אחר ביניהן.
+	const MAX_CARD_SELECTIONS_PER_HOUR = 120;
 
 	public static function check_session_start( $ip ) {
 		return self::check( 'session_start', 'dcard_rl_start_' . md5( $ip ), self::MAX_SESSION_STARTS_PER_HOUR );
@@ -20,6 +27,10 @@ class DCard_Rate_Limiter {
 
 	public static function check_turn( $ip ) {
 		return self::check( 'turn', 'dcard_rl_turn_' . md5( $ip ), self::MAX_TURNS_PER_HOUR );
+	}
+
+	public static function check_card_selected( $ip ) {
+		return self::check( 'card_selected', 'dcard_rl_card_selected_' . md5( $ip ), self::MAX_CARD_SELECTIONS_PER_HOUR );
 	}
 
 	public static function check_register( $ip ) {

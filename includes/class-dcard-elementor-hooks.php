@@ -35,12 +35,12 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class DCard_Elementor_Hooks {
 
-	// פופאפ 5066 - טופס תשלום סופי שאחריו המשתמש עובר לקארדקום. פופאפ
-	// 5031 (Grace/Lead) וכל טופס אחר הם ה-else: לא קיים כאן "רשימת לא-
+	// פופאפ 4753 - טופס תשלום סופי שאחריו המשתמש עובר לקארדקום. פופאפ
+	// 4749 (Grace/Lead) וכל טופס אחר הם ה-else: לא קיים כאן "רשימת לא-
 	// תשלום" סגורה - ברירת המחדל הבטוחה היא "לא תשלום" (ר' is_payment_
 	// popup למטה), כדי שאי-וודאות בזיהוי הפופאפ לעולם לא תחסום בטעות
 	// את הזרימה הרגילה (Grace/שליפת קלף) לכל שאר הטפסים.
-	const PAYMENT_POPUP_ID = 5066;
+	const PAYMENT_POPUP_ID = 4753;
 
 	public static function register() {
 		add_action( 'elementor_pro/forms/new_record', array( __CLASS__, 'on_new_record' ), 10, 2 );
@@ -50,11 +50,11 @@ class DCard_Elementor_Hooks {
 	 * *** לא מאומת live: $record->get('post_id') הוא הניחוש הסביר ביותר
 	 * ל"מזהה הפוסט שהטופס הזה רץ בתוכו" לפי ה-API התיעודי של Elementor
 	 * Pro Forms, ופופאפ של אלמנטור הוא בעצמו post מסוג elementor_library -
-	 * כך שה-ID הזה צפוי להיות בדיוק 5031/5066. אם זה לא תואם בפועל (למשל
+	 * כך שה-ID הזה צפוי להיות בדיוק 4749/4753. אם זה לא תואם בפועל (למשל
 	 * מחזיר את ה-ID של העמוד שעליו מוטבע הפופאפ, לא של הפופאפ עצמו) -
 	 * אפשר לבדוק ב-console.log של ה-JS (ר' elementor-code.html) אם
 	 * dcardFormKind מגיע 'payment'/'lead' נכון, ולתקן כאן לפי מה שבאמת
-	 * מזהה את 5066 (למשל $record->get_form_settings('form_name') אם
+	 * מזהה את 4753 (למשל $record->get_form_settings('form_name') אם
 	 * לטופס התשלום יש שם מובחן בעורך). ***
 	 */
 	private static function is_payment_popup( $record ) {
@@ -98,6 +98,20 @@ class DCard_Elementor_Hooks {
 			// לא טופס ההרשמה (אין בו שדה email בכלל - למשל טופס ה-onboarding
 			// הנפרד, שם+מגדר בלבד) - מתעלמים בשקט, לא דגל שגיאה. ה-hook הזה
 			// רץ על *כל* טופס אלמנטור באתר, לא רק טופס ההרשמה.
+			//
+			// חריג מכוון: פופאפ 4749 (Grace) *אמור* לאסוף email (ר' triggerRegistrationWall
+			// ב-JS) - אם ההתעלמות השקטה הזו קרתה בכל זאת עבורו, זה תקוע,
+			// לא תקין (הטופס לא נסגר בצד הלקוח - ר' submit_success guard).
+			// לוג ממוקד, רק למקרה הזה, עם ה-id/value הגולמיים של כל שדה -
+			// כדי לבדוק אם ה-"Field ID" שהוגדר בעורך אלמנטור לשדה האימייל
+			// בפופאפ 4749 בפועל לא מכיל את המחרוזת "email" (למשל id שנוצר
+			// אוטומטית כמו field_6a1b2c), בלי לנחש את זה בעיניים עצומות.
+			$post_id = method_exists( $record, 'get' ) ? (int) $record->get( 'post_id' ) : 0;
+			if ( 4749 === $post_id ) {
+				DCard_Logger::warning( 'elementor_pro/forms/new_record (popup 4749) - no email field detected, registration/token issuance skipped', array(
+					'raw_fields' => $raw_fields,
+				) );
+			}
 			return;
 		}
 
@@ -116,7 +130,7 @@ class DCard_Elementor_Hooks {
 			$ajax_handler->add_response_data( 'dcardDeviceToken', $result['device_token'] );
 			$ajax_handler->add_response_data( 'dcardCurrentPlan', $result['current_plan'] );
 			$ajax_handler->add_response_data( 'dcardCredits', $result['credits'] );
-			// תיקון: פופאפ 5066 (תשלום) לא נדרש לאסוף email מחדש - הפתרון
+			// תיקון: פופאפ 4753 (תשלום) לא נדרש לאסוף email מחדש - הפתרון
 			// הוא שה-JS ממלא את שדה ה-email שלו אוטומטית מ-localStorage לפני
 			// שהמשתמש בכלל שולח (ר' submit_success + populateEmailField
 			// ב-elementor-code.html) - כאן רק מחזירים את ה-email שבאמת

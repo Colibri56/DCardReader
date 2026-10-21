@@ -13,8 +13,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  * for A/B testing. DCard_AI_Gateway::run_turn() takes a $reading_mode
  * argument ('direct' | 'chat') and resolves the model for that mode via
  * get_model_for_mode() below - the provider (which endpoint/payload shape)
- * is then derived from *which* model that resolves to, via MODEL_CHOICES,
- * same as before. Swapping either model is a Settings page change, not a deploy.
+ * is then derived from *which* model that resolves to, via get_model_choices()
+ * (loaded from data/ai-models.json - see that method's docblock). Swapping
+ * either model, or adding a brand new one, is a Settings page + JSON-file
+ * change, not a deploy.
  *
  * Anthropic options are `claude-haiku-4-5` and `claude-sonnet-5` - the
  * current model IDs, not the old dated snapshots (`claude-3-haiku-20240307`,
@@ -48,46 +50,130 @@ class DCard_Settings {
 	const OPTION_ANALYTICS_WEBHOOK = 'dcard_analytics_webhook_url'; // בדיקות בטא: '' = לא נשלח כלום (DCard_Analytics)
 	const OPTION_FEEDBACK_FORM_URL = 'dcard_feedback_form_url'; // בדיקות בטא: '' = בלי קריאה למשוב במייל הסיכום
 
+	// נשאר קבוע בקוד בכוונה (לא בקובץ החוץ) - רשת ביטחון אם ai-models.json
+	// חסר/פגום לגמרי (ר' get_model_choices() למטה): גם אז צריך מודל קיים
+	// אחד שמובטח לעבוד, לא מפתח שתלוי בקובץ שבדיוק נכשל לטעון.
 	const DEFAULT_MODEL = 'claude-haiku-4-5';
 
-	// The only place a model needs to be added/removed for A/B tests - both
-	// dropdowns, the provider routing, and the payload-shape decision in
-	// DCard_AI_Gateway all read from this one list.
-	const MODEL_CHOICES = array(
-		'gpt-4o-mini'       => array( 'label' => 'OpenAI: gpt-4o-mini', 'provider' => 'openai' ),
-		'gpt-4o'            => array( 'label' => 'OpenAI: gpt-4o', 'provider' => 'openai' ),
-		// תיקון: המפתח האמיתי 'claude-haiku-4-5' נמצא חסר לגמרי מהרשימה -
-		// הוחלף בטעות (אולי באותה פעולה שהוסיפה לראשונה את 'claude-haiku-5-5'
-		// הלא-מאומת) ב-'claude-haiku-5-5' בלבד. זו לא "שינוי שם", זו מחיקה
-		// בפועל של מודל אמיתי: DEFAULT_MODEL (למעלה) עדיין מצביע במפורש על
-		// 'claude-haiku-4-5' - בלעדיו ברשימה, get_model_for_mode()/
-		// $model_sanitizer לא היו מוצאים אותו תקין בכלל. שוחזר כאן כערך
-		// נפרד, לא נמחק/לא הוחלף.
-		'claude-haiku-4-5'  => array( 'label' => 'Anthropic: claude-haiku-4-5', 'provider' => 'claude' ),
-		'claude-sonnet-5'   => array( 'label' => 'Anthropic: claude-sonnet-5', 'provider' => 'claude' ),
-		// Released 2026-09-28. Same per-token price as claude-sonnet-5 ($2/$10
-		// per MTok in/out), but faster and cheaper per completed task (fewer
-		// tokens + tool calls). Thinking is on by default for this model too -
-		// already handled: call_claude() scans content blocks for the first
-		// {type:"text"} one instead of assuming index 0, and max_tokens is 4096.
-		'claude-sonnet-5-5' => array( 'label' => 'Anthropic: claude-sonnet-5-5', 'provider' => 'claude' ),
+	const SUPPORTED_PROVIDERS = array( 'claude', 'openai', 'gemini' );
 
-		// *** לא מאומת - הוספו לפי בקשה מפורשת, לאחר אזהרה מפורשת שהשמות
-		// האלה לא תואמים שום מודל מוכר/מוכרז של אף ספק (מקור: שאילתה
-		// השערתית לקלוד ששאל "מה המודלים העדכניים", לא הכרזה רשמית).
-		// המזהים האלה סבירים ל-404 live בפועל (אותה תקרית בדיוק שההערה
-		// בראש הקובץ הזה מתעדת: 'model: <id>' חוזר מה-API, מגיע לתמליל
-		// ולוג WooCommerce) - לאשר/להחליף מול תיעוד רשמי של כל ספק לפני
-		// הסתמכות אמיתית. provider 'gemini' עדיין לא קיים ב-get_api_key()/
-		// DCard_AI_Gateway::call_provider() - נוסף באותו commit כדי שהבחירה
-		// הזו תהיה פונקציונלית, לא רק שם ברשימה (ר' הערה שם לגבי צורת
-		// הבקשה/תשובה של Gemini - גם היא לא מאומתת מול API אמיתי). ***
-		'gpt-6-luna'            => array( 'label' => 'OpenAI: GPT-6 Luna (לא מאומת)', 'provider' => 'openai' ),
-		'claude-haiku-5.5'      => array( 'label' => 'Anthropic: Claude Haiku 5.5 (לא מאומת)', 'provider' => 'claude' ),
-		'gemini-3.5-flash-lite' => array( 'label' => 'Google: Gemini 3.5 Flash-Lite (לא מאומת)', 'provider' => 'gemini' ),
-		'gemini-3.6-flash'      => array( 'label' => 'Google: Gemini 3.6 Flash (לא מאומת)', 'provider' => 'gemini' ),
-		'gemini-3.8-flash'      => array( 'label' => 'Google: Gemini 3.8 Flash (לא מאומת)', 'provider' => 'gemini' ),
-	);
+	private static $model_choices        = null;
+	private static $model_choices_errors = array();
+
+	/**
+	 * רשימת מודלי ה-AI - נטענת מ-data/ai-models.json, לא מקובעת בקוד.
+	 * זו הדרך היחידה שצריך לגעת בה כדי להוסיף/להסיר/לעדכן מודל ל-A/B
+	 * test (גם dropdown-ים, גם ניתוב ה-provider, גם payload shape ב-
+	 * DCard_AI_Gateway קוראים מכאן) - עריכת ה-JSON מספיקה, בלי deploy.
+	 *
+	 * כל רשומה לא תקינה (id/label/provider חסר, provider לא מוכר, id
+	 * כפול) נפסלת *בנפרד* לתוך $model_choices_errors, לא מפילה את כל
+	 * הקובץ - כדי שטעות בודדת לא תשבית את כל הבחירה. אם אף רשומה לא
+	 * שרדה (או שהקובץ עצמו חסר/JSON פגום) - נופלים לרשת ביטחון עם
+	 * DEFAULT_MODEL לבדו, עם שגיאה בולטת שמסבירה למה (ר'
+	 * render_model_choices_errors_notice() - admin_notice גלובלי, לא רק
+	 * בעמוד ההגדרות עצמו, כדי שהתקלה תתגלה מיידית כמו שהתבקש).
+	 */
+	public static function get_model_choices() {
+		if ( null !== self::$model_choices ) {
+			return self::$model_choices;
+		}
+
+		self::$model_choices_errors = array();
+		$choices = array();
+
+		$path = DCARD_PLUGIN_DIR . 'data/ai-models.json';
+		if ( ! file_exists( $path ) ) {
+			self::$model_choices_errors[] = 'קובץ רשימת המודלים (' . $path . ') לא נמצא.';
+		} else {
+			$decoded = json_decode( (string) file_get_contents( $path ), true );
+
+			if ( null === $decoded || ! isset( $decoded['models'] ) || ! is_array( $decoded['models'] ) ) {
+				self::$model_choices_errors[] = 'קובץ רשימת המודלים (' . $path . ') לא תקין (JSON שגוי, או חסר מפתח "models").';
+			} else {
+				foreach ( $decoded['models'] as $index => $entry ) {
+					$where = 'רשומה מספר ' . ( (int) $index + 1 );
+
+					if ( ! is_array( $entry ) ) {
+						self::$model_choices_errors[] = $where . ' ב-ai-models.json אינה אובייקט תקין - דילוג.';
+						continue;
+					}
+
+					$id       = isset( $entry['id'] ) ? trim( (string) $entry['id'] ) : '';
+					$label    = isset( $entry['label'] ) ? trim( (string) $entry['label'] ) : '';
+					$provider = isset( $entry['provider'] ) ? trim( (string) $entry['provider'] ) : '';
+					$verified = ! isset( $entry['verified'] ) || (bool) $entry['verified'];
+
+					if ( '' === $id || '' === $label || '' === $provider ) {
+						self::$model_choices_errors[] = $where . ' (' . ( $id ? $id : '?' ) . ') חסרה שדה חובה (id/label/provider) - דילוג.';
+						continue;
+					}
+
+					if ( ! in_array( $provider, self::SUPPORTED_PROVIDERS, true ) ) {
+						self::$model_choices_errors[] = 'מודל "' . $id . '" - provider לא מוכר ("' . $provider . '", צריך להיות אחד מ-' . implode( '/', self::SUPPORTED_PROVIDERS ) . ') - דילוג.';
+						continue;
+					}
+
+					if ( isset( $choices[ $id ] ) ) {
+						self::$model_choices_errors[] = 'מודל "' . $id . '" מופיע יותר מפעם אחת בקובץ - רק המופע הראשון נשמר.';
+						continue;
+					}
+
+					$choices[ $id ] = array(
+						'label'    => $verified ? $label : ( $label . ' (לא מאומת)' ),
+						'provider' => $provider,
+					);
+				}
+			}
+		}
+
+		if ( empty( $choices ) ) {
+			self::$model_choices_errors[] = 'אף מודל תקין לא נטען מהקובץ - חוזרים לברירת המחדל היחידה (' . self::DEFAULT_MODEL . ') כרשת ביטחון, עד שהקובץ יתוקן.';
+			$choices[ self::DEFAULT_MODEL ] = array(
+				'label'    => 'Anthropic: ' . self::DEFAULT_MODEL . ' (ברירת מחדל קשיחה - תקן את ai-models.json)',
+				'provider' => 'claude',
+			);
+		} elseif ( ! isset( $choices[ self::DEFAULT_MODEL ] ) ) {
+			// DEFAULT_MODEL קבוע בקוד - אם מי שעורך את ai-models.json מוחק
+			// את המודל הזה ספציפית בלי לעדכן גם את הקבוע הזה, עדיין עדיף
+			// להזהיר מאשר "לשקוע" בשקט למפתח שלא קיים ברשימה שכן נטענה.
+			self::$model_choices_errors[] = 'ברירת המחדל הקבועה בקוד (' . self::DEFAULT_MODEL . ') לא קיימת ברשימה שבקובץ - מומלץ להוסיף אותה בחזרה או לעדכן את DEFAULT_MODEL בקוד.';
+		}
+
+		self::$model_choices = $choices;
+		return self::$model_choices;
+	}
+
+	/**
+	 * שגיאות טעינה/ולידציה שנצברו ב-get_model_choices() - נקראת זו תמיד
+	 * קודם (אם עדיין לא רצה בבקשה הזו) כדי שיהיה מה להציג.
+	 */
+	public static function get_model_choices_errors() {
+		if ( null === self::$model_choices ) {
+			self::get_model_choices();
+		}
+		return self::$model_choices_errors;
+	}
+
+	/**
+	 * admin_notice גלובלי (מחווט ב-the-card-reader-core.php, לא רק בעמוד
+	 * Settings > DCard AI) - כדי שתקלה ב-ai-models.json תתגלה "מיידית",
+	 * כבקשה, לא רק כשמישהו נכנס במקרה לעמוד ההגדרות.
+	 */
+	public static function render_model_choices_errors_notice() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		$errors = self::get_model_choices_errors();
+		if ( empty( $errors ) ) {
+			return;
+		}
+		echo '<div class="notice notice-error"><p><strong>DCard AI - שגיאה בטעינת רשימת המודלים (data/ai-models.json):</strong></p><ul style="margin-right:20px;list-style:disc;">';
+		foreach ( $errors as $error ) {
+			echo '<li>' . esc_html( $error ) . '</li>';
+		}
+		echo '</ul></div>';
+	}
 
 	// תיקון איחוד תפריטים: קודם add_options_page() - תת-תפריט של Settings,
 	// "נעלם" מהמשתמש כי הוא לא מצפה לחפש הגדרות AI שם. עכשיו תת-תפריט
@@ -106,7 +192,7 @@ class DCard_Settings {
 
 	public static function register_settings() {
 		$model_sanitizer = function ( $value ) {
-			return isset( self::MODEL_CHOICES[ $value ] ) ? $value : self::DEFAULT_MODEL;
+			return isset( self::get_model_choices()[ $value ] ) ? $value : self::DEFAULT_MODEL;
 		};
 
 		register_setting( self::OPTION_GROUP, self::OPTION_MODEL_DIRECT, array(
@@ -254,14 +340,14 @@ class DCard_Settings {
 
 	/**
 	 * The exact model string DCard_AI_Gateway sends in the API payload for a
-	 * given reading mode - always one of the MODEL_CHOICES keys.
+	 * given reading mode - always one of the get_model_choices() keys.
 	 *
 	 * @param string $reading_mode 'direct' (קבלת מסר) | 'chat' (שיחה אישית)
 	 */
 	public static function get_model_for_mode( $reading_mode ) {
 		$option = ( 'direct' === $reading_mode ) ? self::OPTION_MODEL_DIRECT : self::OPTION_MODEL_CHAT;
 		$model  = get_option( $option, self::DEFAULT_MODEL );
-		return isset( self::MODEL_CHOICES[ $model ] ) ? $model : self::DEFAULT_MODEL;
+		return isset( self::get_model_choices()[ $model ] ) ? $model : self::DEFAULT_MODEL;
 	}
 
 	/**
@@ -270,7 +356,7 @@ class DCard_Settings {
 	 * (e.g. a stale value from before an option was removed).
 	 */
 	public static function get_provider_for_model( $model ) {
-		return isset( self::MODEL_CHOICES[ $model ] ) ? self::MODEL_CHOICES[ $model ]['provider'] : 'claude';
+		return isset( self::get_model_choices()[ $model ] ) ? self::get_model_choices()[ $model ]['provider'] : 'claude';
 	}
 
 	/**
@@ -434,7 +520,7 @@ class DCard_Settings {
 						<th scope="row"><label for="dcard_ai_model_direct">מודל לקבלת מסר</label></th>
 						<td>
 							<select id="dcard_ai_model_direct" name="<?php echo esc_attr( self::OPTION_MODEL_DIRECT ); ?>">
-								<?php foreach ( self::MODEL_CHOICES as $model_id => $info ) : ?>
+								<?php foreach ( self::get_model_choices() as $model_id => $info ) : ?>
 									<option value="<?php echo esc_attr( $model_id ); ?>" <?php selected( $model_direct, $model_id ); ?>><?php echo esc_html( $info['label'] ); ?></option>
 								<?php endforeach; ?>
 							</select>
@@ -445,7 +531,7 @@ class DCard_Settings {
 						<th scope="row"><label for="dcard_ai_model_chat">מודל לשיחה אישית</label></th>
 						<td>
 							<select id="dcard_ai_model_chat" name="<?php echo esc_attr( self::OPTION_MODEL_CHAT ); ?>">
-								<?php foreach ( self::MODEL_CHOICES as $model_id => $info ) : ?>
+								<?php foreach ( self::get_model_choices() as $model_id => $info ) : ?>
 									<option value="<?php echo esc_attr( $model_id ); ?>" <?php selected( $model_chat, $model_id ); ?>><?php echo esc_html( $info['label'] ); ?></option>
 								<?php endforeach; ?>
 							</select>
@@ -522,7 +608,7 @@ class DCard_Settings {
 							<?php if ( defined( 'DCARD_GEMINI_API_KEY' ) && DCARD_GEMINI_API_KEY ) : ?>
 								<p class="description">מוגדר כרגע דרך קבוע ב-wp-config.php - הערך כאן מתעלם.</p>
 							<?php endif; ?>
-							<p class="description">נדרש רק אם נבחר אחד ממודלי Gemini (לא מאומתים - ר' הערה ב-MODEL_CHOICES).</p>
+							<p class="description">נדרש רק אם נבחר אחד ממודלי Gemini (לא מאומתים - ר' "verified" ב-data/ai-models.json).</p>
 						</td>
 					</tr>
 					<tr>

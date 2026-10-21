@@ -87,6 +87,15 @@ add_action( 'admin_init', function () {
 	}
 } );
 
+// תקלה בטעינת data/ai-models.json (קובץ חסר/JSON פגום/מודל לא תקין) -
+// מוצגת כ-admin_notice גלובלי, בכל עמוד בניהול, לא רק בעמוד Settings >
+// DCard AI עצמו - כדי שהבעיה תתגלה מיידית (ר' render_model_choices_errors_notice()).
+add_action( 'admin_notices', function () {
+	if ( class_exists( 'DCard_Settings' ) ) {
+		DCard_Settings::render_model_choices_errors_notice();
+	}
+} );
+
 add_action( 'wp_enqueue_scripts', function () {
 	if ( class_exists( 'DCard_Quotas' ) ) {
 		DCard_Quotas::enqueue_frontend_settings();

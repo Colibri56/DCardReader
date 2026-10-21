@@ -549,7 +549,7 @@
     const API_BASE = '/wp-json/dcard/v1/session';
 
     // כתובת הבסיס של דף התשלום בקארדקום - ה-Redirect לאחר שליחת טופס
-    // התשלום (5066) נעשה ישירות מה-JS (ר' submit_success למטה), לא
+    // התשלום (4753) נעשה ישירות מה-JS (ר' submit_success למטה), לא
     // מה-Action המובנה של אלמנטור - כי זה האחרון לא יודע לקרוא מ-
     // localStorage כדי לשרשר את ReturnValue (dcard_userId, ר' תיקון
     // מיפוי ה-SKU/זיהוי המשתמש) באופן דינמי.
@@ -558,11 +558,20 @@
     let sessionToken = null;
     let sessionInitiated = false; // ר' תיקון באג 9 - מונע קריאה כפולה ל-initSession()
 
+    // תיקון יחידת מדידה (Quota Management): "סשן" = שאלה אחת שנשאלה
+    // בתיבת הטקסט הראשית, שבעקבותיה יוצאים לערבוב ועד 3 קלפים - זו
+    // יחידת החיוב/המכסה, לא הודעה/קלף/שאלת-המשך בודדים. דגל חד-פעמי
+    // לסשן הנוכחי: מתאפס ל-false כל פעם שסשן חדש מתחיל (ר' initSession
+    // למטה), ונקבע ל-true ברגע שהסשן "מחויב" לנתיב (קבלת מסר/שיחה
+    // פתוחה) כדי שרק אז המכסה המקומית תיספר - ולא בכל הודעה/קלף נוסף
+    // בתוך אותו סשן שכבר נספר. ר' countSessionIfNeeded למטה.
+    let currentSessionCounted = false;
+
     // תיקון מרוץ (דווח בפועל): "n.getModal is not a function" בקונסול
     // התגלה כנובע מ-openOnboardingPopup() עצמה (ר' המסר המדויק - אין בו
     // "(id=...)", בניגוד להודעה המקבילה ב-openPopupById) - לולאת ה-
     // polling שלה (עד 400 ניסיונות, מתחילה בטעינת העמוד למשתמש חדש)
-    // קוראת showPopup({id:4484}) מחדש אם היא "מגיעה לתורה" בדיוק סביב
+    // קוראת showPopup({id:4723}) מחדש אם היא "מגיעה לתורה" בדיוק סביב
     // הרגע שהמשתמש שולח את הטופס - גם אם הבדיקה הקיימת שם (dcardGetLS
     // על name/gender) אמורה לתפוס את זה, דגל זיכרון סינכרוני, שנקבע
     // כבר בשורה הראשונה האפשרית בתוך ה-capture handler של ה-submit (לא
@@ -657,7 +666,11 @@
         // כולל sessionToken/drawnCards/היסטוריית הצ'אט, אכן הולך לאיבוד)
         // לפחות הטקסט שהוא כתב לא יאבד. נקרא בחזרה ומנוקה פעם אחת בלבד
         // בטעינת העמוד - ר' "שחזור שאלה תקועה" למטה.
-        pendingQuestion: 'dcard_pendingQuestion'
+        pendingQuestion: 'dcard_pendingQuestion',
+        // אמון פסיכולוגי: לא לחזור על אותו קלף תוך אותו סשן (כבר נבדק מול
+        // drawnCards) *או* תוך עד 5 סשנים עוקבים באותו היום - ר'
+        // recentCardExclusionSet/recordCardInHistory למטה.
+        recentCardHistory: 'dcard_recent_card_history'
     };
 
     function dcardGetLS(key) {
@@ -688,6 +701,18 @@
         dcardSetLS(key, String(dcardGetCount(key) + 1));
     }
 
+    // תיקון יחידת מדידה: עוטפת dcardIncrementCount עם המנעול החד-פעמי-
+    // לסשן (currentSessionCounted, ר' ההערה עליו למעלה) - כך שסשן שכבר
+    // "מחויב" לנתיב מסוים (קבלת מסר/שיחה פתוחה) לא יספור את עצמו שוב
+    // בכל קלף נוסף/שאלת המשך בתוך אותו סשן. נקראת מנקודות ה"כניסה
+    // לנתיב" בלבד (btnPathMessage/runCardAI למצב message, btnPathChat/
+    // offerDeepenIntoChat למצב chat) - לא מכל שליחה/קלף בנפרד.
+    function countSessionIfNeeded(limitKey) {
+        if (currentSessionCounted) return;
+        currentSessionCounted = true;
+        dcardIncrementCount(limitKey);
+    }
+
     // המגבלות עצמן מגיעות מה-PHP (Settings > DCard Quotas) דרך
     // wp_localize_script (window.dcardSettings.anonMsgLimit/anonChatLimit -
     // ר' DCard_Quotas::enqueue_frontend_settings). אם משום מה האובייקט חסר
@@ -709,7 +734,7 @@
     // הבקשה לשרת, שהוא היחיד שמכיר את current_credits האמיתי ואוכף אותו
     // (ר' session_card_selected_inner ב-class-dcard-rest-controller.php -
     // מחזיר 403/code=credits_exhausted כשנגמר, וה-fetch handlers למטה
-    // כבר יודעים להגיב ל-403 הזה ולפתוח את פופאפ התשלום 5066).
+    // כבר יודעים להגיב ל-403 הזה ולפתוח את פופאפ התשלום 4753).
     function dcardIsRegistered() {
         return !!(dcardGetLS(DCARD_LS_KEYS.userId) && dcardGetLS(DCARD_LS_KEYS.deviceToken));
     }
@@ -719,8 +744,8 @@
     //
     // *** TODO לפני עלייה לאוויר: למלא כאן את ה-ID האמיתי של פופאפ ההרשמה
     // באלמנטור (0 הוא placeholder בלבד ולעולם לא יתאים לאף פופאפ אמיתי -
-    // ר' התקרית הקודמת בפרויקט הזה עם מספר מזהה שגוי של פופאפ 4954). ***
-    const REGISTRATION_WALL_POPUP_ID = 5031;
+    // ר' התקרית הקודמת בפרויקט הזה עם מספר מזהה שגוי של פופאפ 4729). ***
+    const REGISTRATION_WALL_POPUP_ID = 4749;
 
     // תיקון לולאה אינסופית: triggerRegistrationWall() נקרא שוב ושוב ברצף
     // מהיר (דווח בפועל) - פותח את הפופאפ, וממשיך לנסות שוב ושוב בלי
@@ -748,50 +773,120 @@
             console.warn('[DCard Quota] REGISTRATION_WALL_POPUP_ID not set yet - cannot open the registration popup.');
             return;
         }
+        // השם כבר ידוע (נאסף ב-onboarding, 4723) - מוצג מוכן, לא מבוקש
+        // מחדש. האימייל לרוב עדיין לא ידוע בפעם הראשונה בקיר הזה (זה
+        // בדיוק מה שהטופס הזה אוסף) - populateEmailFieldInPopup פשוט לא
+        // עושה כלום אם אין עדיין ערך שמור (ר' ה-guard הראשון שבתוכה),
+        // אז קריאה לה כאן בטוחה בכל מקרה (למשל חזרה לקיר הזה בפעם שנייה).
+        populateUserFieldsWithRetries(REGISTRATION_WALL_POPUP_ID, true);
         openPopupById(REGISTRATION_WALL_POPUP_ID);
+        populateUserFieldsWithRetries(REGISTRATION_WALL_POPUP_ID, false);
     }
 
-    // קיר התשלום (5066) - נפתח כשהשרת מחזיר 403/code=credits_exhausted
+    // תיקון (דווח בפועל - שם/אימייל עדיין לא נטענים ל-4749/4753 אחרי
+    // הניסיון הקודם): populateUserFieldInPopup מתעלם בשקט אם הקונטיינר
+    // (#elementor-popup-modal-<id>) לא קיים עדיין ב-DOM - וב-Elementor Pro
+    // פופאפ שנפתח רק תכנותית (openPopupById, בלי "On Page Load") לפעמים
+    // מרנדר את תוכנו בפועל רק כחלק מ-showPopup() עצמה, לא מראש בטעינת
+    // העמוד - כלומר הניסיון היחיד שהיה לנו *לפני* openPopupById יכול
+    // לקרות לפני שהקונטיינר בכלל קיים. אין שם event רשמי מתועד שנבדק כאן
+    // בפרויקט הזה שאפשר להסתמך עליו בלי להמר - אז במקום זה: כמה ניסיונות
+    // חזרה (retry) במרווחים לאחר הפתיחה (לא רק לפניה), מתוזמנים ישירות
+    // מתוך הקוד שלנו (לא תלויים ב-trigger/event פנימי של אלמנטור בכלל).
+    // כל ניסיון בטוח לקרוא גם אם לא היה צורך בו (guard פנימי ב-
+    // populateUserFieldInPopup בודק storedValue/container/field בעצמו).
+    function populateUserFieldsWithRetries(popupId, immediateOnly) {
+        populateNameFieldInPopup(popupId);
+        populateEmailFieldInPopup(popupId);
+        if (immediateOnly) return;
+        [150, 400, 900].forEach(function (delay) {
+            setTimeout(function () {
+                populateNameFieldInPopup(popupId);
+                populateEmailFieldInPopup(popupId);
+            }, delay);
+        });
+    }
+
+    // קיר התשלום (4753) - נפתח כשהשרת מחזיר 403/code=credits_exhausted
     // (ר' session_card_selected_inner ב-class-dcard-rest-controller.php),
     // כלומר למשתמש *רשום* שכבר אין לו קרדיטים - לא אותו דבר כמו
     // triggerRegistrationWall (זה האחרון למשתמש אנונימי שמגיע למגבלה
     // המקומית, שאף פעם לא רצה יותר לאחר הרשמה - ר' dcardIsRegistered).
     // Cooldown נפרד משלו, לא משתף את registrationWallLastShownAt, כדי
     // ששני הקירות לא "יחסמו" זה את זה בטעות אם שניהם קרו קרוב בזמן.
-    const PAYMENT_WALL_POPUP_ID = 5066;
+    const PAYMENT_WALL_POPUP_ID = 4753;
     let paymentWallLastShownAt = 0;
     const PAYMENT_WALL_COOLDOWN_MS = 3000;
 
-    // תיקון: שדה האימייל בפופאפ 5066 נשאר ריק, כי שום דבר לא מילא אותו -
+    // תיקון: שדה האימייל בפופאפ 4753 נשאר ריק, כי שום דבר לא מילא אותו -
     // והטופס שם, ללא email, לא נתן ל-DCard_Elementor_Hooks::on_new_record
     // (PHP) לזהות את המשתמש בכלל, כלומר לא היה response.data.dcard* -
     // וזה בעצם הסיבה האמיתית שגם ה-redirect לקארדקום לא קרה (ה-guard
     // הראשון ב-submit_success החזיר מוקדם). ממלאים את השדה כאן, רגע לפני
     // שהפופאפ נפתח - הקונטיינר שלו קיים ב-DOM גם כשהוא מוסתר (אותה הנחה
-    // שכל שאר הקוד כאן כבר מסתמך עליה ל-4484/4954/5031/5066). מנחשים
+    // שכל שאר הקוד כאן כבר מסתמך עליה ל-4723/4729/4749/4753). מנחשים
     // את השדה בכמה אסטרטגיות (type=email קודם, name/id שמכילים "email"
     // אחר כך) ולא שם ספציפי, כי לא ידוע מראש ה-id המדויק שהוגדר בעורך.
     // מפעילים גם 'input' כדי שכל ולידציה חיה של אלמנטור (למשל נעילת
     // כפתור השליחה עד שהשדה "תקין") תזהה את השינוי התכנותי.
-    function populateEmailFieldInPopup(popupId) {
-        const storedEmail = dcardGetLS(DCARD_LS_KEYS.email);
-        if (!storedEmail) return;
+    // תיקון UX (4749/4753): בשני הקירות האלה המשתמש כבר ידוע לנו - שם
+    // ומגדר כבר נאספו בפופאפ ה-onboarding (4723), ואימייל נאסף/נשמר בכל
+    // הרשמה קודמת (ר' submit_success - dcardEmail). מציגים אותם מוכנים
+    // בשדות, לא מבקשים מחדש מאפס - המשתמש עדיין יכול לערוך את שניהם
+    // (ר' בקשה מקורית: "המשתמש יכול לשנות את השם וכתובת המייל").
+    //
+    // generic כי אותה לוגיקה בדיוק נדרשת גם לשם וגם לאימייל, רק סוג
+    // השדה/המפתח ב-localStorage משתנים - לא מכפילים את כל הפונקציה פעמיים.
+    function populateUserFieldInPopup(popupId, storedValue, fieldSelectors, fieldLabel) {
+        if (!storedValue) return;
 
         const container = document.querySelector('#elementor-popup-modal-' + popupId);
-        if (!container) return;
-
-        const emailField = container.querySelector('input[type="email"]')
-            || container.querySelector('input[name*="email" i]')
-            || container.querySelector('input[id*="email" i]');
-        if (!emailField) {
-            console.warn('[DCard Account] populateEmailFieldInPopup(' + popupId + ') - no email-like input found.');
+        if (!container) {
+            console.warn('[DCard Account] populateUserFieldInPopup(' + popupId + ', ' + fieldLabel + ') - container #elementor-popup-modal-' + popupId + ' not in DOM yet.');
             return;
         }
 
-        emailField.value = storedEmail;
-        emailField.dispatchEvent(new Event('input', { bubbles: true }));
-        emailField.dispatchEvent(new Event('change', { bubbles: true }));
-        console.log('[DCard Account] populateEmailFieldInPopup(' + popupId + ') - filled from localStorage.');
+        let field = null;
+        for (let i = 0; i < fieldSelectors.length; i++) {
+            field = container.querySelector(fieldSelectors[i]);
+            if (field) break;
+        }
+        if (!field) {
+            // דאמפ אבחון: כל ה-id/name בפועל של שדות הקלט בפופאפ הזה - כדי
+            // שאם זה עדיין נכשל, יהיה מה בדיוק רואים בפועל, לא ניחוש נוסף.
+            const actualFields = Array.prototype.map.call(
+                container.querySelectorAll('input, textarea, select'),
+                function (el) { return '(id=' + (el.id || '-') + ', name=' + (el.name || '-') + ', type=' + (el.type || '-') + ')'; }
+            );
+            console.warn('[DCard Account] populateUserFieldInPopup(' + popupId + ', ' + fieldLabel + ') - no matching input found. Fields actually present: ' + (actualFields.length ? actualFields.join(', ') : '(none)'));
+            return;
+        }
+
+        field.value = storedValue;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log('[DCard Account] populateUserFieldInPopup(' + popupId + ', ' + fieldLabel + ') - filled from localStorage.');
+    }
+
+    function populateEmailFieldInPopup(popupId) {
+        populateUserFieldInPopup(
+            popupId,
+            dcardGetLS(DCARD_LS_KEYS.email),
+            // #form-field-user_email קודם - הסלקטור המדויק/המוסכם (ר' 4723),
+            // יותר אמין מהתאמה מעורפלת לפי substring; fuzzy matching נשאר
+            // כ-fallback אם פופאפ מסוים לא עוקב אחרי המוסכמה הזו.
+            ['#form-field-user_email', 'input[type="email"]', 'input[name*="email" i]', 'input[id*="email" i]'],
+            'email'
+        );
+    }
+
+    function populateNameFieldInPopup(popupId) {
+        populateUserFieldInPopup(
+            popupId,
+            dcardGetLS(DCARD_LS_KEYS.name),
+            ['#form-field-user_name', 'input[name*="name" i]:not([name*="email" i]):not([type="email"])', 'input[id*="name" i]:not([id*="email" i])'],
+            'name'
+        );
     }
 
     function triggerPaymentWall() {
@@ -802,9 +897,10 @@
         }
         paymentWallLastShownAt = now;
 
-        console.log('[DCard Quota] Credits exhausted (server) - opening payment wall (5066).');
-        populateEmailFieldInPopup(PAYMENT_WALL_POPUP_ID);
+        console.log('[DCard Quota] Credits exhausted (server) - opening payment wall (4753).');
+        populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, true);
         openPopupById(PAYMENT_WALL_POPUP_ID);
+        populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, false);
     }
 
     // ברירת מחדל - משמשת רק אם אין עדיין ערכים שמורים ב-localStorage (ר' למטה)
@@ -919,6 +1015,7 @@
             const data = await res.json();
             if (data.session_token) {
                 sessionToken = data.session_token;
+                currentSessionCounted = false; // סשן חדש - עדיין לא "מחויב" לשום נתיב, ר' countSessionIfNeeded
                 forceCardId = data.forceCardId ? Number(data.forceCardId) : null;
                 chatHistory.innerHTML = ''; // ניקוי אזור הצ'אט לאחר שהחיבור הצליח
 
@@ -965,7 +1062,7 @@
     // הפופאפ (למטה), אחרי ש-userName/userGender כבר מעודכנים מהשדות
     // שהמשתמש באמת מילא.
 
-    // 0ב. פופאפ onboarding (שם + מגדר) - Elementor Popup Builder, post=4484.
+    // 0ב. פופאפ onboarding (שם + מגדר) - Elementor Popup Builder, post=4723.
     // נפתח תכנותית רק אם אין עדיין ערכים שמורים ב-localStorage (ר' storedName/
     // storedGender למעלה) - כלומר פעם ראשונה בלבד לכל דפדפן/מכשיר.
     //
@@ -986,7 +1083,7 @@
         // כך שלמשתמש חוזר (יש כבר storedName/storedGender) אין רגע נראות
         // בכלל, לא רק סגירה מהירה.
         var hideStyle = document.createElement('style');
-        hideStyle.textContent = '#elementor-popup-modal-4484 { display: none !important; }';
+        hideStyle.textContent = '#elementor-popup-modal-4723 { display: none !important; }';
         document.head.appendChild(hideStyle);
         console.log('[DCard Popup] injected CSS to pre-hide popup immediately for returning visitor');
         console.log('[DCard Popup] both already saved -> will keep CLOSING for a few seconds in case Elementor auto-opens it, and starting the session now');
@@ -1039,14 +1136,14 @@
     // תיקון באג 3 (השורש האמיתי של "getModal is not a function" / "Cannot
     // read properties of undefined (reading 'target')" בקונסול): זה שהאובייקט
     // elementorProFrontend.modules.popup כבר קיים לא אומר שהפופאפ הספציפי
-    // (id=4484) כבר נרשם ואותחל אצל אלמנטור. יש שלב פנימי נוסף - אלמנטור
+    // (id=4723) כבר נרשם ואותחל אצל אלמנטור. יש שלב פנימי נוסף - אלמנטור
     // רושם כל פופאפ כ"document" משלו תחת elementorFrontend.documentsManager
     // - ורק אחרי שהרישום הזה הושלם, showPopup/closePopup באמת עובדים בלי
     // לקרוס. קריאה להן לפני כן (המודול הכללי כבר קיים, אבל המסמך הספציפי עוד
     // לא) היא בדיוק מה שגרם לקריסות שראינו בקונסול - ולמצב "לפעמים עובד
     // ולפעמים לא" בלי שום קשר הגיוני לזמן טעינה "גס". מקור: בעיה מתועדת של
     // אלמנטור עצמו - github.com/elementor/elementor/issues/17444.
-    // פורמלית לפי popupId - פופאפ 4484 (onboarding) ו-4954 (הוראות) כל אחד
+    // פורמלית לפי popupId - פופאפ 4723 (onboarding) ו-4729 (הוראות) כל אחד
     // צריך את הבדיקה הזו בנפרד, כי כל אחד הוא "document" נפרד באלמנטור.
     function elementorPopupModuleReady(popupId) {
         return !!(
@@ -1068,11 +1165,11 @@
     // מאתרים את כפתור הסגירה (ה-X) שאלמנטור עצמו מרנדר בתוך הפופאפ, ומדמים
     // עליו לחיצה אמיתית (click()) - בדיוק אותו code path שמשתמש אמיתי
     // שלוחץ על ה-X מפעיל, בלי תלות בניחוש פרמטרים. מאומת מה-HTML בפועל:
-    // <div id="elementor-popup-modal-4484">...<a class="dialog-close-button" ...>.
+    // <div id="elementor-popup-modal-4723">...<a class="dialog-close-button" ...>.
     // הקונטיינר הזה קיים ב-DOM תמיד (הנראות נשלטת ב-style, לא בנוכחות
     // האלמנט) - אז אין יותר צורך בהמתנה ל"מוכנות" כמו עם ה-API הישן.
     function closeOnboardingPopupViaButton() {
-        var closeBtn = document.querySelector('#elementor-popup-modal-4484 .dialog-close-button');
+        var closeBtn = document.querySelector('#elementor-popup-modal-4723 .dialog-close-button');
         if (!closeBtn) return false;
         try {
             closeBtn.click();
@@ -1089,10 +1186,10 @@
     // מגיב ל-click() סינתטי). במקום להמשיך לנחש מנגנונים פנימיים של
     // אלמנטור, פשוט מסתירים את קונטיינר הפופאפ ישירות עם style - עוקף
     // לגמרי את שכבת הטיפול של אלמנטור, בלי תלות בניחוש נכון של ה-API/
-    // מנגנון האירועים הפנימי שלו. #elementor-popup-modal-4484 כבר אומת
+    // מנגנון האירועים הפנימי שלו. #elementor-popup-modal-4723 כבר אומת
     // כקונטיינר האמיתי מתוך ה-HTML בפועל.
     function forceHideOnboardingPopup() {
-        var modal = document.getElementById('elementor-popup-modal-4484');
+        var modal = document.getElementById('elementor-popup-modal-4723');
         if (!modal) return false;
         modal.style.setProperty('display', 'none', 'important');
         return true;
@@ -1113,21 +1210,21 @@
     // לא מסתפקים בניסיון סגירה אחד - ממשיכים לנסות שוב כמה פעמים במהלך
     // השניות הראשונות אחרי הטעינה, כדי לכסות גם פתיחה מאוחרת של ה-trigger.
     // תיקון באג 15: closeOnboardingPopupViaButton/forceHideOnboardingPopup
-    // כבר מתוחמות (scoped) בוודאות ל-#elementor-popup-modal-4484 - לא
-    // יכולות לגעת ב-DOM של 4954 בכלל, גם טכנית. בפועל (דווח + לוג מדויק:
-    // "closeOnboardingPopupIfOpen...clicked" מופיע 6 פעמים אחרי ש-4954
-    // כבר נפתח) ההשפעה על 4954 לא מגיעה מה-DOM query שלנו, אלא מהתנהגות
+    // כבר מתוחמות (scoped) בוודאות ל-#elementor-popup-modal-4723 - לא
+    // יכולות לגעת ב-DOM של 4729 בכלל, גם טכנית. בפועל (דווח + לוג מדויק:
+    // "closeOnboardingPopupIfOpen...clicked" מופיע 6 פעמים אחרי ש-4729
+    // כבר נפתח) ההשפעה על 4729 לא מגיעה מה-DOM query שלנו, אלא מהתנהגות
     // פנימית של אלמנטור: לחיצה (אפילו סינתטית) על .dialog-close-button
-    // של 4484 מפעילה מנגנון ניהול דיאלוגים משותף/גלובלי באלמנטור שסוגר
-    // את "הפופאפ הפעיל כרגע" - ולא בהכרח ספציפית את 4484 - וברגע ש-4954
+    // של 4723 מפעילה מנגנון ניהול דיאלוגים משותף/גלובלי באלמנטור שסוגר
+    // את "הפופאפ הפעיל כרגע" - ולא בהכרח ספציפית את 4723 - וברגע ש-4729
     // כבר נפתח, הוא הפך ל"הפעיל כרגע" מנקודת המבט הזו. ה-guardDelays
-    // (עד 5 שניות) היו ממשיכים ללחוץ על כפתור הסגירה של 4484 הרבה אחרי
-    // שהשרשור כולו כבר עבר ל-4954.
+    // (עד 5 שניות) היו ממשיכים ללחוץ על כפתור הסגירה של 4723 הרבה אחרי
+    // שהשרשור כולו כבר עבר ל-4729.
     //
     // הפתרון: לא עוד DOM query "מדויק יותר" (היא כבר מדויקת) - עוצרים את
     // כל הטיימאאוטים שעדיין ממתינים מה-guard הזה, ברגע שעוברים לפתוח
     // פופאפ אחר (ר' cancelOnboardingPopupGuard, נקרא מתוך ה-submit_success
-    // handler של השרשור, ממש לפני openPopupById(4954)). שימוש חוזר
+    // handler של השרשור, ממש לפני openPopupById(4729)). שימוש חוזר
     // קודם ב-keepOnboardingPopupClosed() (מהעמסת העמוד, למשתמש חוזר) לא
     // נוגע בזה בכלל - שם אין פתיחת פופאפ אחר אחריו שדורשת ביטול.
     //
@@ -1154,12 +1251,12 @@
         });
     }
 
-    // גרסה כללית (לא רק 4484) של closeOnboardingPopupViaButton/
+    // גרסה כללית (לא רק 4723) של closeOnboardingPopupViaButton/
     // forceHideOnboardingPopup - אותה שיטה בדיוק (לחיצה על כפתור הסגירה
     // האמיתי + הסתרה כפויה ב-CSS, scoped לקונטיינר הספציפי לפי ID), כדי
-    // לסגור כל פופאפ אחר (5031/5066 וכו') בלי להסתמך על ה-API הפנימי
+    // לסגור כל פופאפ אחר (4749/4753 וכו') בלי להסתמך על ה-API הפנימי
     // הלא-אמין של אלמנטור (ר' תיקון באג 13/14 למעלה). forceCloseOnboarding
-    // Popup/keepOnboardingPopupClosed נשארות ייעודיות ל-4484 (עם ה-guard
+    // Popup/keepOnboardingPopupClosed נשארות ייעודיות ל-4723 (עם ה-guard
     // loop שלהן) ולא נוגעות בפונקציה הזו - זו רק לסגירה חד-פעמית של
     // פופאפ אחר, בלי לולאת retry.
     function forceClosePopupById(popupId) {
@@ -1215,10 +1312,10 @@
             return; // המשתמש כבר שלח את הפופאפ בינתיים - אין מה לפתוח יותר.
         }
 
-        if (elementorPopupModuleReady(4484)) {
-            console.log('[DCard Popup] calling showPopup({id:4484}) (document ready, attemptsLeft=' + attemptsLeft + ')');
+        if (elementorPopupModuleReady(4723)) {
+            console.log('[DCard Popup] calling showPopup({id:4723}) (document ready, attemptsLeft=' + attemptsLeft + ')');
             try {
-                elementorProFrontend.modules.popup.showPopup({ id: 4484 });
+                elementorProFrontend.modules.popup.showPopup({ id: 4723 });
             } catch (err) {
                 console.warn('[DCard Popup] showPopup threw despite readiness check:', err);
             }
@@ -1226,7 +1323,7 @@
         }
 
         if (attemptsLeft <= 0) {
-            console.warn('[DCard] Elementor popup API never became available after ~60s - cannot open onboarding popup (post=4484).');
+            console.warn('[DCard] Elementor popup API never became available after ~60s - cannot open onboarding popup (post=4723).');
             return;
         }
 
@@ -1237,7 +1334,7 @@
 
     // תיקון באג 12 (ניקוי): לפי לוגים בדפדפן בפועל, הלולאה המקורית כאן
     // (עד 400 ניסיונות, 60 שניות) נכנסה בכל מקרה לריצה ממושכת מול
-    // 4954 בזמן שהפופאפ הראשון עדיין "התנדנד" בין פתוח/סגור - זה (ולא רק
+    // 4729 בזמן שהפופאפ הראשון עדיין "התנדנד" בין פתוח/סגור - זה (ולא רק
     // הניחוש בתיקון באג 11) תרם לחוסר היציבות שדווח. לכן כאן, בשרשור
     // מתוך submit_success בלבד, נשאר רק *ניסיון בדיקה/פתיחה בודד* - לא
     // סבב polling. בדיקת מוכנות (elementorPopupModuleReady) נשארת (לא
@@ -1267,7 +1364,7 @@
     // popupChained הוא מנעול חד-כיווני, שלא מתאפס לעולם. הגנה נוספת למקרה
     // שבו submit_success מופעל יותר מפעם אחת מהפעלת אלמנטור עבור אותה
     // שליחה בודדת (quirk מתועד בכמה גרסאות של אלמנטור) - בלי המנעול הזה,
-    // קריאה כפולה ל-keepOnboardingPopupClosed()/openPopupById(4954) יכולה
+    // קריאה כפולה ל-keepOnboardingPopupClosed()/openPopupById(4729) יכולה
     // לגרום לאותו "הבהוב" שכבר תוקן, רק מסיבה שונה.
     let popupChained = false;
 
@@ -1281,16 +1378,32 @@
         const form = e.target;
         if (!form || typeof form.querySelector !== 'function') return;
 
-        // סלקטורים לפי ה-HTML האמיתי שנבדק בפועל בפופאפ (Elementor Form):
-        // - שם: <input name="form_fields[user_name]" id="form-field-user_name">
-        // - מגדר: לא שדה יחיד אלא שתי checkbox נפרדות שחולקות אותו name
-        //   ("form_fields[user_gender][]") - מבדילים ביניהן רק לפי ה-id:
-        //   form-field-user_gender-0 = זכר, form-field-user_gender-1 = נקבה.
-        //   ה-value שלהן הוא הטקסט העברי ("פנייה בלשון זכר"), לא "male"/"female".
-        const nameField       = form.querySelector('#form-field-user_name, [name="form_fields[user_name]"]');
-        const genderMaleBox   = form.querySelector('#form-field-user_gender-0');
-        const genderFemaleBox = form.querySelector('#form-field-user_gender-1');
-        if (!nameField && !genderMaleBox && !genderFemaleBox) return; // לא טופס ה-onboarding - לא נוגעים
+        // תיקון באג (דווח בפועל - "4749 בסיום מעלה את 4729 בלופ"): ה-handler
+        // הזה היה מזהה "זה טופס ה-onboarding" רק לפי *שמות שדות* (user_name
+        // וכו'), בלי לבדוק *באיזה פופאפ* הטופס בכלל נמצא. פופאפ 4749 (קיר
+        // ההרשמה/Grace) מכיל גם הוא שדה user_name (כדי להציג/לקלוט שם -
+        // ר' populateNameFieldInPopup) - אז שליחתו הופעלה בטעות כאילו זו
+        // שליחת ה-onboarding (4723), וזה בדיוק מה שפתח את 4729 (פופאפ
+        // ההוראות של ה-onboarding, לא קשור בכלל ל-4749) בכל שליחה. התיקון:
+        // דורשים שהטופס הנשלח יהיה *בתוך* #elementor-popup-modal-4723
+        // ספציפית, לפני שבכלל בודקים שמות שדות - התאמת שם שדה דומה בטופס
+        // אחר (4749, או כל טופס עתידי) לא תפעיל יותר את השרשור הזה.
+        if (!form.closest('#elementor-popup-modal-4723')) return;
+
+        // סלקטורים ל-Elementor Form - שני דפוסים נתמכים בכוונה, כי לא ברור
+        // מראש איזה סוג שדה הוגדר בפועל בעורך בלי לראות את ה-HTML שנרנדר:
+        // 1. שדה בודד (Select/Radio עם ID יחיד) בשם user_gender, שהערך שלו
+        //    הוא ישירות 'male'/'female' - הדפוס המומלץ כרגע (ר' הנחיות
+        //    ההגדרה באלמנטור בתשובה) - פשוט יותר, בלי תלות ב-value בעברית.
+        // 2. שתי checkbox/radio נפרדות שחולקות name אחד, מבדלות רק לפי
+        //    סיומת ה-ID (-0/-1) - הדפוס שנמצא בעבר בפופאפ קודם, שבו ה-value
+        //    היה טקסט עברי ("פנייה בלשון זכר"), לא "male"/"female". נשאר
+        //    כ-fallback, לא הוסר - לא עולה כסף לתמוך בשניהם.
+        const nameField        = form.querySelector('#form-field-user_name, [name="form_fields[user_name]"]');
+        const genderSingleField = form.querySelector('#form-field-user_gender');
+        const genderMaleBox    = form.querySelector('#form-field-user_gender-0');
+        const genderFemaleBox  = form.querySelector('#form-field-user_gender-1');
+        if (!nameField && !genderSingleField && !genderMaleBox && !genderFemaleBox) return; // לא טופס ה-onboarding - לא נוגעים
 
         // ר' תיקון המרוץ למעלה (onboardingPopupAbort) - נקבע ברגע הראשון
         // האפשרי בתוך ה-handler הזה, סינכרונית, לפני כל קוד אחר (כולל
@@ -1298,7 +1411,7 @@
         // בצורה הדוקה ביותר שאפשר נגד openOnboardingPopup().
         onboardingPopupAbort = true;
 
-        console.log('[DCard Popup] onboarding form submit detected. nameField found:', !!nameField, 'genderMaleBox found:', !!genderMaleBox, 'genderFemaleBox found:', !!genderFemaleBox);
+        console.log('[DCard Popup] onboarding form submit detected. nameField found:', !!nameField, 'genderSingleField found:', !!genderSingleField, 'genderMaleBox found:', !!genderMaleBox, 'genderFemaleBox found:', !!genderFemaleBox);
 
         // preventDefault משלנו - לא מתוך הנחה שה-JS הפנימי של Elementor
         // יתפוס את ה-submit הזה בזמן. אם ה-JS שלו (שמיירט את השליחה
@@ -1317,11 +1430,18 @@
             userName = nameField.value.trim(); // ר' תיקון באג 9 - מזין את הסשן הראשון בפועל, לא רק טעינות עתידיות
         }
 
-        // checkbox, לא radio - עקרונית אפשר ששתיהן יסומנו או ששתיהן לא.
-        // "נקבה" מקבלת עדיפות אם שתיהן מסומנות; אם אף אחת לא מסומנת, לא
-        // שומרים מגדר בכלל (ואז הפופאפ עדיין ייפתח שוב בפעם הבאה, כי אין
-        // עדיין ערך שמור - דורש שהמשתמש בפועל יבחר אחת מהן).
-        if (genderFemaleBox && genderFemaleBox.checked) {
+        // דפוס 1 (מומלץ): שדה בודד, value ישירות 'male'/'female' - trim+
+        // toLowerCase כי לא בטוח שהעורך ישמור בדיוק את ה-casing הזה.
+        // דפוס 2 (fallback): checkbox, לא radio - עקרונית אפשר ששתיהן
+        // יסומנו או ששתיהן לא. "נקבה" מקבלת עדיפות אם שתיהן מסומנות; אם
+        // אף אחת לא מסומנת ואין גם שדה בודד - לא שומרים מגדר בכלל (ואז
+        // הפופאפ עדיין ייפתח שוב בפעם הבאה, כי אין עדיין ערך שמור - דורש
+        // שהמשתמש בפועל יבחר).
+        const singleGenderValue = genderSingleField ? String(genderSingleField.value).trim().toLowerCase() : '';
+        if ('male' === singleGenderValue || 'female' === singleGenderValue) {
+            dcardSetLS(DCARD_LS_KEYS.gender, singleGenderValue);
+            userGender = singleGenderValue;
+        } else if (genderFemaleBox && genderFemaleBox.checked) {
             dcardSetLS(DCARD_LS_KEYS.gender, 'female');
             userGender = 'female';
         } else if (genderMaleBox && genderMaleBox.checked) {
@@ -1341,7 +1461,7 @@
             initSession();
         }
 
-        // תיקון באג 10 ("הבהוב" - 4954 נפתח ומיד נסגר): הניסיון להגדיר את
+        // תיקון באג 10 ("הבהוב" - 4729 נפתח ומיד נסגר): הניסיון להגדיר את
         // השרשור כ-Action מובנה באלמנטור (Actions After Submit > Open
         // Popup) יצר לופ (אלמנטור כנראה הפעיל את הפעולה גם כ"סגירה" של
         // הפופאפ הנוכחי וגם כ"פתיחה" בצורה שהתנגשה בעצמה) - הוסר משם
@@ -1372,20 +1492,20 @@
             if (popupChained) return; // ר' תיקון באג 11 למעלה - מנעול חד-כיווני נגד הפעלה כפולה
             popupChained = true;
 
-            console.log('[DCard Popup] Elementor submit_success fired - closing onboarding popup (4484) via keepOnboardingPopupClosed() (safe DOM close, not the Elementor API)');
+            console.log('[DCard Popup] Elementor submit_success fired - closing onboarding popup (4723) via keepOnboardingPopupClosed() (safe DOM close, not the Elementor API)');
             keepOnboardingPopupClosed();
 
-            console.log('[DCard Popup] opening instructions popup (4954) 100ms after submit_success, to let the close animation finish');
+            console.log('[DCard Popup] opening instructions popup (4729) 100ms after submit_success, to let the close animation finish');
             setTimeout(function () {
                 // ר' תיקון באג 15 למעלה - מבטל כל ניסיון סגירה שעדיין מתוזמן
-                // על 4484 *לפני* שפותחים את 4954, כדי שאף לחיצה מאוחרת על
-                // כפתור הסגירה של 4484 לא תגיע אחרי ש-4954 כבר "הפופאפ הפעיל".
+                // על 4723 *לפני* שפותחים את 4729, כדי שאף לחיצה מאוחרת על
+                // כפתור הסגירה של 4723 לא תגיע אחרי ש-4729 כבר "הפופאפ הפעיל".
                 cancelOnboardingPopupGuard();
-                openPopupById(4954);
+                openPopupById(4729);
             }, 100);
         });
     } else {
-        console.warn('[DCard Popup] jQuery not found - cannot listen for submit_success. Popup chaining for 4954 will not run.');
+        console.warn('[DCard Popup] jQuery not found - cannot listen for submit_success. Popup chaining for 4729 will not run.');
     }
 
     // Anti account-sharing (שלב 3): מאזין עצמאי ונפרד מזה שלמעלה - לא
@@ -1430,17 +1550,17 @@
             }
 
             // תיקון: is_payment_popup() בצד השרת (לפי $record->get('post_id'))
-            // לא זיהה נכון את 5066 בפועל - formKind חזר 'lead' גם לטופס
+            // לא זיהה נכון את 4753 בפועל - formKind חזר 'lead' גם לטופס
             // התשלום, ש-redirect לקארדקום תלוי בו לחלוטין. לא מסתפקים
             // בתשובת השרת כמקור יחיד - בודקים גם מה-DOM: אם הטופס שבאמת
             // נשלח (e.target, שהוא ה-<form> עצמו לפי jQuery) נמצא בתוך
-            // #elementor-popup-modal-5066, זה *בוודאות* טופס התשלום, לא
+            // #elementor-popup-modal-4753, זה *בוודאות* טופס התשלום, לא
             // משנה מה השרת חשב - דורסים forKind בהתאם. הפוך לא נדרש
             // (אין "בטעות payment במקום lead" מדווח) - רק הכיוון הזה.
             var formKind = response.data.dcardFormKind;
             try {
-                if (e && e.target && typeof e.target.closest === 'function' && e.target.closest('#elementor-popup-modal-5066')) {
-                    console.log('[DCard Account] DOM check: submitted form is inside #elementor-popup-modal-5066 - overriding formKind to "payment" regardless of server value (' + formKind + ').');
+                if (e && e.target && typeof e.target.closest === 'function' && e.target.closest('#elementor-popup-modal-4753')) {
+                    console.log('[DCard Account] DOM check: submitted form is inside #elementor-popup-modal-4753 - overriding formKind to "payment" regardless of server value (' + formKind + ').');
                     formKind = 'payment';
                 }
             } catch (domErr) {
@@ -1452,27 +1572,27 @@
             // חלק 1 (תיקון לולאה + הפרדת פופאפים): dcardFormKind מגיע
             // מ-DCard_Elementor_Hooks::is_payment_popup() בצד השרת (לא
             // מנוחשים כאן ב-JS איזה פופאפ זה היה) - 'payment' = פופאפ
-            // 5066 (התשלום הסופי). לטופס תשלום: שומרים את הטוקן ועוצרים
+            // 4753 (התשלום הסופי). לטופס תשלום: שומרים את הטוקן ועוצרים
             // כאן *לחלוטין* - לא מתחילים סשן, לא ממשיכים שום דבר - נותנים
             // לאלמנטור עצמו לנווט לקארדקום (ה-Redirect המוגדר על הטופס
             // הזה, בפעולה נפרדת שרצה אחרי submit_success). כל טופס אחר
-            // (כולל Grace/5031) ממשיך כרגיל - בפועל "להמשיך כרגיל" כאן
+            // (כולל Grace/4749) ממשיך כרגיל - בפועל "להמשיך כרגיל" כאן
             // פירושו פשוט לא לעצור כלום, בדיוק כמו לפני השינוי הזה: אין
             // קריאה אוטומטית חדשה ל-initSession()/לשליפת קלף מכאן - זה
             // היה בדיוק סוג ה"ניסיון חוזר אוטומטי" שתוקן בבאג הלולאה
             // הקודם. המשתמש פשוט מנסה את הפעולה שנחסמה (קבלת מסר/שליחת
             // שאלה) שוב בעצמו, ועם הקרדיטים החדשים (ר' DCard_Plans
             // למעלה) היא תעבור בהצלחה בפעם הזו.
-            // תיקון: טופס ה-Grace/Lead (5031) היה נשאר פתוח לאחר שליחה -
+            // תיקון: טופס ה-Grace/Lead (4749) היה נשאר פתוח לאחר שליחה -
             // ה-branch הזה היה היעדר לגמרי (רק 'payment' נסגר בעבר).
-            // בניגוד ל-4484 (שיש לו keepOnboardingPopupClosed הייעודי עם
+            // בניגוד ל-4723 (שיש לו keepOnboardingPopupClosed הייעודי עם
             // guard loop, כי שם יש גם trigger "On Page Load" לדאוג לו) -
-            // 5031/5066 נפתחים רק תכנותית (triggerRegistrationWall/
+            // 4749/4753 נפתחים רק תכנותית (triggerRegistrationWall/
             // submit לקארדקום), אז סגירה חד-פעמית (forceClosePopupById,
             // ר' למעלה) מספיקה - אין "trigger מתחרה" שידרוש guard loop.
             if ('lead' === formKind) {
-                console.log('[DCard Account] lead/Grace form (5031) - token saved, closing the popup so the user can return to drawing cards.');
-                forceClosePopupById(5031);
+                console.log('[DCard Account] lead/Grace form (4749) - token saved, closing the popup so the user can return to drawing cards.');
+                forceClosePopupById(4749);
                 // לא עוצרים (אין return) - "להמשיך כרגיל" בפועל: שום פעולה
                 // נוספת נדרשת מכאן, המשתמש ינסה את הפעולה שנחסמה שוב
                 // בעצמו (ר' תיקון החסימה המקומית למטה ב-btnPathMessage/
@@ -1480,14 +1600,14 @@
             }
 
             if ('payment' === formKind) {
-                console.log('[DCard Account] payment form (5066) - token saved, redirecting to Cardcom ourselves (Elementor\'s own Redirect action was removed - it can\'t read localStorage to build the URL dynamically).');
+                console.log('[DCard Account] payment form (4753) - token saved, redirecting to Cardcom ourselves (Elementor\'s own Redirect action was removed - it can\'t read localStorage to build the URL dynamically).');
 
                 // forceClosePopupById - לא closePopup({}, e) - ר' תיקון
                 // באג 13/14 למעלה: ה-API הישיר הזה כשל בדרכים שונות
                 // ולא קשורות כל פעם שנוסה (כולל קורבנות צד: "n.getModal
                 // is not a function" על פופאפ *אחר*). לא עוד try/catch
-                // עם API גולמי - ישר הדרך הבטוחה, בדיוק כמו לעיל ל-5031.
-                forceClosePopupById(5066);
+                // עם API גולמי - ישר הדרך הבטוחה, בדיוק כמו לעיל ל-4749.
+                forceClosePopupById(4753);
 
                 // response.data.dcardUserId הוא המקור הטרי ביותר (מגיע
                 // ישר מהתשובה הזו) - עדיף על לקרוא בחזרה מ-localStorage
@@ -1546,6 +1666,7 @@
     // מוקצה בפועל בתוך setupVoiceInput() למטה - נשאר null אם הדפדפן לא תומך
     // ב-Web Speech API בכלל. נבדק (guard) בכל מקום שמשתמש בו.
     let chatMicController = null;
+    let questionMicController = null;
 
     (function setupVoiceInput() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1665,11 +1786,18 @@
                         suppressTrailingResult = true;
                         recognition.stop();
                     }
+                },
+                // נחשף כדי שמאזיני ה-Enter על userQuestion/chatInput (ר' למטה)
+                // יידעו אם ה-Enter הנוכחי צריך לעצור הקלטה (ולהציג את הטקסט
+                // שכבר נכתב לתיבה ע"י onresult, בלי לשלוח/לערבב) או להתנהג
+                // כרגיל (שליחה/ערבוב) כשאין הקלטה פעילה כלל.
+                isRecording() {
+                    return isRecording;
                 }
             };
         }
 
-        attachVoiceButton(btnMic, userQuestion, 'question');    // בלוק 1: תיבת השאלה
+        questionMicController = attachVoiceButton(btnMic, userQuestion, 'question'); // בלוק 1: תיבת השאלה
         chatMicController = attachVoiceButton(btnMicChat, chatInput, 'chat'); // בלוק 4: שיחה אישית עם ה-AI
         // שורת משוב מאקרו (בלוק 5) - document.getElementById ישיר, לא קבוע
         // feedbackMacroText (שמוכרז רק מאוחר יותר בקובץ, ליד handler
@@ -1856,6 +1984,62 @@
         return (buf[0] % TOTAL_CARDS) + 1;
     }
 
+    // תאריך מקומי (לא UTC) בפורמט YYYY-MM-DD - "היום" מוגדר לפי שעון
+    // המשתמש, כמו שהבקשה המקורית ("עד 5 סשנים עוקבים באותו היום") מתכוונת.
+    function dcardTodayKey() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function loadRecentCardHistory() {
+        try {
+            const raw = dcardGetLS(DCARD_LS_KEYS.recentCardHistory);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    // נקרא כל פעם שנשלף קלף בפועל (ר' appState === 'shuffling' למטה) -
+    // מוסיף אותו לרשומת הסשן הנוכחי בהיסטוריה (לפי sessionToken+תאריך),
+    // ושומר רק את 5 הרשומות האחרונות *של היום* (רשומות של ימים קודמים
+    // לא רלוונטיות לחסימה ומושמטות, כדי שה-localStorage לא יתפח לנצח).
+    function recordCardInHistory(cardId) {
+        const today = dcardTodayKey();
+        const history = loadRecentCardHistory();
+
+        let entry = history.find(function (e) { return e.sessionToken === sessionToken && e.date === today; });
+        if (!entry) {
+            entry = { sessionToken: sessionToken || null, date: today, cards: [] };
+            history.push(entry);
+        }
+        if (!entry.cards.includes(cardId)) {
+            entry.cards.push(cardId);
+        }
+
+        const trimmedToday = history.filter(function (e) { return e.date === today; }).slice(-5);
+        try {
+            localStorage.setItem(DCARD_LS_KEYS.recentCardHistory, JSON.stringify(trimmedToday));
+        } catch (e) {
+            // פרטי/חסום - ממשיכים בלי לשמור, לא עוצרים את הזרימה (אותה
+            // מדיניות כמו dcardSetLS הכללית).
+        }
+    }
+
+    // קבוצת הקלפים ש"תפוסים" בגלל הסשן הנוכחי + עד 5 סשנים עוקבים היום -
+    // drawnCards (הסשן הנוכחי בלבד) נבדק כבר בנפרד, אבל כלול כאן שוב
+    // בכוונה (אין נזק מכפילות ב-Set) כדי שאפשר יהיה בעתיד לבדוק רק מול
+    // הפונקציה הזו, בלי לזכור שני מקורות נפרדים.
+    function recentCardExclusionSet() {
+        const today = dcardTodayKey();
+        const ids = new Set(drawnCards);
+        loadRecentCardHistory()
+            .filter(function (e) { return e.date === today; })
+            .forEach(function (e) { (e.cards || []).forEach(function (id) { ids.add(id); }); });
+        return ids;
+    }
+
     // מציג שוב את הקופה והכפתור רק אם הסוכן הציע קלף נוסף ועוד לא הגענו למקסימום.
     function maybeOfferAnotherCard(nextAction) {
         // 'request_card_draw' מתקבל גם הוא: הסוכן משתמש בו לפעמים כשהוא מסכים לבקשת המשתמש לקלף נוסף.
@@ -1968,12 +2152,21 @@
                 // מצב בדיקה (A/B): הקלף הראשון קבוע. קלפים נוספים חוזרים להגרלה רגילה.
                 randomCardId = forceCardId;
             } else {
+                // אמון פסיכולוגי: לא חוזרים על קלף מהסשן הנוכחי *או* מעד 5
+                // הסשנים הקודמים היום (ר' recentCardExclusionSet למעלה).
+                // attempts מוגבל רק כהגנה תיאורטית - עם TOTAL_CARDS=72
+                // וחסימה מעשית של לכל היותר כ-18 קלפים (3 בסשן * עד 6
+                // סשנים), הלולאה תמיד תמצא קלף פנוי תוך ניסיונות בודדים.
+                const excluded = recentCardExclusionSet();
+                let attempts = 0;
                 do {
                     randomCardId = secureRandomCardId();
-                } while (drawnCards.includes(randomCardId));
+                    attempts++;
+                } while (excluded.has(randomCardId) && attempts < 200);
             }
 
             drawnCards.push(randomCardId);
+            recordCardInHistory(randomCardId);
             let formattedCardId = String(randomCardId).padStart(2, '0');
 
             // תצוגת הקלף
@@ -2063,6 +2256,11 @@
             }
 
             chatModeActive = true; // מכאן ואילך - כמו אחרי btnPathChat - גם בקלפים נוספים
+            // תיקון יחידת מדידה: אם הסשן הזה "התעמק" לשיחה פתוחה אחרי
+            // קבלת מסר (היה כבר נספר כ-anonMsgCount, ר' runCardAI) -
+            // countSessionIfNeeded לא עושה כלום (currentSessionCounted
+            // כבר true) - לא נספר פעמיים כ"שני סשנים" על אותה פנייה אחת.
+            countSessionIfNeeded(DCARD_LS_KEYS.anonChatCount);
             chatInputArea.style.display = '';
             chatInput.focus();
             chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -2093,7 +2291,7 @@
             });
             const cardData = await cardRes.json();
 
-            // תיקון: פתיחת קיר התשלום (5066) כשהשרת מחזיר 403/code=
+            // תיקון: פתיחת קיר התשלום (4753) כשהשרת מחזיר 403/code=
             // credits_exhausted - למשתמש רשום שסיים את הקרדיטים שלו (ר'
             // הסרת הבדיקה המקומית ב-btnPathMessage/btnSend למעלה: עכשיו
             // השרת הוא שמחליט, לא localStorage, אז חייבים להגיב לתשובה שלו).
@@ -2115,11 +2313,13 @@
                     // רק במסלול שיחה אישית יש המשך אפשרי - כולל הצעת קלף נוסף.
                     maybeOfferAnotherCard(cardData.nextAction);
                 } else {
-                    // Freemium PLG, שלב 1: סופרים רק עכשיו - אחרי הצלחה בפועל,
-                    // לא בלחיצה על הכפתור (ר' btnPathMessage, שם נבדקת המגבלה
-                    // *לפני* הקריאה). מסלול "קבלת מסר" הוא מה שהמגבלה הזו
-                    // (dcard_anon_msg_limit) סופרת - ר' הערה ב-DCard_Quotas.
-                    dcardIncrementCount(DCARD_LS_KEYS.anonMsgCount);
+                    // תיקון יחידת מדידה: סופרים *סשן* אחד, לא קלף/הודעה -
+                    // countSessionIfNeeded לא עושה כלום אם הסשן הזה כבר
+                    // נספר (לא רלוונטי כאן בפועל, כי "קבלת מסר" הוא קלף
+                    // יחיד לסשן, אבל אותו מנגנון בדיוק כמו בצ'אט, לא הכפלה
+                    // מיוחדת). לא בלחיצה על הכפתור (ר' btnPathMessage, שם
+                    // נבדקת המגבלה *לפני* הקריאה) - רק אחרי הצלחה בפועל.
+                    countSessionIfNeeded(DCARD_LS_KEYS.anonMsgCount);
                     // מסלול "קבלת מסר": אפשרות מעבר חלק לשיחה פתוחה (לא
                     // reload/ניווט) - כפתור מתחת להודעה עצמה, לא בתוכה.
                     offerDeepenIntoChat(aiBubble);
@@ -2141,6 +2341,16 @@
 
     btnPathChat.addEventListener('click', () => {
         if (pendingCardId === null) return;
+
+        // תיקון יחידת מדידה: הבדיקה (ולא רק הספירה) עברה לכאן - נקודת
+        // הכניסה בפועל לשיחה פתוחה, במקום על כל הודעה בתוכה (ר' btnSend).
+        // אותו דפוס בדיוק כמו ב-btnPathMessage ממש למעלה.
+        if (!dcardIsRegistered() && dcardGetCount(DCARD_LS_KEYS.anonChatCount) >= dcardAnonLimit('chat')) {
+            triggerRegistrationWall();
+            return;
+        }
+
+        countSessionIfNeeded(DCARD_LS_KEYS.anonChatCount);
         chatModeActive = true; // מכאן ואילך תיבת ההקלדה נשארת גלויה גם בקלפים נוספים
         pathChoiceBlock.style.display = 'none';
         chatInputArea.style.display = '';
@@ -2183,14 +2393,10 @@
         if (!text || !sessionToken) return;
         if (userQuestionCount >= MAX_USER_QUESTIONS) return; // הגיע למגבלה, התיבה כבר אמורה להיות מוסתרת
 
-        // Freemium PLG, שלב 1: "שיחה פתוחה" (Intuition Chat) - שאלת טקסט
-        // חופשית. נבדק *לפני* שליחת המשתמש עצמו לצ'אט, בדיוק כמו ב-
-        // btnPathMessage למעלה - לא שולחים אפילו את ה-fetch אם המגבלה הגיעה.
-        // !dcardIsRegistered() - ר' ההערה ב-btnPathMessage למעלה.
-        if (!dcardIsRegistered() && dcardGetCount(DCARD_LS_KEYS.anonChatCount) >= dcardAnonLimit('chat')) {
-            triggerRegistrationWall();
-            return;
-        }
+        // תיקון יחידת מדידה: הבדיקה הועברה לנקודות הכניסה לשיחה פתוחה
+        // (btnPathChat/offerDeepenIntoChat, לפני שהסשן בכלל "מחויב" לנתיב
+        // הזה) - לא כאן, על כל הודעה בנפרד. סשן שכבר עבר את הבדיקה
+        // והתחיל לא נבדק שוב בכל שאלת המשך שלו.
 
         appendMessage('user', text);
         chatInput.value = '';
@@ -2233,9 +2439,11 @@
 
             if (data.aiReply) {
                 appendMessage('ai', data.aiReply);
-                // Freemium PLG, שלב 1: סופרים רק אחרי הצלחה בפועל (אותו עקרון
-                // כמו ב-runCardAI למעלה), לא בלחיצה על "שלח" עצמה.
-                dcardIncrementCount(DCARD_LS_KEYS.anonChatCount);
+                // תיקון יחידת מדידה: הוסרה הספירה-לכל-הודעה שהייתה כאן -
+                // "סשן" נספר פעם אחת, ברגע שהשיחה הפתוחה *מתחילה* (ר'
+                // countSessionIfNeeded ב-btnPathChat/offerDeepenIntoChat),
+                // לא בכל שאלת המשך בתוך אותה שיחה. בלי השורה הזו, כל
+                // הודעה נוספת בשיחה הייתה מנופחת כ"סשן" נוסף.
                 // הסוכן עצמו קובע מתי אין עוד מה לשאול (סימני הבנה, ר' שלב ט'
                 // בהוראות) - זה יכול לקרות הרבה לפני השאלה ה-15, ואז אסור
                 // להמשיך את השיחה רק כי המונה שלנו עוד לא הגיע למגבלה.
@@ -2265,14 +2473,19 @@
     });
 
     // שליחה נוחה עם מקש Enter
-    chatInput.addEventListener('keypress', function (e) {
+    // keydown (לא keypress - מיושן ולא אמין בכל מקלדות מובייל/וירטואליות)
+    chatInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
-            // התיבה היא עכשיו textarea (3 שורות) - בלי preventDefault, Enter
-            // גם שולח וגם מכניס שורה חדשה לתיבה (שמתנקה מיד אחרי, אז נשארת
-            // שורה ריקה "תקועה"). Enter עדיין שולח, כמו קודם; Shift+Enter
-            // להכנסת שורה חדשה בפועל בלי לשלוח.
             if (!e.shiftKey) {
                 e.preventDefault();
+                // בזמן הקלטה: Enter רק עוצר את ההקלטה ומציג את הטקסט שכבר
+                // נכתב לתיבה (ע"י onresult) - לא שולח את ההודעה. המשתמש
+                // יכול לבדוק/לערוך ואז ללחוץ Enter שוב (או "שלח") כשההקלטה
+                // כבר עצרה.
+                if (chatMicController && chatMicController.isRecording()) {
+                    chatMicController.stop();
+                    return;
+                }
                 btnSend.click();
             }
         }
@@ -2282,10 +2495,17 @@
     // כפתור הקופה (btnDeckAction: "ערבב קלפים"/"בחר קלף", לפי appState).
     // readOnly נבדק כי אחרי הנעילה (userQuestion.readOnly = true, ר' לחיצת
     // הכפתור למטה) אין יותר טעם להמשיך להאזין ל-Enter על השדה הנעול.
-    userQuestion.addEventListener('keypress', function (e) {
+    // keydown (לא keypress) - אותה סיבה כמו ב-chatInput למעלה.
+    userQuestion.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' && !userQuestion.readOnly) {
             if (!e.shiftKey) {
                 e.preventDefault();
+                // בזמן הקלטה: Enter רק עוצר אותה ומציג את הטקסט בתיבה - לא
+                // מתחיל ערבוב. אותו היגיון כמו ב-chatInput למעלה.
+                if (questionMicController && questionMicController.isRecording()) {
+                    questionMicController.stop();
+                    return;
+                }
                 // אם הסשן עוד לא הוקם (למשל: Enter נלחץ מיד עם טעינת העמוד,
                 // לפני שהתשובה מ-/session/start חזרה) - לא מציגים את ה-alert
                 // החוסם של btnDeckAction בשביל זה; פשוט מתעלמים מהלחיצה הזו,

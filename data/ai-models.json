@@ -1,0 +1,41 @@
+{
+    "_comment": "רשימת מודלי ה-AI המוצגים ב-Settings > DCard AI. נקרא ע\"י DCard_Settings::get_model_choices() - עריכת הקובץ הזה בלבד מספיקה כדי להוסיף/להסיר מודל, בלי שינוי קוד PHP ובלי deploy. כל רשומה: id (המחרוזת שנשלחת ל-API בפועל, חייב להיות ייחודי), label (טקסט בתפריט), provider (claude|openai|gemini - קובע את ה-endpoint/payload shape ב-DCard_AI_Gateway), verified (true אם המזהה אומת בפועל מול תיעוד רשמי של הספק; false מוסיף '(לא מאומת)' אוטומטית לתווית ומזהיר בלוג - ר' ההערה המקורית ב-class-dcard-settings.php על תקרית מודלים מומצאים/לא קיימים).",
+    "models": [
+  {
+    "id": "gpt-4o-mini",
+    "label": "GPT-4o-mini",
+    "provider": "openai",
+    "verified": true
+  },
+  {
+    "id": "gpt-6-luna",
+    "label": "GPT-6 Luna",
+    "provider": "openai",
+    "verified": true
+  },
+  {
+    "id": "gpt-6.1-sol",
+    "label": "GPT-6.1 Sol",
+    "provider": "openai",
+    "verified": true
+  },
+  {
+    "id": "claude-sonnet-5-5",
+    "label": "Claude Sonnet 5.5",
+    "provider": "claude",
+    "verified": true
+  },
+  {
+    "id": "claude-haiku-5-5",
+    "label": "claude-haiku 5.5",
+    "provider": "claude",
+    "verified": true
+  },
+  {
+    "id": "gemini-1.5-flash",
+    "label": "Gemini 1.5 Flash",
+    "provider": "gemini",
+    "verified": false
+  }
+]
+}

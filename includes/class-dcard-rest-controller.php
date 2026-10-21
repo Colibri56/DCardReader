@@ -201,6 +201,20 @@ class DCard_REST_Controller {
 			),
 		) );
 
+		// אבחון Hostinger/WAF (ר' התשובה המלאה בשיחה): כלי קצר-טווח כדי
+		// להבדיל בין "כל הנתיב הזה חסום" (WAF שמזהה לפי ה-URL/path עצמו)
+		// לבין "רק ה-POST עם תוכן התשלום של קארדקום נחסם" (WAF שבודק את
+		// גוף הבקשה, למשל Imunify360 שמותקן כברירת מחדל ב-Hostinger). GET
+		// פשוט, בלי secret, בלי שום לוגיקה - אפשר לבדוק פשוט בדפדפן/בנייד
+		// בלי curl: ...dcard/v1/webhook/ping. אם גם זה לא עובד - החסימה
+		// היא על ה-path עצמו, לא על תוכן ה-POST. להסיר כשהבעיה נפתרת
+		// (לא מיועד לשימוש קבוע, זה route אבחון בלבד).
+		register_rest_route( self::NAMESPACE_, '/webhook/ping', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'webhook_ping' ),
+			'permission_callback' => '__return_true',
+		) );
+
 		// Freemium PLG: סנכרון מצב מנוי (plan/credits) בדפדפן - נקרא
 		// בטעינת עמוד אחרי חזרה מקארדקום (ר' elementor-code.html), כדי
 		// שה-UI יוכל לדעת שהתשלום הצליח בלי לחכות לפעולה נוספת מהמשתמש.
@@ -365,6 +379,14 @@ class DCard_REST_Controller {
 	}
 
 	private function session_card_selected_inner( WP_REST_Request $request ) {
+		// ר' ההערה המלאה ב-DCard_Rate_Limiter::MAX_CARD_SELECTIONS_PER_HOUR -
+		// זה ה-route היחיד שקורא ל-AI ולא היה מוגבל בקצב בכלל עד כה (אותה
+		// בדיקה ובדיוק אותו מקום ביחס לסניטציה כמו ב-session_turn_inner למטה).
+		$ip = DCard_Rate_Limiter::client_ip();
+		if ( ! DCard_Rate_Limiter::check_card_selected( $ip ) ) {
+			return new WP_REST_Response( array( 'error' => 'יותר מדי בקשות. נסו שוב בעוד קצת.' ), 429 );
+		}
+
 		$session_token = sanitize_text_field( (string) $request->get_param( 'session_token' ) );
 		$card_id       = absint( $request->get_param( 'card_id' ) );
 		$question      = sanitize_textarea_field( (string) $request->get_param( 'question' ) );
@@ -376,17 +398,21 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
 		}
 
-		// Freemium PLG, אכיפת קרדיטים (שלב 4): מזוהה כאן, לא דרך פרמטר
-		// נפרד - X-Dcard-Device-Token כבר מצורף אוטומטית לכל קריאה
-		// מה-frontend (ר' dcardHeaders()), אז כל endpoint יכול לזהות
-		// "זה משתמש רשום?" בלי תלות בזה שהקורא ידע לשלוח user_id בנפרד.
-		// משתמש אנונימי (אין header כזה / לא תואם) - $registered_user
-		// נשאר null, וממשיך בדיוק כמו קודם: אין שום בדיקת קרדיטים בכלל,
-		// המכסה האנונימית עדיין רק בצד הלקוח (localStorage) כפי שהייתה.
-		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
-		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+		// Freemium PLG, אכיפת קרדיטים - תיקון יחידת המדידה: קרדיט אחד =
+		// סשן אחד (שאלה אחת, עד 3 קלפים + כל השיחה סביבם), לא הודעה/קלף
+		// בודד. לכן הבדיקה (ולא רק ה-הורדה, ר' deduct_credit למטה) חלה
+		// *רק* על הקלף הראשון בסשן (drawn_cards עדיין ריק) - קלף שני/
+		// שלישי באותו סשן לא נבדק ולא מוריד קרדיט נוסף, כי הסשן כבר שולם
+		// עליו בקלף הראשון. מזוהה כאן (לא דרך פרמטר נפרד) - X-Dcard-Device-
+		// Token כבר מצורף אוטומטית לכל קריאה מה-frontend. משתמש אנונימי
+		// (אין header כזה / לא תואם) - $registered_user נשאר null, בלי
+		// שום בדיקת קרדיטים (המכסה האנונימית עדיין בצד הלקוח, ברמת סשן גם
+		// היא - ר' התיקון המקביל ב-elementor-code.html).
+		$device_token      = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user   = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+		$is_first_card_draw = empty( $session['drawn_cards'] );
 
-		if ( $registered_user && ! DCard_Users::has_credits( $registered_user['id'] ) ) {
+		if ( $registered_user && $is_first_card_draw && ! DCard_Users::has_credits( $registered_user['id'] ) ) {
 			DCard_Logger::info( 'session_card_selected - registered user out of credits, rejecting with 403', array( 'user_id' => $registered_user['id'] ) );
 			return new WP_REST_Response( array(
 				'success' => false,
@@ -539,10 +565,12 @@ class DCard_REST_Controller {
 		// Only commit the card + state once we have a usable AI response.
 		DCard_DB::add_drawn_card( $session_token, $card_id );
 
-		// ר' הבדיקה למעלה - מורידים קרדיט רק עכשיו, אחרי הצלחה בפועל (לא
-		// בלחיצה/בקשה עצמה) ורק אם זוהה משתמש רשום. no-op למסלול ללא
-		// הגבלה (DCard_Users::deduct_credit כבר בודק את זה בעצמה).
-		if ( $registered_user ) {
+		// ר' הבדיקה למעלה - מורידים קרדיט רק עכשיו, אחרי הצלחה בפועל, רק
+		// אם זוהה משתמש רשום, ו*רק אם זה הקלף הראשון בסשן* ($is_first_card_
+		// draw חושב *לפני* add_drawn_card() - לכן עדיין תקף כאן, לא השתנה
+		// בינתיים). קלף שני/שלישי באותו סשן לא מוריד קרדיט נוסף - הסשן
+		// כולו (עד 3 קלפים + כל השיחה) הוא יחידת החיוב, לא כל קלף בנפרד.
+		if ( $registered_user && $is_first_card_draw ) {
 			DCard_Users::deduct_credit( $registered_user['id'] );
 		}
 		$this->persist_memory_update( $session_token, $session['state'], $data['memory_update'], count( $candidate_ids ) );
@@ -617,22 +645,13 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
 		}
 
-		// Freemium PLG, אכיפת קרדיטים - אותו מנגנון כמו ב-session_card_
-		// selected_inner (ר' ההערה המלאה שם): זיהוי דרך X-Dcard-Device-
-		// Token בלבד, לא דרך פרמטר. סוגר את הפער שהיה קודם - "שיחה
-		// פתוחה" הייתה היחידה שלא נבדקת, אז משתמש רשום שעבר למצב הזה
-		// יכול היה לשלוח הודעות בלי הגבלה אחרי שהקרדיטים נגמרו.
-		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
-		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
-
-		if ( $registered_user && ! DCard_Users::has_credits( $registered_user['id'] ) ) {
-			DCard_Logger::info( 'session_turn - registered user out of credits, rejecting with 403', array( 'user_id' => $registered_user['id'] ) );
-			return new WP_REST_Response( array(
-				'success' => false,
-				'error'   => 'נגמרו הקרדיטים שלך במסלול הנוכחי. אפשר לשדרג כדי להמשיך.',
-				'code'    => 'credits_exhausted',
-			), 403 );
-		}
+		// תיקון יחידת מדידה: קרדיט אחד = סשן אחד (ר' ההערה המלאה ב-
+		// session_card_selected_inner), לא הודעה בודדת. /session/turn הוא
+		// *תוך* סשן שכבר התחיל (ושהקרדיט שלו כבר נבדק/נגבה על הקלף
+		// הראשון) - הודעות שיחה פתוחה לא נבדקות ולא גובות קרדיט נוסף כאן
+		// בכלל יותר. (הוסר - קודם היה כאן בדיקת has_credits/דחיית 403
+		// זהה ל-session_card_selected_inner, שגרמה בפועל לחיוב כפול: קרדיט
+		// אחד על הקלף הראשון ועוד "בדיקה" על כל הודעת מעקב באותו סשן.)
 
 		if ( ! empty( $session['drawn_cards'] ) ) {
 			$session['state']['stage'] = $this->stage_after_draw( $session['state']['stage'], count( $session['drawn_cards'] ) );
@@ -727,11 +746,8 @@ class DCard_REST_Controller {
 			'model'    => $result['model'],
 		) );
 
-		// ר' הבדיקה למעלה - מורידים קרדיט רק אחרי הצלחה בפועל, רק אם
-		// זוהה משתמש רשום (אותו עקרון כמו session_card_selected_inner).
-		if ( $registered_user ) {
-			DCard_Users::deduct_credit( $registered_user['id'] );
-		}
+		// ר' ההערה למעלה - קרדיט אחד = סשן אחד, כבר נגבה (אם בכלל) על
+		// הקלף הראשון ב-session_card_selected_inner. אין עוד גביה כאן.
 
 		return new WP_REST_Response( array(
 			'aiReply'      => $data['speak'],
@@ -777,17 +793,28 @@ class DCard_REST_Controller {
 
 		DCard_DB::set_status( $session_token, 'completed' );
 
+		// Google Sheets logging (ר' Google Apps Script בתשובה): user_id/
+		// user_email מזוהים כאן גם דרך X-Dcard-Device-Token (לא רק מה-
+		// email שהוזן ב-/session/end עצמו, שלרוב לא נשלח כלל אם המשתמש
+		// לא בחר "שליחה במייל") - כך שמשתמש רשום מקבל שורה מלאה גם אם
+		// לא לחץ על שליחת מייל באותו סשן ספציפי.
+		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+		$resolved_email  = ( $email && is_email( $email ) ) ? $email : ( $registered_user ? $registered_user['email'] : null );
+
 		// Beta-testing analytics (Settings > DCard AI > Analytics Webhook URL) -
-		// fire-and-forget, no-op if no URL is configured. user_email only when
-		// one was actually provided and valid on THIS call - email is never
-		// collected anywhere else, so there is nothing earlier to fall back to.
+		// fire-and-forget, no-op if no URL is configured.
 		DCard_Analytics::track( 'session_completed', array(
 			'session_token'      => $session_token,
+			'user_id'            => $registered_user ? (int) $registered_user['id'] : null,
 			'user_name'          => $session['user_name'],
-			'user_email'         => ( $email && is_email( $email ) ) ? $email : null,
+			'user_email'         => $resolved_email,
 			'route'              => DCard_Analytics::route_label( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null ),
 			'cards_drawn'        => count( $session['drawn_cards'] ),
+			'card_ids'           => implode( ', ', array_map( 'intval', $session['drawn_cards'] ) ),
 			'turns_on_last_card' => isset( $session['state']['card_turn_count'] ) ? (int) $session['state']['card_turn_count'] : 0,
+			'llm_model'          => DCard_Analytics::ai_label( $session['transcript'] ),
+			'original_question'  => isset( $session['state']['original_question'] ) ? $session['state']['original_question'] : '',
 			'chat_transcript'    => DCard_Analytics::format_transcript_text( $session['transcript'] ),
 		) );
 
@@ -875,6 +902,21 @@ class DCard_REST_Controller {
 	}
 
 	/**
+	 * ר' ההערה המלאה ליד register_rest_route('/webhook/ping') - route
+	 * אבחון זמני, לא קשור ללוגיקת העסק. error_log בכוונה (לא DCard_Logger) -
+	 * אותה סיבה כמו ב-payment_webhook_inner: רוצים שורה ביומן השרת הגולמי
+	 * שלא תלויה בשום דבר פנימי של הפלאגין, כדי לדעת בוודאות שהבקשה בכלל
+	 * הגיעה לקוד PHP (לא נחסמה קודם ע"י Hostinger/WAF).
+	 */
+	public function webhook_ping( WP_REST_Request $request ) {
+		error_log( '[DCard Webhook] GET /webhook/ping reached PHP successfully.' );
+		return new WP_REST_Response( array(
+			'success' => true,
+			'time'    => gmdate( 'Y-m-d H:i:s' ),
+		), 200 );
+	}
+
+	/**
 	 * IPN מקארדקום. *** עדיין לא מאומת מול payload אמיתי - שם השדות
 	 * וההנחות למטה (ProductID כ-substring, ExternalId = dcardUserId,
 	 * אין הבדל מתועד בין SKU חודשי/שנתי) מבוססים על התיאור שסופק, לא על
@@ -892,6 +934,12 @@ class DCard_REST_Controller {
 		error_log( '[DCard Webhook] /webhook/ipn-update RAW payload: ' . wp_json_encode( $request->get_params() ) );
 		error_log( '[DCard Webhook] /webhook/ipn-update RAW headers: ' . wp_json_encode( $request->get_headers() ) );
 		error_log( '[DCard Webhook] /webhook/ipn-update HTTP method: ' . $request->get_method() );
+		// תיקון אבחון Hostinger/WAF: אם get_params() חזר ריק למרות שקארדקום
+		// בוודאות שולחת שדות - זה יבדיל בין "הבקשה הגיעה ל-PHP אבל וורדפרס
+		// לא פענח אותה" (get_body() כאן יכיל טקסט) לבין "הגוף עצמו הגיע ריק
+		// ל-PHP" (get_body() גם הוא ריק - מצביע על WAF/פרוקסי שמנקה את
+		// הבקשה *לפני* שהיא מגיעה לכאן, לא על בעיית פענוח בקוד שלנו).
+		error_log( '[DCard Webhook] /webhook/ipn-update RAW body (unparsed, length=' . strlen( (string) $request->get_body() ) . '): ' . $request->get_body() );
 
 		// 1. אבטחה: secret יכול להגיע ב-query string (למשל webhook/ipn-update?secret=...)
 		// או בגוף ה-POST - שניהם נבדקים דרך get_param() (WP_REST_Request

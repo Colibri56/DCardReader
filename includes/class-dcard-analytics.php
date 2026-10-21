@@ -61,6 +61,34 @@ class DCard_Analytics {
 	}
 
 	/**
+	 * אותה לוגיקה כמו DCard_Mailer::ai_label() (שם היא private) - איזה
+	 * ספק/מודל בפועל הפיק את התשובות בסשן הזה, נקרא מהתמליל (לא מה-
+	 * Settings הנוכחי, שיכול להיות שונה אם המודל הוחלף באמצע) - נדרש
+	 * כעמודת "LLM Model" ביעד ה-Google Sheets (ר' track() ל-session_completed).
+	 */
+	public static function ai_label( array $transcript ) {
+		$labels = array(
+			'claude' => 'Claude',
+			'openai' => 'OpenAI',
+			'gemini' => 'Gemini',
+		);
+
+		$used = array();
+		foreach ( $transcript as $entry ) {
+			if ( empty( $entry['provider'] ) ) {
+				continue;
+			}
+			$name = isset( $labels[ $entry['provider'] ] ) ? $labels[ $entry['provider'] ] : $entry['provider'];
+			if ( ! empty( $entry['model'] ) ) {
+				$name .= ' (' . $entry['model'] . ')';
+			}
+			$used[ $name ] = true;
+		}
+
+		return $used ? implode( ', ', array_keys( $used ) ) : '';
+	}
+
+	/**
 	 * Plain-text rendering of a session's transcript, for the webhook's
 	 * chat_transcript field on session_completed (raw JSON, not HTML - this
 	 * doesn't go in an email). Same filtering DCard_Mailer::render_html()

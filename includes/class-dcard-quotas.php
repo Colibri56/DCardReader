@@ -116,31 +116,31 @@ class DCard_Quotas {
 				<?php settings_fields( self::OPTION_GROUP ); ?>
 				<table class="form-table" role="presentation">
 					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_ANON_MSG_LIMIT ); ?>">מגבלת הודעות (קבלת מסר) - אנונימי</label></th>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_ANON_MSG_LIMIT ); ?>">מגבלת סשנים (קבלת מסר) - אנונימי</label></th>
 						<td>
 							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_ANON_MSG_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_ANON_MSG_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT ) ); ?>" class="small-text" />
-							<p class="description">כמה פעמים משתמש אנונימי יכול לבחור "קבלת מסר" לפני שמוצג קיר הרשמה.</p>
+							<p class="description">כמה <strong>סשנים</strong> (שאלה אחת שנשאלה בתיבת הטקסט הראשית, עד 3 קלפים בכל סשן) במסלול "קבלת מסר" משתמש אנונימי יכול לפתוח לפני שמוצג קיר הרשמה - לא מספר הודעות/קלפים בפועל.</p>
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_ANON_CHAT_LIMIT ); ?>">מגבלת שאלות (שיחה פתוחה) - אנונימי</label></th>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_ANON_CHAT_LIMIT ); ?>">מגבלת סשנים (שיחה פתוחה) - אנונימי</label></th>
 						<td>
 							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_ANON_CHAT_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_ANON_CHAT_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT ) ); ?>" class="small-text" />
-							<p class="description">כמה שאלות חופשיות בשיחה פתוחה משתמש אנונימי יכול לשלוח לפני שמוצג קיר הרשמה.</p>
+							<p class="description">כמה <strong>סשנים</strong> במסלול "שיחה פתוחה" משתמש אנונימי יכול לפתוח לפני שמוצג קיר הרשמה - לא מספר השאלות שנשלחות בתוך השיחה.</p>
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_REG_MSG_LIMIT ); ?>">מגבלת הודעות (קבלת מסר) - רשום</label></th>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_REG_MSG_LIMIT ); ?>">מגבלת סשנים (קבלת מסר) - רשום (מסלול חינמי)</label></th>
 						<td>
 							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_REG_MSG_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_REG_MSG_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_REG_MSG_LIMIT, self::DEFAULT_REG_MSG_LIMIT ) ); ?>" class="small-text" />
-							<p class="description">שמור לשלב הבא - עדיין לא קיים מנגנון משתמש רשום/התחברות בפלאגין הזה, אז הערך הזה עדיין לא נאכף בפועל.</p>
+							<p class="description">נאכף בפועל: זה גם מספר הקרדיטים (סשנים) שמשתמש רשום במסלול "חינמי" מקבל (ר' DCard_Plans::free_plan_credits) - קלף שני/שלישי באותו סשן, וכל הודעות השיחה סביבו, לא מורידים קרדיט נוסף.</p>
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>">מגבלת שאלות (שיחה פתוחה) - רשום</label></th>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>">מגבלת סשנים (שיחה פתוחה) - רשום</label></th>
 						<td>
 							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_REG_CHAT_LIMIT, self::DEFAULT_REG_CHAT_LIMIT ) ); ?>" class="small-text" />
-							<p class="description">שמור לשלב הבא - ר' הערה למעלה.</p>
+							<p class="description">שמור לשלב הבא - עדיין אין הבדל בפועל בין מסלולים לפי המספר הזה ספציפית (ר' הערה למעלה - מסלול "חינמי" נשלט כרגע ע"י OPTION_REG_MSG_LIMIT בלבד, לשני סוגי הסשן).</p>
 						</td>
 					</tr>
 				</table>
