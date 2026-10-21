@@ -931,7 +931,22 @@ class DCard_REST_Controller {
 		// ובאיזו צורה בדיוק - לפני שמשהו כאן מספיק לדחות/לפרש את הבקשה.
 		// אם אין שום שורה כזו ביומן אחרי ניסיון תשלום אמיתי - ה-URL/ה-
 		// secret שהוזנו בממשק קארדקום שגויים, זו לא בעיית parsing בקוד.
-		error_log( '[DCard Webhook] /webhook/ipn-update RAW payload: ' . wp_json_encode( $request->get_params() ) );
+		//
+		// תיקון אבטחה (דווח ע"י תמיכת Hostinger): error log של השרת הוא
+		// טקסט גלוי שבני אדם (צוות תמיכה, כל מי שיש לו גישת hPanel/SSH)
+		// יכולים לקרוא - הדאמפ הגולמי היה חושף את ה-secret האמיתי של ה-
+		// webhook וגם PII מלא של לקוחות (מייל/טלפון/סכום) בכל קריאה. כאן
+		// ממסכים במפורש רק את ה-secret (השדה היחיד שהוא *credential*, לא
+		// רק מידע תפעולי) - שאר השדות (headers/payload) נשארים גלויים
+		// כי זה בדיוק מה שדרוש לאבחון, אבל ר' ההנחיה בתשובה המלאה: יש
+		// להחליף (rotate) את ה-secret בפועל אחרי שנחשף כך בטקסט גלוי
+		// לצוות Hostinger, ולהוריד/להקטין את רמת הלוג הזו לאחר שהתקלה
+		// נפתרת - לא מיועד להישאר ברמת הפירוט הזו לצמיתות.
+		$redacted_params = $request->get_params();
+		if ( isset( $redacted_params['secret'] ) ) {
+			$redacted_params['secret'] = '[REDACTED]';
+		}
+		error_log( '[DCard Webhook] /webhook/ipn-update RAW payload (secret redacted): ' . wp_json_encode( $redacted_params ) );
 		error_log( '[DCard Webhook] /webhook/ipn-update RAW headers: ' . wp_json_encode( $request->get_headers() ) );
 		error_log( '[DCard Webhook] /webhook/ipn-update HTTP method: ' . $request->get_method() );
 		// תיקון אבחון Hostinger/WAF: אם get_params() חזר ריק למרות שקארדקום
@@ -939,7 +954,12 @@ class DCard_REST_Controller {
 		// לא פענח אותה" (get_body() כאן יכיל טקסט) לבין "הגוף עצמו הגיע ריק
 		// ל-PHP" (get_body() גם הוא ריק - מצביע על WAF/פרוקסי שמנקה את
 		// הבקשה *לפני* שהיא מגיעה לכאן, לא על בעיית פענוח בקוד שלנו).
-		error_log( '[DCard Webhook] /webhook/ipn-update RAW body (unparsed, length=' . strlen( (string) $request->get_body() ) . '): ' . $request->get_body() );
+		// secret ממוסך גם כאן (regex גולמי על ה-body, לא תלוי בפרמטר
+		// ששמו בדיוק "secret" - חוסך מקרה קצה שבו ה-body עצמו מכיל את
+		// המחרוזת גם אם get_params() כבר לא הראה אותה).
+		$raw_body = (string) $request->get_body();
+		$raw_body_redacted = preg_replace( '/secret=[^&\s]+/i', 'secret=[REDACTED]', $raw_body );
+		error_log( '[DCard Webhook] /webhook/ipn-update RAW body (unparsed, secret redacted, length=' . strlen( $raw_body ) . '): ' . $raw_body_redacted );
 
 		// 1. אבטחה: secret יכול להגיע ב-query string (למשל webhook/ipn-update?secret=...)
 		// או בגוף ה-POST - שניהם נבדקים דרך get_param() (WP_REST_Request
@@ -947,8 +967,27 @@ class DCard_REST_Controller {
 		// (לא לעזור לניסיונות ניחוש).
 		$secret = (string) $request->get_param( 'secret' );
 		if ( ! $secret || ! hash_equals( DCARD_WEBHOOK_SECRET, $secret ) ) {
+			// תיקון אבחון (דווח בפועל: secret לא תואם אחרי rotation) - בלי
+			// לחשוף אף אחד משני ה-secret-ים בטקסט גלוי (אותה מדיניות כמו
+			// קודם, הפעם מול לוג וורדפרס/WooCommerce שהמנהל קורא, לא רק
+			// תמיכת Hostinger - עדיין לא ראוי לכתוב secret אמיתי ללוג).
+			// מה שכן מספיק כדי לאבחן רווח מיותר/גרשיים שהועתקו בטעות/
+			// secret שעודכן רק בצד אחד: אורך כל ערך, ותחילית+סופית קצרות
+			// וממוסכות (לא כל הערך) של כל אחד מהם בנפרד.
+			$mask = function ( $value ) {
+				$value = (string) $value;
+				$len   = strlen( $value );
+				if ( $len <= 4 ) {
+					return str_repeat( '*', $len );
+				}
+				return substr( $value, 0, 2 ) . str_repeat( '*', $len - 4 ) . substr( $value, -2 );
+			};
 			DCard_Logger::warning( 'POST /webhook/ipn-update - missing/invalid secret, rejecting', array(
-				'received_keys' => array_keys( $request->get_params() ),
+				'received_keys'          => array_keys( $request->get_params() ),
+				'received_secret_len'    => strlen( $secret ),
+				'received_secret_masked' => $mask( $secret ),
+				'expected_secret_len'    => strlen( (string) DCARD_WEBHOOK_SECRET ),
+				'expected_secret_masked' => $mask( (string) DCARD_WEBHOOK_SECRET ),
 			) );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'Unauthorized' ), 403 );
 		}
