@@ -27,12 +27,18 @@ if ( ! defined( 'DCARD_WEBHOOK_SECRET' ) ) {
 	define( 'DCARD_WEBHOOK_SECRET', 'MySecretDcardKey2026' );
 }
 
-// 2. הפעלת מנגנון זיכרון (Session) עבור הקלפים
-add_action( 'init', function() {
-	if ( ! session_id() ) {
-		session_start();
-	}
-}, 1 );
+// 2. תיקון (WordPress Site Health - "אותר סשן PHP פעיל"): session_start()
+// גלובלי על *כל* בקשה (כולל REST API, cron, admin-ajax, ה-webhook מקארדקום)
+// נעל קובץ PHP session לכל בקשה מאותו סשן, עד ש-session_write_close()
+// נקרא - שלא קרה כאן אף פעם. כל בקשה עם ריצה ארוכה (למשל קריאת AI באורך
+// כמה שניות ב-session_card_selected/session_turn) נעלה בפועל כל בקשה
+// אחרת מאותו דפדפן, כולל בדיקת ה-REST API הפנימית של וורדפרס עצמו
+// (loopback) - זו בדיוק הסיבה ל"cURL error 28: timed out" שראינו ב-
+// Site Health. היחיד שבאמת צריך $_SESSION הוא
+// \TheCardReaderCore\Cards_Manager::handle_card_draw_and_reset() (קוד
+// ישן, לא ה-REST API) - שרץ רק ב-template_redirect (טעינת עמוד רגילה),
+// שלעולם לא מופעל בבקשות REST API בכלל. ה-session_start() הוזז לשם
+// עצמו, רק כשבאמת נדרש - ר' class-cards-manager.php.
 
 // 3. מנהל הקלפים (החלק החדש)
 require_once TCR_CORE_PATH . 'includes/core/class-cards-manager.php';

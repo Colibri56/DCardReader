@@ -124,6 +124,16 @@ class Cards_Manager {
 	}
 
 	public function handle_card_draw_and_reset() {
+		// session_start() הועבר לכאן (לא גלובלי יותר - ר' ההערה ב-
+		// the-card-reader-core.php) - רק כשבאמת צריך $_SESSION, ורק
+		// לבקשת עמוד רגילה (template_redirect, לא REST API בכלל).
+		if ( ! isset( $_GET['draw_card'] ) && ! isset( $_GET['reset_deck'] ) ) {
+			return; // לא קשור לקלפים בכלל - לא פותחים session על לא-כלום
+		}
+		if ( ! session_id() ) {
+			session_start();
+		}
+
 		// שליפת קלף חדש
 		if ( isset( $_GET['draw_card'] ) && $_GET['draw_card'] == 'yes' ) {
 			if ( ! isset( $_SESSION['drawn_cards'] ) ) {
