@@ -1069,10 +1069,25 @@ class DCard_REST_Controller {
 		}
 
 		if ( ! $user ) {
+			// תיקון אבחון (דווח בפועל: קבוצת בקשות עם מיילים לא-קשורים שהגיעו
+			// תוך שניות ספורות - לא ברור אם זה IPN אמיתי של מוצרים *אחרים*
+			// של אותו חשבון קארדקום (אם ה-webhook מוגדר ברמת החשבון, לא רק
+			// למוצר הזה) או משהו אחר). מוסיפים את ה-ProductID כאן, לפני
+			// שבודקים user - כדי לדעת מיד אם זה בכלל שייך למוצר "הקורא
+			// בקלפים" (מק"ט 601, ר' DCard_Plans) בלי לפנות לקארדקום לשאול.
+			$diag_product_id = (string) $request->get_param( 'ExtReadInvoiceLines_ProductID' );
+			if ( ! $diag_product_id ) {
+				$diag_lines = $request->get_param( 'ExtReadInvoiceLines' );
+				if ( is_array( $diag_lines ) && isset( $diag_lines[0]['ProductID'] ) ) {
+					$diag_product_id = (string) $diag_lines[0]['ProductID'];
+				}
+			}
 			DCard_Logger::warning( 'POST /webhook/ipn-update - no user found via ReturnValue or email fallback', array(
 				'return_value'   => $return_value,
 				'email_raw'      => $email_from_ipn,
 				'email_decoded'  => $email_decoded,
+				'product_id'     => $diag_product_id,
+				'invoice_number' => (string) $request->get_param( 'ExtReadInvoiceHead_InvoiceNumber' ),
 			) );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא (ReturnValue ואימייל לא תואמים)' ), 404 );
 		}
