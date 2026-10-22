@@ -924,6 +924,15 @@ class DCard_REST_Controller {
 	 * ל-WooCommerce > Status > Logs (מקור dcard-ai-reader) לפני production. ***
 	 */
 	private function payment_webhook_inner( WP_REST_Request $request ) {
+		// 0a. אבחון ממוקד (זמני - להסיר אחרי שמאמתים): האם ה-secret אכן
+		// עבר ל-POST body (כמו שהוגדר כרגע בממשק קארדקום, "הוסף את פרטי
+		// המסמך ב-POST") או שהוא עדיין מגיע כ-query string ב-URL עצמו
+		// (ואז עדיין ייכתב בלוג הגישה הגולמי של השרת, ללא קשר לקוד כאן).
+		// ממסך את ה-secret אם בכלל מופיע ב-REQUEST_URI - רק מראה *אם* הוא
+		// שם, לא את הערך עצמו.
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		error_log( '[DCard Webhook] /webhook/ipn-update REQUEST_URI (secret redacted if present): ' . preg_replace( '/secret=[^&\s]+/i', 'secret=[REDACTED]', $request_uri ) . ' | secret-in-URL=' . ( false !== stripos( $request_uri, 'secret=' ) ? 'YES' : 'no' ) );
+
 		// 0. לוג גולמי, לפני כל בדיקה (גם secret) - בכוונה error_log() ולא
 		// DCard_Logger: זה כותב ל-error log הרגיל של PHP/וורדפרס (debug.log
 		// אם WP_DEBUG_LOG מופעל, או error log השרת), בלי תלות ב-WooCommerce
@@ -961,10 +970,33 @@ class DCard_REST_Controller {
 		$raw_body_redacted = preg_replace( '/secret=[^&\s]+/i', 'secret=[REDACTED]', $raw_body );
 		error_log( '[DCard Webhook] /webhook/ipn-update RAW body (unparsed, secret redacted, length=' . strlen( $raw_body ) . '): ' . $raw_body_redacted );
 
+		// 0b. אבחון נוסף (לא חוסם - log-only): כתובת ה-IP הקבועה שקארדקום
+		// שולחת ממנה IPN אומתה בפועל (82.80.227.18, ר' הלוג/הדיווח של
+		// Hostinger). אם בעתיד נראה כאן IP אחר כש-secret כן תקין - זה סימן
+		// שקארדקום שינתה שרת/IP מבלי שידענו. לא הופך לבדיקת חובה עדיין
+		// (לא לסכן לחסום תשלומים אמיתיים על בדיקה לא מאומתת מספיק), רק log.
+		$cardcom_known_ip = '82.80.227.18';
+		$actual_ip        = DCard_Rate_Limiter::client_ip();
+		if ( $actual_ip !== $cardcom_known_ip ) {
+			DCard_Logger::info( 'POST /webhook/ipn-update - source IP differs from known Cardcom IP (log-only, not blocking)', array(
+				'actual_ip'   => $actual_ip,
+				'expected_ip' => $cardcom_known_ip,
+			) );
+		}
+
 		// 1. אבטחה: secret יכול להגיע ב-query string (למשל webhook/ipn-update?secret=...)
 		// או בגוף ה-POST - שניהם נבדקים דרך get_param() (WP_REST_Request
 		// ממזג את שניהם). ללא secret תואם - 403, לא מידע נוסף על הסיבה
 		// (לא לעזור לניסיונות ניחוש).
+		//
+		// *** אבטחה - בעיה ידועה, לא פתורה: ה-secret מגיע כ-query string
+		// (כפי שהוגדר בפועל בממשק קארדקום), ולכן הוא נכתב בטקסט גלוי בלוג
+		// הגישה הסטנדרטי (access log) של השרת - לא קשור לקוד הזה בכלל
+		// (כל שרת web רושם את ה-URL המלא כולל query string, זו התנהגות
+		// ברירת מחדל). אם קארדקום תומכת בשליחת secret כפרמטר ב-body (POST
+		// field) במקום ב-URL - זה היה פותר את זה. לא ידוע אם זו אפשרות
+		// נתמכת בממשק שלהם - יש לבדוק. עד אז, ה-secret ימשיך להופיע בלוגי
+		// שרת גולמיים (ולא בלוגים שהקוד שלנו כותב - אלה כבר ממוסכים). ***
 		$secret = (string) $request->get_param( 'secret' );
 		if ( ! $secret || ! hash_equals( DCARD_WEBHOOK_SECRET, $secret ) ) {
 			// תיקון אבחון (דווח בפועל: secret לא תואם אחרי rotation) - בלי
