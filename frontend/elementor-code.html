@@ -158,7 +158,7 @@
     .card-2 { transform: rotate(1deg) translate(-2px, -1px); z-index: 2; }
     .card-3 { transform: rotate(-1deg) translate(0, 0); z-index: 3; }
 
-    /* מחלקות האנימציה שמופעלות בעת הערבוב */
+    /* מחלקות האנימציה שמופעלות בעת הערבוב - מצב "גלגול" אופקי (היה קיים) */
     .card-back.shuffle-left {
         transform: translateX(-120px) rotate(-15deg);
         z-index: 5 !important;
@@ -166,6 +166,19 @@
 
     .card-back.shuffle-right {
         transform: translateX(120px) rotate(15deg);
+        z-index: 5 !important;
+    }
+
+    /* תיקון: "הדינמיקה לא בולטת מספיק" - מצב שני, "קפיצה" אנכית, שמתחלף
+       עם המצב האופקי כל 3.5 שניות (ר' shuffleModeInterval ב-JS) - נותן
+       תחושת תנועה שונה לגמרי, לא רק את אותה החלקה אופקית כל הזמן. */
+    .card-back.shuffle-bounce-up {
+        transform: translateY(-70px) scale(1.05);
+        z-index: 5 !important;
+    }
+
+    .card-back.shuffle-bounce-down {
+        transform: translateY(10px) scale(0.97);
         z-index: 5 !important;
     }
 
@@ -220,6 +233,25 @@
        שליפת הקלפים למטה) - כך שהדהייה-פנימה קורית בדיוק כשיש מה להראות. */
     .card-display.card-fade-in {
         animation: cardEnter 0.5s ease-out forwards;
+    }
+    /* כפתור "קלף נוסף" ליד התמונה - עיצוב משני/עדין בכוונה (לא כמו btn-main),
+       כי זו עדיין לא פעולה מודגשת/מעודדת, רק זמינה למי שרוצה אותה. */
+    .btn-extra-card {
+        background: transparent;
+        color: #8B1E3F;
+        border: 1.5px solid #8B1E3F;
+        padding: 8px 20px;
+        font-size: 14px;
+        border-radius: 50px;
+        cursor: pointer;
+    }
+    .btn-extra-card:hover {
+        background: #8B1E3F;
+        color: white;
+    }
+    .btn-extra-card:disabled {
+        opacity: 0.5;
+        cursor: default;
     }
     .card-id-label {
         font-size: 14px;
@@ -928,6 +960,12 @@
     let forceCardId = null; // מצב בדיקה: מגיע מהשרת (Settings > DCard AI), null = הגרלה רגילה
     let appState = 'start';
     let shuffleInterval;
+    // תיקון "דינמיקה לא בולטת" - מצב האנימציה הנוכחי, מתחלף כל 3.5 שניות
+    // (ר' shuffleModeInterval) בין 'horizontal' (הקיים - החלקה שמאלה/ימינה)
+    // ל-'bounce' (חדש - קפיצה אנכית). performShuffleStep קורא במשתנה הזה
+    // בכל טיק (כל 900ms) כדי לדעת איזה זוג מחלקות CSS להפעיל הפעם.
+    let shuffleMode = 'horizontal';
+    let shuffleModeInterval;
 
     // אלמנטים מה-DOM
     const userQuestion = document.getElementById('user-question');
@@ -2063,8 +2101,14 @@
     function beginShuffling() {
         appState = 'shuffling';
         btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
+        shuffleMode = 'horizontal'; // תמיד מתחילים מאותו מצב, לעקביות
         performShuffleStep();
         shuffleInterval = setInterval(performShuffleStep, 900);
+        // מחליף דינמיקה כל 3.5 שניות - ר' ההערה ליד הגדרת shuffleMode למעלה.
+        clearInterval(shuffleModeInterval); // הגנה נגד הפעלה כפולה אם beginShuffling נקרא שוב בלי לעצור את הקודם
+        shuffleModeInterval = setInterval(function () {
+            shuffleMode = ('horizontal' === shuffleMode) ? 'bounce' : 'horizontal';
+        }, 3500);
     }
 
     // נועל את תיבת הכתיבה ומציג הודעת סיום במקומה. נקרא משני מקומות שונים
@@ -2079,6 +2123,14 @@
     function lockChatInput(message) {
         chatInputArea.style.display = 'none';
 
+        // תיקון: "השורה בתחתית תיבת השיחה נראית מיותרת" - הסוכן עצמו כבר
+        // כותב משפט סגירה מפורש בתוך ההודעה האחרונה שלו (ר' agent-brain-
+        // instructions.md שלב ט'), אז הודעה כפולה כאן לא נדרשת. message
+        // ריק (או falsy) פשוט נועל את התיבה בלי להוסיף טקסט נוסף מתחתיה -
+        // עדיין בשימוש בקריאות אחרות ל-lockChatInput עם טקסט אמיתי (למשל
+        // מגבלת שאלות), שם זה עדיין נחוץ.
+        if (!message) return;
+
         if (document.getElementById('chat-limit-message')) return; // כבר מוצג, לא כופלים
 
         const limitMsg = document.createElement('div');
@@ -2091,16 +2143,22 @@
         chatInputArea.insertAdjacentElement('afterend', limitMsg);
     }
 
-    // פונקציית האנימציה (ללא שינוי)
+    // תיקון "דינמיקה לא בולטת מספיק": לפי shuffleMode (מתחלף כל 3.5 שניות,
+    // ר' beginShuffling) - 'horizontal' מפעיל את ההחלקה שמאלה/ימינה
+    // המקורית, 'bounce' מפעיל קפיצה אנכית (מחלקות CSS חדשות). אותה
+    // אסטרטגיה בדיוק (index % 2 לפיצול בין שתי התנועות), רק זוג מחלקות
+    // שונה לפי המצב.
     function performShuffleStep() {
+        const classA = ('bounce' === shuffleMode) ? 'shuffle-bounce-up' : 'shuffle-left';
+        const classB = ('bounce' === shuffleMode) ? 'shuffle-bounce-down' : 'shuffle-right';
         animationCards.forEach((card, index) => {
             setTimeout(() => {
-                card.classList.add(index % 2 === 0 ? 'shuffle-left' : 'shuffle-right');
+                card.classList.add(index % 2 === 0 ? classA : classB);
             }, index * 100);
         });
         setTimeout(() => {
             animationCards.forEach(card => {
-                card.classList.remove('shuffle-left', 'shuffle-right');
+                card.classList.remove('shuffle-left', 'shuffle-right', 'shuffle-bounce-up', 'shuffle-bounce-down');
                 card.style.zIndex = Math.floor(Math.random() * 10);
             });
         }, 400);
@@ -2146,6 +2204,7 @@
 
         if (appState === 'shuffling') {
             clearInterval(shuffleInterval);
+            clearInterval(shuffleModeInterval);
 
             let randomCardId;
             if (forceCardId && !drawnCards.includes(forceCardId)) {
@@ -2185,6 +2244,23 @@
         //    idLabel.innerText = `(קלף מס' ${formattedCardId})`;
             cardWrapper.appendChild(imgElement);
          //   cardWrapper.appendChild(idLabel);
+
+            // תיקון: כפתור "קלף נוסף" ליד התמונה עצמה - יוזמה של המשתמש,
+            // לא רק כש-AI מציע (ר' maybeOfferAnotherCard, שנשאר כפי שהיה -
+            // שני המסלולים מובילים לאותה פונקציה). מוצג רק אם עוד לא הגענו
+            // למגבלה (MAX_CARDS) - בלי תלות ב-nextAction של הסוכן.
+            if (drawnCards.length < MAX_CARDS) {
+                const extraCardBtn = document.createElement('button');
+                extraCardBtn.type = 'button';
+                extraCardBtn.className = 'btn-extra-card';
+                extraCardBtn.innerText = 'קלף נוסף';
+                extraCardBtn.addEventListener('click', function () {
+                    extraCardBtn.disabled = true; // חד-פעמי - מונע כמה קליקים בזמן שהערבוב כבר מתחיל
+                    maybeOfferAnotherCard('request_card_draw');
+                });
+                cardWrapper.appendChild(extraCardBtn);
+            }
+
             cardsContainer.appendChild(cardWrapper);
 
             block3Cards.style.display = 'block';
@@ -2192,9 +2268,9 @@
             block5Actions.style.display = 'flex';
 
             if (drawnCards.length < MAX_CARDS) {
-                // קלף נוסף הוא אופציונלי ולא מעודדים אותו: הקופה והכפתור
-                // מוסתרים עד שהסוכן מציע קלף נוסף (nextAction === 'offer_another_card'),
-                // כדי שהמשתמש יתאמץ ויהיה יצירתי עם הקלף שכבר לפניו.
+                // הקופה/הכפתור המקוריים (btnDeckAction) נשארים מוסתרים - לא
+                // מעודדים קלף נוסף באופן בולט; כפתור "קלף נוסף" החדש ליד
+                // התמונה (למעלה) הוא הדרך היחידה כעת ליזום את זה ידנית.
                 appState = 'drawn';
                 btnDeckAction.innerText = ( 'female' === userGender ) ? "שלפי קלף נוסף" : "שלוף קלף נוסף";
                 visualDeck.style.display = 'none';
@@ -2465,7 +2541,9 @@
                 // לא נועלים עם הודעת "מקסימום שאלות" שגויה - פופאפ התשלום
                 // (triggerPaymentWall) כבר הוצג, זה ההודעה הרלוונטית כאן.
             } else if (agentEndedConversation) {
-                lockChatInput('קיבלת תשובה לשאלה שלך. אפשר לשלוח את השיחה במייל למטה, או ללחוץ "שאלה חדשה" כדי להתחיל מחדש.');
+                // תיקון: בוטלה ההודעה הנוספת כאן (הסוכן כבר כותב משפט סגירה
+                // מפורש בתוך ההודעה שלו) - עדיין נועלים את תיבת הכתיבה.
+                lockChatInput();
             } else if (isFinalTurn) {
                 lockChatInput('הגעת למקסימום השאלות לקריאה זו. לקריאה חדשה לחץ על הכפתור למטה.');
             }
