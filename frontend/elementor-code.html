@@ -170,8 +170,8 @@
     }
 
     /* תיקון: "הדינמיקה לא בולטת מספיק" - מצב שני, "קפיצה" אנכית, שמתחלף
-       עם המצב האופקי כל 3.5 שניות (ר' shuffleModeInterval ב-JS) - נותן
-       תחושת תנועה שונה לגמרי, לא רק את אותה החלקה אופקית כל הזמן. */
+       עם המצב האופקי כל 2 עירבובים (ר' shuffleStepCount ב-JS, לא לפי זמן) -
+       נותן תחושת תנועה שונה לגמרי, לא רק את אותה החלקה אופקית כל הזמן. */
     .card-back.shuffle-bounce-up {
         transform: translateY(-70px) scale(1.05);
         z-index: 5 !important;
@@ -452,45 +452,34 @@
         opacity: 0.35;
     }
 
-    /* שלושה שלבי אנימציה לנקודות ההמתנה. ה-JS (showTyping) מוסיף לאלמנט
-       .dcard-typing-dots את המחלקה הנכונה לפי הזמן שחלף מאז שהתחילה ההמתנה
-       ומחליף אותה בזמן. כל שלב מגדיר אנימציה לנקודות בלבד - אין אנימציה ברירת מחדל. */
+    /* תיקון "משעמם, אין תחושת התקדמות": במקום התקדמות חד-כיוונית לפי זמן
+       (קפיצה→נשימה→גל, אף פעם לא חוזר אחורה), עכשיו שני מצבים שמתחלפים
+       ביניהם כל 3.5 שניות (ר' showTyping ב-JS) - "אנכיים" (קפיצה למעלה-
+       למטה) ו"אופקיים" (קפיצה שמאלה-ימינה) - כל עוד הסשן ה-AI נמשך. */
 
-    /* שלב 1 (0-3 שניות): קפיצה - הטיפוס המהיר והמוכר */
-    .dcard-typing-dots.stage-jump span {
+    /* מצב "אנכיים" - קפיצה למעלה-למטה */
+    .dcard-typing-dots.stage-vertical span {
         opacity: 1;
         animation: dcard-jump 0.9s infinite ease-in-out;
     }
-    .dcard-typing-dots.stage-jump span:nth-child(2) { animation-delay: 0.15s; }
-    .dcard-typing-dots.stage-jump span:nth-child(3) { animation-delay: 0.3s; }
+    .dcard-typing-dots.stage-vertical span:nth-child(2) { animation-delay: 0.15s; }
+    .dcard-typing-dots.stage-vertical span:nth-child(3) { animation-delay: 0.3s; }
     @keyframes dcard-jump {
         0%, 60%, 100% { transform: translateY(0); }
         30%           { transform: translateY(-5px); }
     }
 
-    /* שלב 2 (3-8 שניות): נשימה - הקפיצה נעצרת, הנקודות דועכות ומתבהרות לאט, כמו נשימה (סימן למחשבה מעמיקה) */
-    .dcard-typing-dots.stage-pulse span {
-        animation: dcard-breathe 2.4s infinite ease-in-out;
-    }
-    .dcard-typing-dots.stage-pulse span:nth-child(2) { animation-delay: 0.3s; }
-    .dcard-typing-dots.stage-pulse span:nth-child(3) { animation-delay: 0.6s; }
-    @keyframes dcard-breathe {
-        0%, 100% { opacity: 0.25; transform: scale(0.8); }
-        50%      { opacity: 1;    transform: scale(1.1); }
-    }
-
-    /* שלב 3 (8 שניות ומעלה): גל - הבהוב צבע שעובר מנקודה לנקודה משמאל לימין (סימן שהתשובה הסופית נוצרת) */
-    .dcard-typing-dots.stage-wave span {
+    /* מצב "אופקיים" - אותה קפיצה, רק על הציר האופקי (translateX) - כך
+       שההבדל בין שני המצבים ברור ומוחשי, לא רק שינוי צבע/עמעום עדין. */
+    .dcard-typing-dots.stage-horizontal span {
         opacity: 1;
-        background: linear-gradient(90deg, rgba(139, 30, 63, 0.3) 0%, #8B1E3F 50%, rgba(139, 30, 63, 0.3) 100%);
-        background-size: 300% 100%;
-        animation: dcard-shimmer 1.6s infinite linear;
+        animation: dcard-hop 0.9s infinite ease-in-out;
     }
-    .dcard-typing-dots.stage-wave span:nth-child(2) { animation-delay: 0.2s; }
-    .dcard-typing-dots.stage-wave span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes dcard-shimmer {
-        0%   { background-position: 100% 0; }
-        100% { background-position: -100% 0; }
+    .dcard-typing-dots.stage-horizontal span:nth-child(2) { animation-delay: 0.15s; }
+    .dcard-typing-dots.stage-horizontal span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes dcard-hop {
+        0%, 60%, 100% { transform: translateX(0); }
+        30%           { transform: translateX(5px); }
     }
 </style>
 
@@ -960,12 +949,11 @@
     let forceCardId = null; // מצב בדיקה: מגיע מהשרת (Settings > DCard AI), null = הגרלה רגילה
     let appState = 'start';
     let shuffleInterval;
-    // תיקון "דינמיקה לא בולטת" - מצב האנימציה הנוכחי, מתחלף כל 3.5 שניות
-    // (ר' shuffleModeInterval) בין 'horizontal' (הקיים - החלקה שמאלה/ימינה)
-    // ל-'bounce' (חדש - קפיצה אנכית). performShuffleStep קורא במשתנה הזה
-    // בכל טיק (כל 900ms) כדי לדעת איזה זוג מחלקות CSS להפעיל הפעם.
+    // תיקון "דינמיקה לא בולטת" - מצב האנימציה הנוכחי, מתחלף כל 2 עירבובים
+    // (לא לפי זמן - ר' performShuffleStep) בין 'horizontal' (הקיים - החלקה
+    // שמאלה/ימינה) ל-'bounce' (חדש - קפיצה אנכית).
     let shuffleMode = 'horizontal';
-    let shuffleModeInterval;
+    let shuffleStepCount = 0;
 
     // אלמנטים מה-DOM
     const userQuestion = document.getElementById('user-question');
@@ -1953,26 +1941,28 @@
         return msgDiv;
     }
 
-    // חיווי המתנה: רק אנימציית שלוש נקודות (ללא טקסט), בשלושה שלבים לפי הזמן
-    // (ר' .dcard-typing-dots ב-<style> למעלה).
+    // חיווי המתנה: אנימציית שלוש נקודות (ללא טקסט) שמתחלפת כל 3.5 שניות
+    // בין "אנכיים" ל"אופקיים" (ר' .dcard-typing-dots ב-<style> למעלה) -
+    // תיקון "משעמם, אין תחושת התקדמות": לא עוד התקדמות חד-כיוונית לפי
+    // זמן, אלא מחזור שממשיך כל עוד ה-AI לא ענה.
     //
-    // מעברי השלבים מתוזמנים עם setTimeout ונשמרים ב-typingStageTimeoutIds,
-    // כדי שיבוטלו ב-stopTyping ברגע שמגיעה תשובה.
-    let typingStageTimeoutIds = [];
+    // typingModeInterval נשמר כדי שיבוטל ב-stopTyping ברגע שמגיעה תשובה -
+    // אחרת הוא ימשיך לרוץ ברקע לנצח גם אחרי שהחיווי כבר הוסר מה-DOM.
+    let typingModeInterval = null;
 
-    // עוצר את מעברי השלבים ומסיר את חיווי ה"מקליד" מה-DOM, אם הוא מוצג.
+    // עוצר את מחזור ההחלפה ומסיר את חיווי ה"מקליד" מה-DOM, אם הוא מוצג.
     // נקראת בתחילת appendMessage() - כלומר ברגע שמגיעה תשובה מה-API (הצלחה
-    // או שגיאה), ולכן המעברים תמיד נעצרים בדיוק כשיש תגובה.
+    // או שגיאה), ולכן המחזור תמיד נעצר בדיוק כשיש תגובה.
     function stopTyping() {
-        typingStageTimeoutIds.forEach(clearTimeout);
-        typingStageTimeoutIds = [];
+        clearInterval(typingModeInterval);
+        typingModeInterval = null;
         const typingInd = document.getElementById('typing-indicator');
         if (typingInd) typingInd.remove();
     }
 
-    // מחליף את מחלקת השלב של נקודות ההמתנה (ר' CSS: stage-jump / stage-pulse / stage-wave).
+    // מחליף את מחלקת המצב של נקודות ההמתנה (ר' CSS: stage-vertical / stage-horizontal).
     function setTypingStage(dotsEl, stageClass) {
-        dotsEl.classList.remove('stage-jump', 'stage-pulse', 'stage-wave');
+        dotsEl.classList.remove('stage-vertical', 'stage-horizontal');
         dotsEl.classList.add(stageClass);
     }
 
@@ -1993,13 +1983,15 @@
         msgDiv.style.gap = "8px";
 
         const dots = document.createElement('span');
-        dots.className = 'dcard-typing-dots stage-jump'; // שלב 1 מיד בתחילה
+        dots.className = 'dcard-typing-dots stage-vertical'; // מתחילים תמיד מ"אנכיים"
         dots.innerHTML = '<span></span><span></span><span></span>';
 
-        // מעבר שלבים לפי הזמן שחלף מאז שהתחילה ההמתנה. כל מעבר מתוזמן פעם אחת
-        // (setTimeout) ונשמר ב-typingStageTimeoutIds כדי שייעצר ב-stopTyping.
-        typingStageTimeoutIds.push(setTimeout(() => setTypingStage(dots, 'stage-pulse'), 3000));
-        typingStageTimeoutIds.push(setTimeout(() => setTypingStage(dots, 'stage-wave'), 8000));
+        // מחליף בין "אנכיים" ל"אופקיים" כל 3.5 שניות, כל עוד ההמתנה נמשכת.
+        let typingMode = 'vertical';
+        typingModeInterval = setInterval(function () {
+            typingMode = ('vertical' === typingMode) ? 'horizontal' : 'vertical';
+            setTypingStage(dots, 'stage-' + typingMode);
+        }, 3500);
         msgDiv.appendChild(dots);
 
         const wrapper = document.createElement('div');
@@ -2102,13 +2094,9 @@
         appState = 'shuffling';
         btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
         shuffleMode = 'horizontal'; // תמיד מתחילים מאותו מצב, לעקביות
+        shuffleStepCount = 0;
         performShuffleStep();
         shuffleInterval = setInterval(performShuffleStep, 900);
-        // מחליף דינמיקה כל 3.5 שניות - ר' ההערה ליד הגדרת shuffleMode למעלה.
-        clearInterval(shuffleModeInterval); // הגנה נגד הפעלה כפולה אם beginShuffling נקרא שוב בלי לעצור את הקודם
-        shuffleModeInterval = setInterval(function () {
-            shuffleMode = ('horizontal' === shuffleMode) ? 'bounce' : 'horizontal';
-        }, 3500);
     }
 
     // נועל את תיבת הכתיבה ומציג הודעת סיום במקומה. נקרא משני מקומות שונים
@@ -2143,12 +2131,17 @@
         chatInputArea.insertAdjacentElement('afterend', limitMsg);
     }
 
-    // תיקון "דינמיקה לא בולטת מספיק": לפי shuffleMode (מתחלף כל 3.5 שניות,
-    // ר' beginShuffling) - 'horizontal' מפעיל את ההחלקה שמאלה/ימינה
-    // המקורית, 'bounce' מפעיל קפיצה אנכית (מחלקות CSS חדשות). אותה
-    // אסטרטגיה בדיוק (index % 2 לפיצול בין שתי התנועות), רק זוג מחלקות
-    // שונה לפי המצב.
+    // תיקון "דינמיקה לא בולטת מספיק" (ולאחר מכן: "כל 2 עירבובים, לא לפי
+    // זמן"): shuffleMode מתחלף כאן, לפי ספירת הטיקים של האנימציה עצמה
+    // (shuffleStepCount) - לא setInterval נפרד. 'horizontal' מפעיל את
+    // ההחלקה שמאלה/ימינה המקורית, 'bounce' מפעיל קפיצה אנכית (מחלקות CSS
+    // חדשות). אותה אסטרטגיה בדיוק (index % 2 לפיצול בין שתי התנועות בכל
+    // טיק), רק זוג מחלקות שונה לפי המצב.
     function performShuffleStep() {
+        shuffleStepCount++;
+        if (0 === shuffleStepCount % 2) {
+            shuffleMode = ('horizontal' === shuffleMode) ? 'bounce' : 'horizontal';
+        }
         const classA = ('bounce' === shuffleMode) ? 'shuffle-bounce-up' : 'shuffle-left';
         const classB = ('bounce' === shuffleMode) ? 'shuffle-bounce-down' : 'shuffle-right';
         animationCards.forEach((card, index) => {
@@ -2204,7 +2197,6 @@
 
         if (appState === 'shuffling') {
             clearInterval(shuffleInterval);
-            clearInterval(shuffleModeInterval);
 
             let randomCardId;
             if (forceCardId && !drawnCards.includes(forceCardId)) {
@@ -2249,7 +2241,14 @@
             // לא רק כש-AI מציע (ר' maybeOfferAnotherCard, שנשאר כפי שהיה -
             // שני המסלולים מובילים לאותה פונקציה). מוצג רק אם עוד לא הגענו
             // למגבלה (MAX_CARDS) - בלי תלות ב-nextAction של הסוכן.
-            if (drawnCards.length < MAX_CARDS) {
+            //
+            // תיקון: "בקבלת מסר, לא להציג את הכפתור - קיים רק בשיחה מפתחת" -
+            // chatModeActive הוא הדגל היחיד שמבדיל בין שני המסלולים בכל
+            // שאר הקובץ הזה, אז זה מתאים גם כאן. בקלף הראשון chatModeActive
+            // עדיין false (המסלול עוד לא נבחר, בלוק בחירת המסלול מוצג מיד
+            // אחרי זה) - הכפתור לא מוצג עדיין שם, וזה בכוונה: אין טעם
+            // להציע "קלף נוסף" לפני שהמשתמש בכלל בחר מסלול.
+            if (chatModeActive && drawnCards.length < MAX_CARDS) {
                 const extraCardBtn = document.createElement('button');
                 extraCardBtn.type = 'button';
                 extraCardBtn.className = 'btn-extra-card';
