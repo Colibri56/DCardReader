@@ -63,14 +63,16 @@ class DCard_REST_Controller {
 	// question marks anywhere in the text (not just as a closing move), and
 	// gives concrete forbidden phrases - the same pattern section 8 already
 	// uses successfully for its other "don't do X" rules.
-	const MESSAGE_MODE_INSTRUCTION = 'הנחיה זו גוברת על תהליך השיחה הרגיל שבסעיף 5, לקריאה הזו בלבד: המשתמש בחר "קבלת מסר אישי" - לא שיחה. אצלו תיבת הכתיבה מוסתרת לגמרי ואין לו שום דרך להגיב, גם לא באיטרציה הבאה. אל תפעל לפי שלב ה׳ (אל תפתח בשאלה "מה עולה בך") ואל תשאל שום שאלה - לא בהתחלה, לא באמצע ולא בסוף. אסור שיופיע בתשובה סימן שאלה (?) ולו אחד. אסור לכתוב ניסוחים כמו "ספר לי עוד", "מה אתה מרגיש לגבי זה", "רוצה להרחיב", "מה דעתך". כתוב מסר אחד שלם וסגור: קריאה קצרה, מעצימה ומעוררת השראה של הקלף ביחס לשאלה שלו, עם תובנה או כיוון ברור - משפט סיכום שעומד בפני עצמו, לא פתיחה לדיאלוג.'
-		// תיקון: משפט סגירה קבוע, בשורה נפרדת (שורה ריקה לפניו) בסוף המסר -
-		// מקביל למה ששלב ט' בפרומפט הבסיסי מחייב למסלול "שיחה פתוחה" (ר'
-		// agent-brain-instructions.md), אבל בניסוח נפרד שמתאים למסלול "קבלת
-		// מסר" הזה (מסר סגור בודד, לא שיחה שעשויה להימשך). אותו עיקרון כמו
-		// שאר ההנחיה הזו: ניסוח קבוע ומחייב, לא לשנות/לקצר/להתאים למגדר.
-		. ' בסוף המסר, בשורה נפרדת (שורה ריקה לפניה), הוסף בדיוק את המשפט הבא, בלי לשנות, לקצר או להתאים למגדר: "זה המסר שלי בזמן הזה. אני כאן בכל עת למסר נוסף או לשיחה מפתחת ומעמיקה."'
-		. ' CRITICAL RULE: You are providing a single, final, closed message. You are STRICTLY FORBIDDEN from asking any questions. DO NOT use question marks (?). DO NOT ask the user how they feel or what they see. Provide a complete, insightful, and conclusive answer to the user\'s question based on the drawn card, and then stop. End with this exact closing sentence on its own line (blank line before it), unchanged: "זה המסר שלי בזמן הזה. אני כאן בכל עת למסר נוסף או לשיחה מפתחת ומעמיקה."';
+	// תיקון (דווח בפועל: "משפט הסיום נעלם לחלוטין") - הניסוח הקודם קבר את
+	// דרישת משפט הסיום באמצע הנחיה ארוכה, אחרי כל ההנחיות על "אל תשאל
+	// שאלות" שקיבלו את כל הדגש (גם ב-CRITICAL RULE). מודל נוטה לציית יותר
+	// להנחיה שמופיעה *אחרונה* ובבידוד משלה - אז עכשיו משפט הסיום מופיע
+	// פעמיים: פעם בגוף ההנחיה (עברית), ופעם כמשפט נפרד, אחרון, מודגש
+	// לבדו ב-CRITICAL RULE (אנגלית) - בדיוק כמו שכל שאר ה"חוק" הזה כבר
+	// מודגש שם. גם הטקסט עצמו עודכן (תוכן חדש שהתבקש, לא רק מיקום).
+	const MESSAGE_MODE_INSTRUCTION = 'הנחיה זו גוברת על תהליך השיחה הרגיל שבסעיף 5, לקריאה הזו בלבד: המשתמש בחר "קבלת מסר אישי" - לא שיחה. אצלו תיבת הכתיבה מוסתרת לגמרי ואין לו שום דרך להגיב, גם לא באיטרציה הבאה. אל תפעל לפי שלב ה׳ (אל תפתח בשאלה "מה עולה בך") ואל תשאל שום שאלה - לא בהתחלה, לא באמצע ולא בסוף. אסור שיופיע בתשובה סימן שאלה (?) ולו אחד. אסור לכתוב ניסוחים כמו "ספר לי עוד", "מה אתה מרגיש לגבי זה", "רוצה להרחיב", "מה דעתך". כתוב מסר אחד שלם וסגור: קריאה קצרה, מעצימה ומעוררת השראה של הקלף ביחס לשאלה שלו, עם תובנה או כיוון ברור - משפט סיכום שעומד בפני עצמו, לא פתיחה לדיאלוג. בסוף המסר, בשורה נפרדת (שורה ריקה לפניה), חובה להוסיף בדיוק את המשפט הבא, בלי לשנות, לקצר או להתאים למגדר: "אפשר להמשיך ולהעמיק בכפתור \'רוצה להמשיך במסר\', או שיש לך שאלה נוספת, אפשר לפתוח \'שאלה חדשה\'."'
+		. ' CRITICAL RULE: You are providing a single, final, closed message. You are STRICTLY FORBIDDEN from asking any questions. DO NOT use question marks (?). DO NOT ask the user how they feel or what they see. Provide a complete, insightful, and conclusive answer to the user\'s question based on the drawn card, and then stop.'
+		. ' MANDATORY CLOSING LINE: the very last thing in your response, on its own line with a blank line before it, must be this exact Hebrew sentence, unchanged and not translated: "אפשר להמשיך ולהעמיק בכפתור \'רוצה להמשיך במסר\', או שיש לך שאלה נוספת, אפשר לפתוח \'שאלה חדשה\'." Do not omit this line under any circumstances.';
 
 	// Appended (same mechanism) when is_final_turn === true on /session/turn -
 	// the 3rd message of Personal Chat mode, right before the frontend hides

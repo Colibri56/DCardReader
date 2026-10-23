@@ -2242,16 +2242,22 @@
             // שני המסלולים מובילים לאותה פונקציה). מוצג רק אם עוד לא הגענו
             // למגבלה (MAX_CARDS) - בלי תלות ב-nextAction של הסוכן.
             //
-            // תיקון: "בקבלת מסר, לא להציג את הכפתור - קיים רק בשיחה מפתחת" -
-            // chatModeActive הוא הדגל היחיד שמבדיל בין שני המסלולים בכל
-            // שאר הקובץ הזה, אז זה מתאים גם כאן. בקלף הראשון chatModeActive
-            // עדיין false (המסלול עוד לא נבחר, בלוק בחירת המסלול מוצג מיד
-            // אחרי זה) - הכפתור לא מוצג עדיין שם, וזה בכוונה: אין טעם
-            // להציע "קלף נוסף" לפני שהמשתמש בכלל בחר מסלול.
-            if (chatModeActive && drawnCards.length < MAX_CARDS) {
+            // תיקון באג (דווח בפועל: "הכפתור נעלם גם בשיחה מפתחת"): הקלף
+            // *הראשון* תמיד נוצר *לפני* שהמשתמש בכלל בחר מסלול (בלוק בחירת
+            // המסלול מוצג רק אחרי זה) - כלומר chatModeActive עדיין false
+            // בדיוק ברגע היצירה שלו, גם אם המשתמש יבחר "שיחה מפתחת" שנייה
+            // אחר כך. בדיקה חד-פעמית כאן (if chatModeActive) הייתה שוגה
+            // תמיד על הקלף הראשון. הפתרון: הכפתור *תמיד* נוצר (כש-
+            // drawnCards.length < MAX_CARDS), אבל מוסתר ב-CSS אם המסלול
+            // עדיין לא שיחה - ו-btnPathChat (ר' למטה) חושף אותו רטרואקטיבית
+            // ברגע שהמסלול נבחר, גם עבור קלף שכבר מוצג על המסך.
+            if (drawnCards.length < MAX_CARDS) {
                 const extraCardBtn = document.createElement('button');
                 extraCardBtn.type = 'button';
                 extraCardBtn.className = 'btn-extra-card';
+                if (!chatModeActive) {
+                    extraCardBtn.style.display = 'none';
+                }
                 extraCardBtn.innerText = 'קלף נוסף';
                 extraCardBtn.addEventListener('click', function () {
                     extraCardBtn.disabled = true; // חד-פעמי - מונע כמה קליקים בזמן שהערבוב כבר מתחיל
@@ -2312,7 +2318,10 @@
         const deepenBtn = document.createElement('button');
         deepenBtn.type = 'button';
         deepenBtn.className = 'btn-outline';
-        deepenBtn.textContent = 'רוצה להעמיק במסר? (מעבר לשיחה מפתחת)';
+        // תיקון: הטקסט כאן חייב להתאים בדיוק למה שמשפט הסיום של "קבלת מסר"
+        // מפנה אליו (ר' MESSAGE_MODE_INSTRUCTION ב-class-dcard-rest-controller.php) -
+        // אחרת המשתמש מחפש כפתור בשם אחד ורואה כפתור בשם אחר.
+        deepenBtn.textContent = 'רוצה להמשיך במסר';
         deepenWrapper.appendChild(deepenBtn);
         chatHistory.appendChild(deepenWrapper);
         chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -2331,6 +2340,12 @@
             }
 
             chatModeActive = true; // מכאן ואילך - כמו אחרי btnPathChat - גם בקלפים נוספים
+            // תיקון: אותו חשיפה רטרואקטיבית של כפתור "קלף נוסף" כמו ב-
+            // btnPathChat - גם כאן (העמקה ממסר לשיחה) יכול להיות קלף כבר
+            // מוצג על המסך עם הכפתור מוסתר.
+            document.querySelectorAll('.btn-extra-card').forEach(function (btn) {
+                btn.style.display = '';
+            });
             // תיקון יחידת מדידה: אם הסשן הזה "התעמק" לשיחה פתוחה אחרי
             // קבלת מסר (היה כבר נספר כ-anonMsgCount, ר' runCardAI) -
             // countSessionIfNeeded לא עושה כלום (currentSessionCounted
@@ -2427,6 +2442,11 @@
 
         countSessionIfNeeded(DCARD_LS_KEYS.anonChatCount);
         chatModeActive = true; // מכאן ואילך תיבת ההקלדה נשארת גלויה גם בקלפים נוספים
+        // תיקון: חושף רטרואקטיבית את כפתור "קלף נוסף" שכבר נוצר (מוסתר)
+        // על הקלף הראשון - ר' ההערה המלאה למעלה ליד יצירת הכפתור.
+        document.querySelectorAll('.btn-extra-card').forEach(function (btn) {
+            btn.style.display = '';
+        });
         pathChoiceBlock.style.display = 'none';
         chatInputArea.style.display = '';
         const cardId = pendingCardId;
