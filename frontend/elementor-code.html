@@ -2329,15 +2329,14 @@
         deepenBtn.addEventListener('click', function () {
             deepenWrapper.remove(); // לחיצה חד-פעמית - לא רלוונטי יותר אחרי המעבר לשיחה
 
-            // שורה נוספת לתוך הבועה הקיימת, לא בועה נפרדת - "כאילו הסוכן
-            // הקליד אותה" כפי שהתבקש. אותו דפוס DOM בטוח (textNode + <br>,
-            // לא innerHTML) כמו ב-appendMessage עצמה (תיקון QA 4.1).
-            if (aiBubble) {
-                aiBubble.appendChild(document.createElement('br'));
-                aiBubble.appendChild(document.createElement('br'));
-                const followUpText = ( 'female' === userGender ) ? 'מה תרצי לשאול?' : 'מה תרצה לשאול?';
-                aiBubble.appendChild(document.createTextNode(followUpText));
-            }
+            // תיקון (דווח בפועל: "השאלה 'מה תרצי לשאול?' צריכה להופיע בבועה
+            // חדשה אחרת לא שמים לב אליה כאילו היא חלק מהמסר") - בעבר זו
+            // הייתה שורה נוספת *לתוך* בועת המסר הקיימת (ר' ההיסטוריה למעלה
+            // על "כאילו הסוכן כתב אותה כחלק מהתשובה"); עכשיו בועת AI נפרדת,
+            // דרך appendMessage הרגילה, כדי שתתבלט כפנייה חדשה ולא תיטמע
+            // בתוך משפט הסיום הקבוע של המסר.
+            const followUpText = ( 'female' === userGender ) ? 'מה תרצי לשאול?' : 'מה תרצה לשאול?';
+            appendMessage('ai', followUpText);
 
             chatModeActive = true; // מכאן ואילך - כמו אחרי btnPathChat - גם בקלפים נוספים
             // תיקון: אותו חשיפה רטרואקטיבית של כפתור "קלף נוסף" כמו ב-
