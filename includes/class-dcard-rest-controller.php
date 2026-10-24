@@ -70,9 +70,21 @@ class DCard_REST_Controller {
 	// פעמיים: פעם בגוף ההנחיה (עברית), ופעם כמשפט נפרד, אחרון, מודגש
 	// לבדו ב-CRITICAL RULE (אנגלית) - בדיוק כמו שכל שאר ה"חוק" הזה כבר
 	// מודגש שם. גם הטקסט עצמו עודכן (תוכן חדש שהתבקש, לא רק מיקום).
-	const MESSAGE_MODE_INSTRUCTION = 'הנחיה זו גוברת על תהליך השיחה הרגיל שבסעיף 5, לקריאה הזו בלבד: המשתמש בחר "קבלת מסר אישי" - לא שיחה. אצלו תיבת הכתיבה מוסתרת לגמרי ואין לו שום דרך להגיב, גם לא באיטרציה הבאה. אל תפעל לפי שלב ה׳ (אל תפתח בשאלה "מה עולה בך") ואל תשאל שום שאלה - לא בהתחלה, לא באמצע ולא בסוף. אסור שיופיע בתשובה סימן שאלה (?) ולו אחד. אסור לכתוב ניסוחים כמו "ספר לי עוד", "מה אתה מרגיש לגבי זה", "רוצה להרחיב", "מה דעתך". כתוב מסר אחד שלם וסגור: קריאה קצרה, מעצימה ומעוררת השראה של הקלף ביחס לשאלה שלו, עם תובנה או כיוון ברור - משפט סיכום שעומד בפני עצמו, לא פתיחה לדיאלוג. בסוף המסר, בשורה נפרדת (שורה ריקה לפניה), חובה להוסיף בדיוק את המשפט הבא, בלי לשנות, לקצר או להתאים למגדר: "אפשר להמשיך ולהעמיק בכפתור \'רוצה להמשיך במסר\', או שיש לך שאלה נוספת, אפשר לפתוח \'שאלה חדשה\'."'
+	// תיקון (דווח בפועל, שוב: גם אחרי שהודעת ה-system אוחדה ב-call_openai -
+	// ר' class-dcard-ai-gateway.php - GPT-4o-mini עדיין לפעמים שאל שאלה
+	// וגם דילג על משפט הסיום, במלואו או בחלקו. לא בעיית קוד נוספת - פשוט
+	// מודל לא מציית ב-100% מהמקרים, בדיוק כמו ש"חוק עצירת הלולאה" (ר'
+	// CARD_TURN_CAP למעלה) כבר לא סומך רק על ציות המודל. הפתרון המקביל
+	// כאן: המשפט הקבוע עכשיו קבוע נפרד (MESSAGE_MODE_CLOSING_LINE), ו-
+	// session_card_selected_inner אוכף אותו בקוד אחרי קבלת התשובה (ר'
+	// שם) - לא רק מבקש יפה מהמודל. עדיין נשאר גם בהוראה למודל (ניסיון
+	// ראשון, חוסך את ה"תפירה" הגסה של הוספה בקוד ברוב המקרים שבהם המודל
+	// כן מצליח לבד), אבל האכיפה בקוד היא הערובה האמיתית.)
+	const MESSAGE_MODE_CLOSING_LINE = 'אפשר להמשיך ולהעמיק בכפתור \'רוצה להמשיך במסר\', או שיש לך שאלה נוספת, אפשר לפתוח \'שאלה חדשה\'.';
+
+	const MESSAGE_MODE_INSTRUCTION = 'הנחיה זו גוברת על תהליך השיחה הרגיל שבסעיף 5, לקריאה הזו בלבד: המשתמש בחר "קבלת מסר אישי" - לא שיחה. אצלו תיבת הכתיבה מוסתרת לגמרי ואין לו שום דרך להגיב, גם לא באיטרציה הבאה. אל תפעל לפי שלב ה׳ (אל תפתח בשאלה "מה עולה בך") ואל תשאל שום שאלה - לא בהתחלה, לא באמצע ולא בסוף. אסור שיופיע בתשובה סימן שאלה (?) ולו אחד. אסור לכתוב ניסוחים כמו "ספר לי עוד", "מה אתה מרגיש לגבי זה", "רוצה להרחיב", "מה דעתך". כתוב מסר אחד שלם וסגור: קריאה קצרה, מעצימה ומעוררת השראה של הקלף ביחס לשאלה שלו, עם תובנה או כיוון ברור - משפט סיכום שעומד בפני עצמו, לא פתיחה לדיאלוג. בסוף המסר, בשורה נפרדת (שורה ריקה לפניה), חובה להוסיף בדיוק את המשפט הבא, בלי לשנות, לקצר או להתאים למגדר: "' . self::MESSAGE_MODE_CLOSING_LINE . '"'
 		. ' CRITICAL RULE: You are providing a single, final, closed message. You are STRICTLY FORBIDDEN from asking any questions. DO NOT use question marks (?). DO NOT ask the user how they feel or what they see. Provide a complete, insightful, and conclusive answer to the user\'s question based on the drawn card, and then stop.'
-		. ' MANDATORY CLOSING LINE: the very last thing in your response, on its own line with a blank line before it, must be this exact Hebrew sentence, unchanged and not translated: "אפשר להמשיך ולהעמיק בכפתור \'רוצה להמשיך במסר\', או שיש לך שאלה נוספת, אפשר לפתוח \'שאלה חדשה\'." Do not omit this line under any circumstances.';
+		. ' MANDATORY CLOSING LINE: the very last thing in your response, on its own line with a blank line before it, must be this exact Hebrew sentence, unchanged and not translated: "' . self::MESSAGE_MODE_CLOSING_LINE . '" Do not omit this line under any circumstances.';
 
 	// Appended (same mechanism) when is_final_turn === true on /session/turn -
 	// the 3rd message of Personal Chat mode, right before the frontend hides
@@ -563,6 +575,16 @@ class DCard_REST_Controller {
 			$data     = $this->enforce_end_session_consistency( $result['data'] );
 			$provider = $result['provider'];
 			$model    = $result['model'];
+
+			// תיקון (ר' ההערה המלאה ליד MESSAGE_MODE_CLOSING_LINE למעלה):
+			// אכיפה בקוד, לא רק הוראה למודל. ה-else הזה (שורה 514) רץ רק
+			// עבור mode === 'message' בפועל (chat תמיד fast-path, ר' למעלה) -
+			// ה-if כאן בכל זאת מפורש, לא מסתמך על זה בשקט.
+			if ( 'message' === $mode && isset( $data['speak'] ) && is_string( $data['speak'] ) ) {
+				if ( false === strpos( $data['speak'], self::MESSAGE_MODE_CLOSING_LINE ) ) {
+					$data['speak'] = rtrim( $data['speak'] ) . "\n\n" . self::MESSAGE_MODE_CLOSING_LINE;
+				}
+			}
 		}
 
 		// Captured before the reset two lines down - the final tally for
