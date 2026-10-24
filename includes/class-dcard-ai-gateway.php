@@ -378,15 +378,24 @@ class DCard_AI_Gateway {
 	}
 
 	private static function call_openai( $model, $api_key, $user_json, $extra_system_instruction = '' ) {
-		$messages = array(
-			array( 'role' => 'system', 'content' => self::system_prompt() ),
-		);
-		// Appended after the base instructions, so OpenAI's automatic prefix
-		// caching still matches on the unchanged leading portion.
+		// תיקון (דווח בפועל: משפט הסיום הקבוע של "קבלת מסר" לא הופיע, רק
+		// ב-GPT, לא ב-Claude - עם מודל *מאומת* כמו gpt-4o-mini, אז לא
+		// בעיית אמינות מודל) - עד כה ה-extra_system_instruction נשלח
+		// כהודעת system *שנייה ונפרדת*. בשילוב עם response_format=
+		// json_object (למטה) זה כנראה גרם למודל "להתמקד" בסכימת ה-JSON
+		// ולדלג על הנחיה שלא משולבת בהודעת ה-system הראשית. Claude
+		// (ר' call_claude) כבר התייחס לזה כהקשר system רציף אחד, לא שתי
+		// הודעות - עכשיו גם כאן, לעקביות. מוותרים על יתרון ה-prefix-
+		// caching שההערה הקודמת תיארה (לשרשר, לא להוסיף הודעה) - עדיפות
+		// לנכונות על פני חיסכון עלות כאן.
+		$system_text = self::system_prompt();
 		if ( '' !== $extra_system_instruction ) {
-			$messages[] = array( 'role' => 'system', 'content' => $extra_system_instruction );
+			$system_text .= "\n\n" . $extra_system_instruction;
 		}
-		$messages[] = array( 'role' => 'user', 'content' => $user_json );
+		$messages = array(
+			array( 'role' => 'system', 'content' => $system_text ),
+			array( 'role' => 'user', 'content' => $user_json ),
+		);
 
 		$response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', array(
 			'timeout' => self::request_timeout(),
