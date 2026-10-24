@@ -84,7 +84,18 @@ class DCard_REST_Controller {
 
 	const MESSAGE_MODE_INSTRUCTION = 'הנחיה זו גוברת על תהליך השיחה הרגיל שבסעיף 5, לקריאה הזו בלבד: המשתמש בחר "קבלת מסר אישי" - לא שיחה. אצלו תיבת הכתיבה מוסתרת לגמרי ואין לו שום דרך להגיב, גם לא באיטרציה הבאה. אל תפעל לפי שלב ה׳ (אל תפתח בשאלה "מה עולה בך") ואל תשאל שום שאלה - לא בהתחלה, לא באמצע ולא בסוף. אסור שיופיע בתשובה סימן שאלה (?) ולו אחד. אסור לכתוב ניסוחים כמו "ספר לי עוד", "מה אתה מרגיש לגבי זה", "רוצה להרחיב", "מה דעתך". כתוב מסר אחד שלם וסגור: קריאה קצרה, מעצימה ומעוררת השראה של הקלף ביחס לשאלה שלו, עם תובנה או כיוון ברור - משפט סיכום שעומד בפני עצמו, לא פתיחה לדיאלוג. בסוף המסר, בשורה נפרדת (שורה ריקה לפניה), חובה להוסיף בדיוק את המשפט הבא, בלי לשנות, לקצר או להתאים למגדר: "' . self::MESSAGE_MODE_CLOSING_LINE . '"'
 		. ' CRITICAL RULE: You are providing a single, final, closed message. You are STRICTLY FORBIDDEN from asking any questions. DO NOT use question marks (?). DO NOT ask the user how they feel or what they see. Provide a complete, insightful, and conclusive answer to the user\'s question based on the drawn card, and then stop.'
-		. ' MANDATORY CLOSING LINE: the very last thing in your response, on its own line with a blank line before it, must be this exact Hebrew sentence, unchanged and not translated: "' . self::MESSAGE_MODE_CLOSING_LINE . '" Do not omit this line under any circumstances.';
+		. ' MANDATORY CLOSING LINE: the very last thing in your response, on its own line with a blank line before it, must be this exact Hebrew sentence, unchanged and not translated: "' . self::MESSAGE_MODE_CLOSING_LINE . '" Do not omit this line under any circumstances.'
+		. ' MINIMUM LENGTH: the message itself (before the mandatory closing line) must be at least 3 full sentences - a single short sentence is not a reading.';
+
+	// תיקון (דווח בפועל: "בתמונה הראשונה יש משפט אחד של מסר כשתמיד היו מספר
+	// משפטים. זה לא מסר." / "מה עולה בך כשאתה מסתכל על הקלף?" חזר כפי שהוא)
+	// - strip_question_sentences() למטה מוריד משפטי-שאלה, אבל אם המודל כתב
+	// בעיקר שאלה (או רק שאלה), אין טקסט מהותי שנשאר להרכיב ממנו - תיקון
+	// טקסטואלי אחרי העובדה לא יכול להמציא תוכן. אז: ניסיון שני עם הנחיה
+	// מחוזקת לפני שנופלים לטקסט גנרי קבוע.
+	const MESSAGE_MODE_RETRY_EMPHASIS = 'הניסיון הקודם שלך לא היה תקין - הוא היה קצר מדי (פחות משלושה משפטים) ו/או הכיל סימן שאלה. כתוב עכשיו ניסיון חדש: מסר שלם בן 3-4 משפטים לפחות, עשיר ומעמיק, ללא שום סימן שאלה בשום מקום בטקסט.';
+
+	const MESSAGE_MODE_FALLBACK_TEXT = 'הקלף שעלה מביא איתו תחושה של כיוון שמתחיל להתבהר, גם אם עוד לא במילים מדויקות. יש בו הזמנה לעצור לרגע, להקשיב לתחושה הראשונה שעלתה למולו, ולתת לה להוביל הלאה ביחס לשאלה שנשאלה.';
 
 	// Appended (same mechanism) when is_final_turn === true on /session/turn -
 	// the 3rd message of Personal Chat mode, right before the frontend hides
@@ -586,14 +597,33 @@ class DCard_REST_Controller {
 			// ההוראה "אל תשאל שאלות" לא נאכפה עד כה, רק משפט הסיום. אותו
 			// עיקרון: מורידים בקוד כל משפט שמכיל "?", לא רק מבקשים יפה.
 			if ( 'message' === $mode && isset( $data['speak'] ) && is_string( $data['speak'] ) ) {
-				if ( false !== strpos( $data['speak'], '?' ) ) {
-					$stripped = self::strip_question_sentences( $data['speak'] );
-					// אם לא נשאר כלום אחרי ההורדה (המודל ענה רק בשאלה) - עדיף
-					// להשאיר את הטקסט המקורי מאשר לשלוח הודעה ריקה.
-					if ( '' !== trim( $stripped ) ) {
-						$data['speak'] = $stripped;
+				$cleaned = self::strip_question_sentences( $data['speak'] );
+
+				// תיקון (דווח בפועל: "בתמונה הראשונה יש משפט אחד של מסר כשתמיד
+				// היו מספר משפטים" / גם מקרה שבו כל המסר היה שאלה בודדת) -
+				// הורדת משפטי-שאלה לבדה לא מספיקה כשלא נשאר ממנה תוכן מהותי.
+				// ניסיון שני, עם הנחיה מחוזקת, לפני שנופלים לטקסט גנרי קבוע.
+				if ( ! self::is_valid_message_mode_speak( $cleaned ) ) {
+					$retry_result = DCard_AI_Gateway::run_turn(
+						$state_payload,
+						self::MESSAGE_MODE_INSTRUCTION . ' ' . self::MESSAGE_MODE_RETRY_EMPHASIS,
+						$reading_mode
+					);
+					if ( $retry_result['ok'] ) {
+						$retry_data = $this->enforce_end_session_consistency( $retry_result['data'] );
+						if ( isset( $retry_data['speak'] ) && is_string( $retry_data['speak'] ) ) {
+							$retry_cleaned = self::strip_question_sentences( $retry_data['speak'] );
+							if ( self::is_valid_message_mode_speak( $retry_cleaned ) ) {
+								$cleaned  = $retry_cleaned;
+								$provider = $retry_result['provider'];
+								$model    = $retry_result['model'];
+							}
+						}
 					}
 				}
+
+				$data['speak'] = self::is_valid_message_mode_speak( $cleaned ) ? $cleaned : self::MESSAGE_MODE_FALLBACK_TEXT;
+
 				if ( false === strpos( $data['speak'], self::MESSAGE_MODE_CLOSING_LINE ) ) {
 					$data['speak'] = rtrim( $data['speak'] ) . "\n\n" . self::MESSAGE_MODE_CLOSING_LINE;
 				}
@@ -1312,6 +1342,16 @@ class DCard_REST_Controller {
 		}
 		$result = trim( implode( '', $kept ) );
 		return preg_replace( '/\n{3,}/u', "\n\n", $result );
+	}
+
+	/**
+	 * "Real reading" threshold for message mode, used to decide whether a
+	 * post-stripping result is worth keeping or needs a retry (ר' ההערה ליד
+	 * MESSAGE_MODE_RETRY_EMPHASIS). A loose length check, not real sentence
+	 * parsing - just enough to catch "one leftover fragment" / "empty".
+	 */
+	private static function is_valid_message_mode_speak( $text ) {
+		return is_string( $text ) && mb_strlen( trim( $text ) ) >= 80;
 	}
 
 	/**
