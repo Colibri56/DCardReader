@@ -675,6 +675,9 @@ class DCard_REST_Controller {
 		// card" rather than the just-drawn one: a brand-new card always has 0
 		// turns at this exact instant, so that number only becomes meaningful
 		// once reported for the card that just finished.
+		// תיקון (דווח בפועל: עמודת "LLM Model" ריקה תמיד בגיליון) - provider/
+		// model כבר ידועים כאן בפועל במצב 'message' (null רק במצב 'chat',
+		// שם זה תבנית קבועה בלי קריאת AI בכלל - ר' למעלה) - פשוט לא נשלחו.
 		DCard_Analytics::track( 'card_drawn', array(
 			'session_token'          => $session_token,
 			'user_name'              => $session['user_name'],
@@ -683,6 +686,7 @@ class DCard_REST_Controller {
 			'card_id'                => $card_id,
 			'cards_drawn_so_far'     => count( $candidate_ids ),
 			'turns_on_previous_card' => $turns_on_previous_card,
+			'llm_model'              => $provider ? DCard_Analytics::ai_label( array( array( 'provider' => $provider, 'model' => $model ) ) ) : '',
 		) );
 
 		return new WP_REST_Response( array(

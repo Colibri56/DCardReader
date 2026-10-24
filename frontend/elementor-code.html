@@ -1004,6 +1004,24 @@
     // האיפוס המפורש כאן דורש שהמונה מתאפס במפורש כשמתחילה קריאה חדשה.
     window.dcardStartNewReading = function () {
         resetUserQuestionCount();
+
+        // תיקון (דווח בפועל: סשנים שהסתיימו ב"מסר" ואז "שיחה מפתחת" לא
+        // מופיעים כ-session_completed ב-Google Sheets) - הכפתור הזה עשה
+        // location.reload() ישיר בלי שום קריאה ל-/session/end, אז כל
+        // "אני מרוצה, בוא נתחיל שאלה חדשה" היה בפועל נטישה שקטה מבחינת
+        // התיעוד - בדיוק כמו נטישה באמצע שיחה. sendBeacon ולא fetch רגיל:
+        // מובטח שהבקשה נשלחת גם כש-reload קורה כמעט מיד אחריה (fetch רגיל
+        // עלול להיקטע ע"י ה-unload). אין תמיכה בכותרות מותאמות אישית
+        // ב-sendBeacon - X-Dcard-Device-Token לא נשלח כאן, משפיע רק על
+        // resolved_email ב-session_completed (ממילא '' בנתיב הזה ממילא).
+        if (sessionToken && navigator.sendBeacon) {
+            const payload = new Blob(
+                [JSON.stringify({ session_token: sessionToken, email: '' })],
+                { type: 'application/json' }
+            );
+            navigator.sendBeacon(`${API_BASE}/end`, payload);
+        }
+
         location.reload();
     };
 
