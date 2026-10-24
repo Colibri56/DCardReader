@@ -53,7 +53,14 @@ class DCard_Settings {
 	// נשאר קבוע בקוד בכוונה (לא בקובץ החוץ) - רשת ביטחון אם ai-models.json
 	// חסר/פגום לגמרי (ר' get_model_choices() למטה): גם אז צריך מודל קיים
 	// אחד שמובטח לעבוד, לא מפתח שתלוי בקובץ שבדיוק נכשל לטעון.
-	const DEFAULT_MODEL = 'claude-haiku-4-5';
+	const DEFAULT_MODEL = 'gpt-6-luna';
+	// תיקון: רשת הביטחון למטה (get_model_choices(), כש-ai-models.json כשל
+	// לגמרי) הייתה מניחה בקביעות שה-provider של DEFAULT_MODEL הוא claude -
+	// נכון כל עוד DEFAULT_MODEL היה אנתרופיק, אבל שגוי עכשיו (gpt-6-luna
+	// הוא OpenAI). אם זה נשאר שגוי ורשת הביטחון אי-פעם באמת מופעלת, הקריאה
+	// הייתה יוצאת ל-API הלא נכון (claude עם מחרוזת מודל של OpenAI) ונכשלת
+	// מיד. קבוע נפרד, מעודכן יחד עם DEFAULT_MODEL בכל פעם שהוא משתנה.
+	const DEFAULT_MODEL_PROVIDER = 'openai';
 
 	const SUPPORTED_PROVIDERS = array( 'claude', 'openai', 'gemini' );
 
@@ -130,8 +137,8 @@ class DCard_Settings {
 		if ( empty( $choices ) ) {
 			self::$model_choices_errors[] = 'אף מודל תקין לא נטען מהקובץ - חוזרים לברירת המחדל היחידה (' . self::DEFAULT_MODEL . ') כרשת ביטחון, עד שהקובץ יתוקן.';
 			$choices[ self::DEFAULT_MODEL ] = array(
-				'label'    => 'Anthropic: ' . self::DEFAULT_MODEL . ' (ברירת מחדל קשיחה - תקן את ai-models.json)',
-				'provider' => 'claude',
+				'label'    => self::DEFAULT_MODEL . ' (ברירת מחדל קשיחה - תקן את ai-models.json)',
+				'provider' => self::DEFAULT_MODEL_PROVIDER,
 			);
 		} elseif ( ! isset( $choices[ self::DEFAULT_MODEL ] ) ) {
 			// DEFAULT_MODEL קבוע בקוד - אם מי שעורך את ai-models.json מוחק
