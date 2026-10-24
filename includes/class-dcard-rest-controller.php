@@ -580,7 +580,20 @@ class DCard_REST_Controller {
 			// אכיפה בקוד, לא רק הוראה למודל. ה-else הזה (שורה 514) רץ רק
 			// עבור mode === 'message' בפועל (chat תמיד fast-path, ר' למעלה) -
 			// ה-if כאן בכל זאת מפורש, לא מסתמך על זה בשקט.
+			//
+			// תיקון נוסף (דווח בפועל, שוב): משפט הסיום עכשיו כן מופיע תמיד
+			// (ר' למעלה), אבל המודל עדיין לפעמים שואל שאלה באמצע המסר -
+			// ההוראה "אל תשאל שאלות" לא נאכפה עד כה, רק משפט הסיום. אותו
+			// עיקרון: מורידים בקוד כל משפט שמכיל "?", לא רק מבקשים יפה.
 			if ( 'message' === $mode && isset( $data['speak'] ) && is_string( $data['speak'] ) ) {
+				if ( false !== strpos( $data['speak'], '?' ) ) {
+					$stripped = self::strip_question_sentences( $data['speak'] );
+					// אם לא נשאר כלום אחרי ההורדה (המודל ענה רק בשאלה) - עדיף
+					// להשאיר את הטקסט המקורי מאשר לשלוח הודעה ריקה.
+					if ( '' !== trim( $stripped ) ) {
+						$data['speak'] = $stripped;
+					}
+				}
 				if ( false === strpos( $data['speak'], self::MESSAGE_MODE_CLOSING_LINE ) ) {
 					$data['speak'] = rtrim( $data['speak'] ) . "\n\n" . self::MESSAGE_MODE_CLOSING_LINE;
 				}
@@ -1277,6 +1290,28 @@ class DCard_REST_Controller {
 			$data['end_session'] = false;
 		}
 		return $data;
+	}
+
+	/**
+	 * Server-side enforcement of the MESSAGE_MODE_INSTRUCTION "no questions"
+	 * rule (seen live: the prompt alone wasn't enough - the model still
+	 * sometimes opened with "מה עולה בך כשאת מסתכלת על הקלף?" even though
+	 * the closing-line enforcement above already fixed the missing summary
+	 * sentence separately). Splits on sentence-ending punctuation/newlines
+	 * and drops any sentence that contains a "?", rather than just stripping
+	 * the mark itself - leaving the mark out but the question's wording in
+	 * would still read as a question.
+	 */
+	private static function strip_question_sentences( $text ) {
+		preg_match_all( '/[^.!?\n]+[.!?\n]*/u', $text, $matches );
+		$kept = array();
+		foreach ( $matches[0] as $sentence ) {
+			if ( false === strpos( $sentence, '?' ) ) {
+				$kept[] = $sentence;
+			}
+		}
+		$result = trim( implode( '', $kept ) );
+		return preg_replace( '/\n{3,}/u', "\n\n", $result );
 	}
 
 	/**
