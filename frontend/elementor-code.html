@@ -1912,6 +1912,7 @@
         wrapper.style.overflow = "hidden";
         wrapper.style.clear = "both";
         wrapper.style.width = "100%";
+        wrapper.style.position = "relative"; // ר' position:absolute על feedbackRow למטה
         wrapper.appendChild(msgDiv);
 
         // משוב מיקרו (לייק/דיסלייק) - רק על הודעות AI, לא על הודעות המשתמש
@@ -1962,23 +1963,20 @@
             feedbackRow.appendChild(likeBtn);
             feedbackRow.appendChild(dislikeBtn);
 
-            // תיקון UI (ר' ההערה למעלה): שורת flex משותפת לבועה ולפיל המשוב,
-            // במקום ה-float הנפרד שהיה על msgDiv - כך שהם יושבים זה לצד זה
-            // באותו קו, לא אחד מתחת לשני. row-reverse "הופך" את סדר ה-DOM
-            // (LTR כברירת מחדל) בחזרה ל-RTL: msgDiv (ילד ראשון) מימין, הפיל
-            // (ילד שני) משמאלו. align-items:flex-end מצמיד את הפיל לתחתית
-            // הבועה גם כשההודעה ארוכה וגבוהה.
-            msgDiv.style.float = ''; // aiRow אחראי על המיקום עכשיו, לא ה-float הישיר על msgDiv
-            const aiRow = document.createElement('div');
-            aiRow.style.display = 'flex';
-            aiRow.style.flexDirection = 'row-reverse';
-            aiRow.style.alignItems = 'flex-end';
-            aiRow.style.gap = '8px';
-            aiRow.style.float = 'right';
-            aiRow.style.maxWidth = '100%';
-            aiRow.appendChild(msgDiv);
-            aiRow.appendChild(feedbackRow);
-            wrapper.appendChild(aiRow);
+            // תיקון UI (דווח בפועל: "חייבות להיות בצד שמאל, ממש להצמיד
+            // לדופן השמאלית... ואסור להקטין אותם בשום תנאי") - גרסה קודמת
+            // (flex, row-reverse) קשרה את מיקום הפיל לרוחב הבועה - כשהבועה
+            // הייתה רחבה, ה-flex-shrink הפנימי כיווץ את הפיל (זה מה שנראה
+            // כ"הקטנה" בין הודעות שונות). עכשיו position:absolute במקום
+            // flex - לגמרי מנותק מרוחב/גודל הבועה, אז הגודל קבוע תמיד
+            // ואף פעם לא מצטמצם. left:0 מצמיד ל*דופן* השמאלית של wrapper
+            // (לא רק "ליד הבועה") - גם אם הבועה קצרה ומשאירה הרבה מקום ריק.
+            // bottom:0 (ביחס ל-wrapper, שה-overflow:hidden שלו כבר גורם לו
+            // לקבל בדיוק את גובה הבועה הצפה) - מצמיד לקו התחתון של הבועה.
+            feedbackRow.style.position = 'absolute';
+            feedbackRow.style.left = '0';
+            feedbackRow.style.bottom = '0';
+            wrapper.appendChild(feedbackRow);
         }
 
         chatHistory.appendChild(wrapper);
@@ -2128,11 +2126,21 @@
             btnDeckAction.style.display = '';
             // הקופה נמצאת בראש העמוד והמשתמש מסתכל על הצ'אט, אז מגלגלים אליה.
             visualDeck.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // באג שתוקן: קודם הקופה רק "הופיעה" סטטית אחרי הגלילה - המסך נראה
-            // קפוא ולא היה ברור למשתמש מה לעשות. עכשיו האנימציה מתחילה
-            // אוטומטית (בדיוק כמו לחיצה ראשונה על הכפתור) - יש תנועה מיד, וכפתור
-            // "בחר קלף" מוכן; לחיצה אחת מצד המשתמש כבר בוחרת את הקלף בפועל.
-            beginShuffling();
+            // תיקון (דווח בפועל: "זה עצר את זרימת הדיאלוג והתחיל לערבב קלפים.
+            // זה היה מפתיע ולא הייתה בקשה לכך") - התיקון הקודם (ר' היסטוריה
+            // למטה) הפעיל כאן beginShuffling() אוטומטית, בלי שום פעולה מצד
+            // המשתמש. הבעיה: הפונקציה הזו רצה אחרי *כל* הודעת AI בשיחה
+            // (ר' הקריאות אליה), סומכת לגמרי על next_action של המודל -
+            // ואם המודל כתב 'offer_another_card'/'request_card_draw' בטעות
+            // (או מוקדם מדי), המשתמש נחטף מהשיחה לאנימציה בלי שביקש. עכשיו:
+            // רק *מציגים* את הקופה (גלויה, עם גלילה אליה) - לא מתחילים
+            // לערבב אוטומטית. המשתמש עצמו לוחץ על הכפתור כשהוא מוכן, בדיוק
+            // כמו בשליפת הקלף הראשון (ר' btnDeckAction.addEventListener,
+            // שכבר קורא ל-beginShuffling() בעצמו בלחיצה).
+            //
+            // (היסטוריה: "באג שתוקן" הקודם - קודם הקופה רק 'הופיעה' סטטית
+            // בלי שום תנועה, והמסך נראה קפוא. התיקון הזה לא חוזר לזה - הקופה
+            // עדיין גלויה ומוזמנת ללחיצה, רק בלי לקחת שליטה על המסך בלי רשות.)
         }
     }
 
