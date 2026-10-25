@@ -538,6 +538,12 @@ class DCard_REST_Controller {
 		// very first turn of every reading is instant, with no AI call and no
 		// loading UI to show for it. Message mode still goes through the AI:
 		// its single reply is the substantive content, not a transition line.
+		// $tokens_in/$tokens_out default to 0 here (not declared at all on the
+		// 'chat' fast-path below, which never calls the AI) - set for real only
+		// inside the 'message' branch, read again after persist_memory_update()
+		// further down (ר' ההערה שם - אותה בעיה בדיוק עם reading_mode/card_turn_count).
+		$tokens_in  = 0;
+		$tokens_out = 0;
 		if ( 'chat' === $mode ) {
 			$data = array(
 				'speak'         => $is_additional_card
@@ -656,8 +662,6 @@ class DCard_REST_Controller {
 					$data['speak'] = rtrim( $data['speak'] ) . "\n\n" . self::MESSAGE_MODE_CLOSING_LINE;
 				}
 			}
-
-			DCard_DB::add_token_usage( $session_token, $tokens_in, $tokens_out );
 		}
 
 		// Captured before the reset two lines down - the final tally for
@@ -685,6 +689,12 @@ class DCard_REST_Controller {
 		// that call. card_turn_count resets to 0 on every card draw (1st/2nd/3rd,
 		// any mode) - see CARD_TURN_CAP above for what consumes it.
 		DCard_DB::update_state( $session_token, array( 'reading_mode' => $mode, 'card_turn_count' => 0 ) );
+		// תיקון (דווח בפועל: tokens_in/tokens_out נשארו 0 תמיד) - אותה בעיה
+		// בדיוק כמו ההערה למעלה: היה קורא ל-add_token_usage *לפני*
+		// persist_memory_update, שדורס אותו בחזרה לערך הישן כי הוא כותב
+		// עותק מלא של $session['state'] הישן (מלפני הבקשה הזו) על גבי מה
+		// שכבר נכתב ל-DB. חייב לרוץ אחרי, בדיוק כמו reading_mode/card_turn_count.
+		DCard_DB::add_token_usage( $session_token, $tokens_in, $tokens_out );
 
 		DCard_DB::append_transcript_entry( $session_token, array(
 			'role'    => 'system',
@@ -840,19 +850,22 @@ class DCard_REST_Controller {
 		$data = $this->enforce_end_session_consistency( $result['data'] );
 		$data = $this->enforce_card_cap_consistency( $data, count( $session['drawn_cards'] ), $session['user_gender'] );
 
-		// ר' ההערה המקבילה ב-session_card_selected_inner - אותו tracking, turn בודד כאן.
-		DCard_DB::add_token_usage(
-			$session_token,
-			isset( $result['usage']['input'] ) ? (int) $result['usage']['input'] : 0,
-			isset( $result['usage']['output'] ) ? (int) $result['usage']['output'] : 0
-		);
-
 		// turn_count and card_turn_count are server-owned; everything else in
 		// memory_update is trusted.
 		$this->persist_memory_update( $session_token, $state, array_merge(
 			$data['memory_update'],
 			array( 'turn_count' => $new_turn_count, 'card_turn_count' => $new_card_turn_count )
 		), count( $session['drawn_cards'] ) );
+		// תיקון (דווח בפועל: tokens_in/tokens_out נשארו 0 תמיד) - חייב לרוץ
+		// *אחרי* persist_memory_update, לא לפני - ר' ההערה המקבילה והמפורטת
+		// ב-session_card_selected_inner. persist_memory_update כותב עותק מלא
+		// של ה-state הישן (מלפני הבקשה), שהיה דורס בחזרה כל עדכון לטוקנים
+		// שנכתב לפניו.
+		DCard_DB::add_token_usage(
+			$session_token,
+			isset( $result['usage']['input'] ) ? (int) $result['usage']['input'] : 0,
+			isset( $result['usage']['output'] ) ? (int) $result['usage']['output'] : 0
+		);
 
 		DCard_DB::append_transcript_entry( $session_token, array( 'role' => 'user', 'text' => $message ) );
 		DCard_DB::append_transcript_entry( $session_token, array(
