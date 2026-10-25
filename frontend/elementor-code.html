@@ -1912,7 +1912,6 @@
         wrapper.style.overflow = "hidden";
         wrapper.style.clear = "both";
         wrapper.style.width = "100%";
-        wrapper.style.position = "relative"; // ר' position:absolute על feedbackRow למטה
         wrapper.appendChild(msgDiv);
 
         // משוב מיקרו (לייק/דיסלייק) - רק על הודעות AI, לא על הודעות המשתמש
@@ -1963,20 +1962,36 @@
             feedbackRow.appendChild(likeBtn);
             feedbackRow.appendChild(dislikeBtn);
 
-            // תיקון UI (דווח בפועל: "חייבות להיות בצד שמאל, ממש להצמיד
-            // לדופן השמאלית... ואסור להקטין אותם בשום תנאי") - גרסה קודמת
-            // (flex, row-reverse) קשרה את מיקום הפיל לרוחב הבועה - כשהבועה
-            // הייתה רחבה, ה-flex-shrink הפנימי כיווץ את הפיל (זה מה שנראה
-            // כ"הקטנה" בין הודעות שונות). עכשיו position:absolute במקום
-            // flex - לגמרי מנותק מרוחב/גודל הבועה, אז הגודל קבוע תמיד
-            // ואף פעם לא מצטמצם. left:0 מצמיד ל*דופן* השמאלית של wrapper
-            // (לא רק "ליד הבועה") - גם אם הבועה קצרה ומשאירה הרבה מקום ריק.
-            // bottom:0 (ביחס ל-wrapper, שה-overflow:hidden שלו כבר גורם לו
-            // לקבל בדיוק את גובה הבועה הצפה) - מצמיד לקו התחתון של הבועה.
-            feedbackRow.style.position = 'absolute';
-            feedbackRow.style.left = '0';
-            feedbackRow.style.bottom = '0';
-            wrapper.appendChild(feedbackRow);
+            // תיקון UI (דווח בפועל: "חפיפה בין 2 הבועות") - position:absolute
+            // הקודם היה מנותק לגמרי מהבועה, אז כשהיא רחבה (קרוב ל-85%) היא
+            // פשוט חפפה את הפיל שיושב תמיד ב-left:0. וגם קודם לכן, דווח
+            // "הקטנה" של האייקונים - גרסת ה-flex הראשונה (row-reverse, בלי
+            // flex-shrink:0 מפורש) כיווצה את *שניהם* יחד כשלא היה מספיק
+            // מקום. הפתרון הנכון: flex אמיתי, ששני הצדדים יודעים *במפורש*
+            // מי מתכווץ (msgDiv - min-width:0 מאפשר לו לעטוף טקסט ולהצטמצם
+            // באמת, לא רק לגלוש) ומי לא (feedbackRow - flex-shrink/grow:0,
+            // גודל קבוע לנצח). direction:rtl כבר על #card-reader-app (ר'
+            // למעלה בקובץ) - אז flex-direction:row רגיל (לא row-reverse)
+            // כבר שם את הילד הראשון (msgDiv) ב-flex-start=ימין והשני
+            // (feedbackRow) ב-flex-end=שמאל, ו-justify-content:space-between
+            // דואג שתמיד יהיה רווח אמיתי ביניהם - לא חפיפה, ולא תלוי ברוחב
+            // הבועה. aiRow תופס את כל הרוחב (לא float:right עם shrink-to-
+            // fit) כדי ש-flex-end=שמאל יתייחס לדופן השמאלית *האמיתית*, לא
+            // לקצה הבועה.
+            msgDiv.style.float = '';
+            msgDiv.style.minWidth = '0';
+            feedbackRow.style.flexShrink = '0';
+            feedbackRow.style.flexGrow = '0';
+
+            const aiRow = document.createElement('div');
+            aiRow.style.display = 'flex';
+            aiRow.style.width = '100%';
+            aiRow.style.justifyContent = 'space-between';
+            aiRow.style.alignItems = 'flex-end';
+            aiRow.style.gap = '10px';
+            aiRow.appendChild(msgDiv);
+            aiRow.appendChild(feedbackRow);
+            wrapper.appendChild(aiRow);
         }
 
         chatHistory.appendChild(wrapper);
