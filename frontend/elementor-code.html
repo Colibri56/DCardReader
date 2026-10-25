@@ -1869,7 +1869,7 @@
     })();
 
     // 2. פונקציות עזר לבניית בועות צ'אט
-    function appendMessage(role, text) {
+    function appendMessage(role, text, showFeedback) {
         // עוצר את סבב הטקסטים המתחלפים (clearInterval) ומסיר את חיווי ה"מקליד",
         // אם הם מוצגים - זה קורה תמיד לפני שמוצגת כל הודעה חדשה, ולכן בפועל
         // תמיד ברגע שמגיעה תשובה מה-API (הצלחה או שגיאה).
@@ -1916,8 +1916,11 @@
 
         // משוב מיקרו (לייק/דיסלייק) - רק על הודעות AI, לא על הודעות המשתמש
         // עצמו. messageId נשמר על ה-bubble (לא רק במשתנה מקומי) למקרה שיהיה
-        // צורך לאתר אותו מבחוץ בעתיד.
-        if (role === 'ai') {
+        // צורך לאתר אותו מבחוץ בעתיד. showFeedback: undefined (לא הועבר כלל,
+        // כמו בכל שאר הקריאות ל-appendMessage בקובץ) = ברירת מחדל true -
+        // false מפורש בלבד (ר' runCardAI) מדלג, לתבנית הקבועה של קלף
+        // בשיחה שאין עליה בכלל מה לתת משוב.
+        if (role === 'ai' && false !== showFeedback) {
             const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
             msgDiv.dataset.messageId = messageId;
 
@@ -2472,7 +2475,15 @@
             }
 
             if (cardData.aiReply) {
-                const aiBubble = appendMessage('ai', cardData.aiReply);
+                // תיקון (התבקש: "כששולפים קלף ועולה השאלה 'מה אתה רואה בקלף',
+                // לא להציג מיקרו משוב - זה לא נותן שום דבר ומבלבל") - במצב
+                // 'chat' התשובה כאן היא *תמיד* התבנית הקבועה ("מה עולה בך
+                // כשאתה מסתכל על הקלף?") ולא תוכן שה-AI באמת ניסח (ר' ה-fast-
+                // path ב-session_card_selected_inner - chat תמיד מדלג על
+                // קריאת AI אמיתית, בכל שליפת קלף). אין על מה לתת משוב כשאין
+                // תוכן אמיתי שנוצר. showFeedback=false רק כאן; במצב 'message'
+                // (ברירת המחדל true) יש תוכן אמיתי שה-AI כתב, שם המשוב רלוונטי.
+                const aiBubble = appendMessage('ai', cardData.aiReply, 'chat' !== mode);
                 if (mode === 'chat') {
                     // רק במסלול שיחה אישית יש המשך אפשרי - כולל הצעת קלף נוסף.
                     maybeOfferAnotherCard(cardData.nextAction);
