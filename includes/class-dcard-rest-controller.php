@@ -269,6 +269,12 @@ class DCard_REST_Controller {
 				// Card image URLs from the frontend DOM (img.src of the drawn cards),
 				// embedded at the top of the summary email. See session_end_inner().
 				'cardImages'    => array( 'required' => false ),
+				// תיקון (התבקש: לתעד גם "נטישה שקטה" - משתמש שסגר טאב/ניווט
+				// הלאה בלי ללחוץ על אף כפתור סיום) - 'explicit' (ברירת מחדל)
+				// מהכפתורים הרגילים, 'abandoned' מה-pagehide listener
+				// (sendBeacon) ב-elementor-code.html. לא מבדיל *למה* -
+				// רק *איך* הסשן נסגר, זה כל מה שאפשר לדעת בלי לקרוא מחשבות.
+				'exit_type'     => array( 'required' => false ),
 			),
 		) );
 	}
@@ -379,6 +385,19 @@ class DCard_REST_Controller {
 		}
 
 		$token = DCard_DB::create_session( $user_name ? $user_name : null, $user_gender );
+
+		// תיקון (התבקש: "האם כדאי להוסיף שדה שמציג את פלטפורמת השימוש -
+		// מובייל/דסקטופ") - נקלט פעם אחת כאן (X-Dcard-Platform, ר'
+		// dcardHeaders() ב-elementor-code.html) ונשמר ב-state של הסשן, כדי
+		// שכל אירועי ה-Analytics של הסשן הזה (card_drawn/ai_error/
+		// session_completed) יוכלו לקרוא אותו משם בלי לשלוח אותו מחדש בכל
+		// קריאה - כולל קריאות sendBeacon (/session/end על נטישה שקטה)
+		// שלא תומכות בכותרות מותאמות אישית בכלל.
+		$platform = sanitize_text_field( (string) $request->get_header( 'X-Dcard-Platform' ) );
+		if ( ! in_array( $platform, array( 'Mobile', 'Desktop' ), true ) ) {
+			$platform = '';
+		}
+		DCard_DB::update_state( $token, array( 'platform' => $platform ) );
 
 		$greeting = 'שאלת:';
 
@@ -578,6 +597,7 @@ class DCard_REST_Controller {
 					'endpoint'      => 'card-selected',
 					'route'         => DCard_Analytics::route_label( $mode ),
 					'error'         => $result['error'],
+					'platform'      => self::session_platform( $session ),
 				) );
 
 				return new WP_REST_Response( array( 'success' => false, 'error' => $result['error'] ), 200 );
@@ -586,6 +606,12 @@ class DCard_REST_Controller {
 			$data     = $this->enforce_end_session_consistency( $result['data'] );
 			$provider = $result['provider'];
 			$model    = $result['model'];
+			// תיקון (התבקש: "מספר הטוקנים שנצרכו לסשן, קלט ופלט") - usage כבר
+			// חוזר מ-run_turn() (ר' DCard_AI_Gateway) - מצטבר כאן לכל קריאות
+			// ה-AI בפועל שקרו בתוך ה-turn הזה (כולל retry למטה, אם קרה - גם
+			// הוא קריאה אמיתית שצרכה טוקנים, בלי קשר אם תוכנו בסוף נבחר).
+			$tokens_in  = isset( $result['usage']['input'] ) ? (int) $result['usage']['input'] : 0;
+			$tokens_out = isset( $result['usage']['output'] ) ? (int) $result['usage']['output'] : 0;
 
 			// תיקון (ר' ההערה המלאה ליד MESSAGE_MODE_CLOSING_LINE למעלה):
 			// אכיפה בקוד, לא רק הוראה למודל. ה-else הזה (שורה 514) רץ רק
@@ -609,6 +635,8 @@ class DCard_REST_Controller {
 						self::MESSAGE_MODE_INSTRUCTION . ' ' . self::MESSAGE_MODE_RETRY_EMPHASIS,
 						$reading_mode
 					);
+					$tokens_in  += isset( $retry_result['usage']['input'] ) ? (int) $retry_result['usage']['input'] : 0;
+					$tokens_out += isset( $retry_result['usage']['output'] ) ? (int) $retry_result['usage']['output'] : 0;
 					if ( $retry_result['ok'] ) {
 						$retry_data = $this->enforce_end_session_consistency( $retry_result['data'] );
 						if ( isset( $retry_data['speak'] ) && is_string( $retry_data['speak'] ) ) {
@@ -628,6 +656,8 @@ class DCard_REST_Controller {
 					$data['speak'] = rtrim( $data['speak'] ) . "\n\n" . self::MESSAGE_MODE_CLOSING_LINE;
 				}
 			}
+
+			DCard_DB::add_token_usage( $session_token, $tokens_in, $tokens_out );
 		}
 
 		// Captured before the reset two lines down - the final tally for
@@ -687,6 +717,7 @@ class DCard_REST_Controller {
 			'cards_drawn_so_far'     => count( $candidate_ids ),
 			'turns_on_previous_card' => $turns_on_previous_card,
 			'llm_model'              => $provider ? DCard_Analytics::ai_label( array( array( 'provider' => $provider, 'model' => $model ) ) ) : '',
+			'platform'               => self::session_platform( $session ),
 		) );
 
 		return new WP_REST_Response( array(
@@ -799,6 +830,7 @@ class DCard_REST_Controller {
 				'endpoint'      => 'turn',
 				'route'         => DCard_Analytics::route_label( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null ),
 				'error'         => $result['error'],
+				'platform'      => self::session_platform( $session ),
 			) );
 
 			// HTTP 200 on purpose - see the note in session_card_selected_inner().
@@ -807,6 +839,13 @@ class DCard_REST_Controller {
 
 		$data = $this->enforce_end_session_consistency( $result['data'] );
 		$data = $this->enforce_card_cap_consistency( $data, count( $session['drawn_cards'] ), $session['user_gender'] );
+
+		// ר' ההערה המקבילה ב-session_card_selected_inner - אותו tracking, turn בודד כאן.
+		DCard_DB::add_token_usage(
+			$session_token,
+			isset( $result['usage']['input'] ) ? (int) $result['usage']['input'] : 0,
+			isset( $result['usage']['output'] ) ? (int) $result['usage']['output'] : 0
+		);
 
 		// turn_count and card_turn_count are server-owned; everything else in
 		// memory_update is trusted.
@@ -848,6 +887,10 @@ class DCard_REST_Controller {
 		$email_raw     = (string) $request->get_param( 'email' );
 		$email         = $email_raw ? sanitize_email( $email_raw ) : '';
 		$card_images   = $this->sanitize_card_image_urls( $request->get_param( 'cardImages' ) );
+		$exit_type     = sanitize_text_field( (string) $request->get_param( 'exit_type' ) );
+		if ( ! in_array( $exit_type, array( 'explicit', 'abandoned' ), true ) ) {
+			$exit_type = 'explicit';
+		}
 
 		$session = DCard_DB::get_session( $session_token );
 		if ( ! $session ) {
@@ -881,11 +924,18 @@ class DCard_REST_Controller {
 
 		// Beta-testing analytics (Settings > DCard AI > Analytics Webhook URL) -
 		// fire-and-forget, no-op if no URL is configured.
+		// תיקון (התבקש: "מספר טלפון - יאפשר לשלוח הודעות וואטסאפ בהמשך") -
+		// כבר נאסף ונשמר היום (DCard_Users, טופס ההרשמה/Cardcom webhook) -
+		// רק לא נחשף עד כה לתוך ה-Analytics. קיים רק למשתמשים *רשומים*
+		// (יש device token שמזהה אותם) - משתמש אנונימי אין לו טלפון לשלוף.
+		$resolved_phone = $registered_user ? $registered_user['phone'] : null;
+
 		DCard_Analytics::track( 'session_completed', array(
 			'session_token'      => $session_token,
 			'user_id'            => $registered_user ? (int) $registered_user['id'] : null,
 			'user_name'          => $session['user_name'],
 			'user_email'         => $resolved_email,
+			'user_phone'         => $resolved_phone,
 			'route'              => DCard_Analytics::route_label( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null ),
 			'cards_drawn'        => count( $session['drawn_cards'] ),
 			'card_ids'           => implode( ', ', array_map( 'intval', $session['drawn_cards'] ) ),
@@ -893,6 +943,10 @@ class DCard_REST_Controller {
 			'llm_model'          => DCard_Analytics::ai_label( $session['transcript'] ),
 			'original_question'  => isset( $session['state']['original_question'] ) ? $session['state']['original_question'] : '',
 			'chat_transcript'    => DCard_Analytics::format_transcript_text( $session['transcript'] ),
+			'platform'           => self::session_platform( $session ),
+			'exit_type'          => $exit_type,
+			'tokens_in'          => isset( $session['state']['tokens_in'] ) ? (int) $session['state']['tokens_in'] : 0,
+			'tokens_out'         => isset( $session['state']['tokens_out'] ) ? (int) $session['state']['tokens_out'] : 0,
 		) );
 
 		// user_is_registered is not implemented yet in this beta (no accounts) - always the "new user" text.
@@ -1356,6 +1410,13 @@ class DCard_REST_Controller {
 	 */
 	private static function is_valid_message_mode_speak( $text ) {
 		return is_string( $text ) && mb_strlen( trim( $text ) ) >= 80;
+	}
+
+	/** נשמר פעם אחת ב-/session/start (ר' ההערה שם) - קריאה בלבד מכאן. */
+	private static function session_platform( array $session ) {
+		return isset( $session['state']['platform'] ) && is_string( $session['state']['platform'] )
+			? $session['state']['platform']
+			: '';
 	}
 
 	/**

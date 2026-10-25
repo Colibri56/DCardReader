@@ -578,6 +578,13 @@
 
     let sessionToken = null;
     let sessionInitiated = false; // ר' תיקון באג 9 - מונע קריאה כפולה ל-initSession()
+    // תיקון (התבקש: לתעד "נטישה שקטה" - סגירת טאב/ניווט הלאה בלי לחיצה על
+    // אף כפתור סיום) - נקבע ל-true מכל אחד משלושת מסלולי הסיום המפורשים
+    // (btnPathChat/... לא - אלו endSessionBtns[0]/[1] ו-dcardStartNewReading
+    // למטה) *לפני* שהם מנווטים/עושים reload, כדי שמאזין ה-pagehide הגלובלי
+    // (למטה) ידע לדלג - אחרת כל סיום מפורש היה נספר *גם* כ"נטישה" בטעות,
+    // כי ניווט/reload עצמו תמיד מפעיל pagehide בנוסף.
+    let sessionEndedExplicitly = false;
 
     // תיקון יחידת מדידה (Quota Management): "סשן" = שאלה אחת שנשאלה
     // בתיבת הטקסט הראשית, שבעקבותיה יוצאים לערבוב ועד 3 קלפים - זו
@@ -621,6 +628,11 @@
     // נשמר מתוך submit_success של טופס ההרשמה - ר' למטה). משתמש אנונימי
     // (שלא נרשם) פשוט אין לו טוקן שמור, אז הכותרת הזו לא נשלחת כלל - בלי
     // שום שינוי בהתנהגות הקיימת לשימוש אנונימי/חינמי.
+    // תיקון (התבקש: שדה שמציג את פלטפורמת השימוש - מובייל/דסקטופ) - נבדק
+    // פעם אחת כאן, נשלח רק ב-/session/start (ר' class-dcard-rest-controller.php -
+    // נשמר שם ב-state של הסשן, אז לא צריך להישלח שוב בכל קריאה בהמשך).
+    var DCARD_PLATFORM = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop';
+
     function dcardHeaders() {
         var headers = { 'Content-Type': 'application/json' };
         if (typeof window.dcardRestNonce === 'string' && window.dcardRestNonce) {
@@ -630,6 +642,7 @@
         if (deviceToken) {
             headers['X-Dcard-Device-Token'] = deviceToken;
         }
+        headers['X-Dcard-Platform'] = DCARD_PLATFORM;
         return headers;
     }
 
@@ -1016,11 +1029,12 @@
         // resolved_email ב-session_completed (ממילא '' בנתיב הזה ממילא).
         if (sessionToken && navigator.sendBeacon) {
             const payload = new Blob(
-                [JSON.stringify({ session_token: sessionToken, email: '' })],
+                [JSON.stringify({ session_token: sessionToken, email: '', exit_type: 'explicit' })],
                 { type: 'application/json' }
             );
             navigator.sendBeacon(`${API_BASE}/end`, payload);
         }
+        sessionEndedExplicitly = true; // ר' ההערה ליד ההכרזה - מונע כפילות מול מאזין ה-pagehide
 
         location.reload();
     };
@@ -2636,10 +2650,11 @@
     // כפתור: סיום הסשן ויציאה
     endSessionBtns[0].addEventListener('click', async () => {
         if(confirm("האם אתה בטוח שברצונך לסיים את הסשן?")) {
+            sessionEndedExplicitly = true; // ר' ההערה ליד ההכרזה - מונע כפילות מול מאזין ה-pagehide
             await fetch(`${API_BASE}/end`, {
                 method: 'POST',
                 headers: dcardHeaders(),
-                body: JSON.stringify({ session_token: sessionToken, email: "" })
+                body: JSON.stringify({ session_token: sessionToken, email: "", exit_type: 'explicit' })
             });
 
             // מסך סיום: מחליפים את כל #card-reader-app (כל הבלוקים 1-5) בתמונת
@@ -2695,11 +2710,12 @@
         // ה-fetch נכשל ברשת וגם אם wp_mail() נכשל בצד השרת (data.emailSent
         // === false). עכשיו שתי הדרכים האלה מדווחות בנפרד, בלי לטעון הצלחה
         // שלא קרתה בפועל.
+        sessionEndedExplicitly = true; // ר' ההערה ליד ההכרזה - מונע כפילות מול מאזין ה-pagehide
         try {
             const res = await fetch(`${API_BASE}/end`, {
                 method: 'POST',
                 headers: dcardHeaders(),
-                body: JSON.stringify({ session_token: sessionToken, email: userEmail, cardImages: cardImages })
+                body: JSON.stringify({ session_token: sessionToken, email: userEmail, cardImages: cardImages, exit_type: 'explicit' })
             });
             const data = await res.json();
             if (data.emailSent) {
@@ -2709,6 +2725,24 @@
             }
         } catch (e) {
             alert("אירעה שגיאת תקשורת ולא הצלחנו לשלוח את המייל. נסה שוב.");
+        }
+    });
+
+    // תיקון (התבקש: לתעד "נטישה שקטה" - משתמש שמנהל שיחה ופשוט סוגר טאב/
+    // מנווט הלאה, בלי ללחוץ על "סיום ויציאה"/"שליחת הדיאלוג במייל"/"שאלה
+    // חדשה") - עד כה סשן כזה לא תועד בגיליון בכלל. pagehide (לא beforeunload -
+    // אמין יותר במובייל/Safari, לא פותח דיאלוג אישור) נבחר כנקודת התפיסה
+    // האחרונה האפשרית. sessionEndedExplicitly (ר' ההכרזה למעלה) מונע כפילות -
+    // כל שלושת מסלולי הסיום המפורשים כבר מדווחים את עצמם, ומסמנים את הדגל
+    // *לפני* שהם מנווטים/עושים reload (שגם הם מפעילים pagehide בעצמם).
+    window.addEventListener('pagehide', function () {
+        if (sessionToken && !sessionEndedExplicitly && navigator.sendBeacon) {
+            const payload = new Blob(
+                [JSON.stringify({ session_token: sessionToken, email: '', exit_type: 'abandoned' })],
+                { type: 'application/json' }
+            );
+            navigator.sendBeacon(`${API_BASE}/end`, payload);
+            sessionEndedExplicitly = true; // מגן גם מפני pagehide שמופעל יותר מפעם אחת
         }
     });
 

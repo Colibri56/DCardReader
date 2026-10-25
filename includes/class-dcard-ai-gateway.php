@@ -46,6 +46,36 @@ class DCard_AI_Gateway {
 
 	private static $system_prompt = null;
 
+	// תיקון (התבקש: "מספר הטוקנים שנצרכו לסשן, קלט ופלט - לניתוח עלויות
+	// בהמשך") - עד כה usage כבר נקרא מכל ספק (ר' call_claude/call_openai/
+	// call_gemini) אבל רק ל-DCard_Logger::usage(), ונזרק מיד אחר כך; שום
+	// קוד קורא לא קיבל אותו בחזרה. נאסף כאן כסטטי כי run_turn_inner() יכול
+	// לקרוא ל-call_provider() עד 3 פעמים באותו turn (ניסיון ראשון + עד 2
+	// retries על JSON לא תקין / אנגלית ב-speak, ר' למטה) - כל קריאה בפועל
+	// צורכת טוקנים משלה, וכולן צריכות להצטבר יחד לאותו turn. מתאפס בתחילת
+	// כל run_turn_inner() חדש (לא מצטבר בין turns - זה תפקיד
+	// DCard_DB::add_token_usage בצד הקורא).
+	private static $accumulated_usage = array( 'input' => 0, 'output' => 0 );
+
+	private static function accumulate_usage( $provider, array $usage ) {
+		if ( 'claude' === $provider ) {
+			// cache_creation/cache_read - גם הם טוקני קלט בפועל (מחויבים בתעריף
+			// מופחת, אבל עדיין טוקנים אמיתיים) - נספרים כקלט, לא מתעלמים מהם.
+			$input  = ( isset( $usage['input_tokens'] ) ? (int) $usage['input_tokens'] : 0 )
+				+ ( isset( $usage['cache_creation_input_tokens'] ) ? (int) $usage['cache_creation_input_tokens'] : 0 )
+				+ ( isset( $usage['cache_read_input_tokens'] ) ? (int) $usage['cache_read_input_tokens'] : 0 );
+			$output = isset( $usage['output_tokens'] ) ? (int) $usage['output_tokens'] : 0;
+		} elseif ( 'gemini' === $provider ) {
+			$input  = isset( $usage['promptTokenCount'] ) ? (int) $usage['promptTokenCount'] : 0;
+			$output = isset( $usage['candidatesTokenCount'] ) ? (int) $usage['candidatesTokenCount'] : 0;
+		} else { // openai
+			$input  = isset( $usage['prompt_tokens'] ) ? (int) $usage['prompt_tokens'] : 0;
+			$output = isset( $usage['completion_tokens'] ) ? (int) $usage['completion_tokens'] : 0;
+		}
+		self::$accumulated_usage['input']  += $input;
+		self::$accumulated_usage['output'] += $output;
+	}
+
 	private static function system_prompt() {
 		if ( null === self::$system_prompt ) {
 			$path = DCARD_PLUGIN_DIR . 'agent-brain-instructions.md';
@@ -91,6 +121,11 @@ class DCard_AI_Gateway {
 	}
 
 	private static function run_turn_inner( array $state_payload, $extra_system_instruction, $reading_mode ) {
+		// ר' ההערה ליד ההכרזה - מתאפס בתחילת כל turn, כדי לא להצטבר על פני
+		// turns קודמים (DCard_DB::add_token_usage בצד הקורא כבר עושה את
+		// ההצטברות לכל הסשן).
+		self::$accumulated_usage = array( 'input' => 0, 'output' => 0 );
+
 		$model    = DCard_Settings::get_model_for_mode( $reading_mode );
 		$provider = DCard_Settings::get_provider_for_model( $model );
 		$api_key  = DCard_Settings::get_api_key( $provider );
@@ -222,6 +257,7 @@ class DCard_AI_Gateway {
 			'data'     => $parsed,
 			'provider' => $provider,
 			'model'    => $model,
+			'usage'    => self::$accumulated_usage,
 		);
 	}
 
@@ -347,6 +383,7 @@ class DCard_AI_Gateway {
 		if ( isset( $body['usage'] ) && is_array( $body['usage'] ) ) {
 			// input_tokens = uncached input; cache_read_input_tokens = served from cache.
 			DCard_Logger::usage( 'Claude', $body['usage'] );
+			self::accumulate_usage( 'claude', $body['usage'] );
 		}
 
 		// Claude's `content` is an array of blocks - when the model reasons
@@ -446,6 +483,7 @@ class DCard_AI_Gateway {
 		if ( isset( $body['usage'] ) && is_array( $body['usage'] ) ) {
 			// prompt_tokens_details.cached_tokens = part of the prompt served from OpenAI's automatic cache.
 			DCard_Logger::usage( 'OpenAI', $body['usage'] );
+			self::accumulate_usage( 'openai', $body['usage'] );
 		}
 
 		if ( ! isset( $body['choices'][0]['message']['content'] ) ) {
@@ -535,6 +573,7 @@ class DCard_AI_Gateway {
 
 		if ( isset( $body['usageMetadata'] ) && is_array( $body['usageMetadata'] ) ) {
 			DCard_Logger::usage( 'Gemini', $body['usageMetadata'] );
+			self::accumulate_usage( 'gemini', $body['usageMetadata'] );
 		}
 
 		if ( ! isset( $body['candidates'][0]['content']['parts'][0]['text'] ) ) {

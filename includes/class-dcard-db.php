@@ -35,6 +35,15 @@ class DCard_DB {
 			// card) from agent-brain-instructions.md שלב ו' with a real server-side
 			// cap, instead of relying only on the model counting correctly.
 			'card_turn_count'      => 0,
+			// 'Mobile' | 'Desktop' | '' - נקבע פעם אחת ב-/session/start (ר' שם),
+			// לקריאה בלבד אחר כך בכל אירועי ה-Analytics של הסשן הזה.
+			'platform'             => '',
+			// סך טוקני קלט/פלט שנצרכו בכל קריאות ה-AI של הסשן הזה (כל הקלפים
+			// וכל התורות יחד) - ר' DCard_DB::add_token_usage(), נקרא מ-
+			// run_turn()/DCard_AI_Gateway אחרי כל קריאה בפועל לספק. מיועד
+			// לניתוח עלויות מאוחר יותר (ר' גם data/ai-models.json לתעריפים).
+			'tokens_in'            => 0,
+			'tokens_out'           => 0,
 		);
 	}
 
@@ -134,6 +143,32 @@ class DCard_DB {
 		$state = array_merge( $session['state'], $partial_state );
 
 		return self::update_session( $session_token, array(
+			'state_json' => wp_json_encode( $state ),
+		) );
+	}
+
+	/**
+	 * מוסיף (לא דורס) לסך טוקני הקלט/פלט שנצברו בסשן - ר' ההערה ליד
+	 * tokens_in/tokens_out ב-default_state(). נקרא פעם אחת לכל קריאה
+	 * בפועל לספק AI (לא לכל turn - turn יכול לכלול יותר מקריאה אחת, למשל
+	 * retry על JSON לא תקין). get_session נקרא כאן בנפרד (לא update_state)
+	 * כדי לקרוא ולעדכן באותה פעולה בלי round-trip כפול.
+	 */
+	public static function add_token_usage( $session_token, $input_tokens, $output_tokens ) {
+		if ( ! $input_tokens && ! $output_tokens ) {
+			return;
+		}
+
+		$session = self::get_session( $session_token );
+		if ( ! $session ) {
+			return;
+		}
+
+		$state                = $session['state'];
+		$state['tokens_in']   = ( isset( $state['tokens_in'] ) ? (int) $state['tokens_in'] : 0 ) + (int) $input_tokens;
+		$state['tokens_out']  = ( isset( $state['tokens_out'] ) ? (int) $state['tokens_out'] : 0 ) + (int) $output_tokens;
+
+		self::update_session( $session_token, array(
 			'state_json' => wp_json_encode( $state ),
 		) );
 	}
