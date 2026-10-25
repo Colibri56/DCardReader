@@ -345,9 +345,9 @@
        אייקונים צפים בלי הקשר ולא כפתורים "כבדים". הכלאה מכוונת בין השתיים. */
     .dcard-feedback-pill {
         display: inline-flex;
-        gap: 15px;
-        background: rgba(0,0,0,0.04);
-        padding: 6px 16px;
+        gap: 4px;
+        background: rgba(0,0,0,0.08);
+        padding: 6px 10px;
         border-radius: 20px;
         align-items: center;
         border: none;
@@ -391,8 +391,8 @@
         padding: 9px 4px;
     }
     .feedback-send-btn {
-        width: 38px;
-        height: 38px;
+        width: 46px;
+        height: 46px;
         flex-shrink: 0;
         border: none;
         border-radius: 50%;
@@ -538,10 +538,9 @@
 
     <!-- בלוק 5: כפתורי סיום סשן -->
     <div class="actions-block" id="block-5">
-        <button class="btn-outline">סיום ויציאה</button>
-        <button class="btn-outline">שליחת הדיאלוג במייל</button>
-        <button class="btn-outline" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
-
+        <!-- תיקון (התבקש: "כדאי להעלות אותו מעל 3 הכפתורים") - בלוק המשוב
+             המאקרו הועבר לפני כפתורי הסיום, כדי שיהיה גלוי ובולט יותר לפני
+             שהמשתמש בכלל מגיע להחלטה "לסיים"/"שאלה חדשה". -->
         <div class="feedback-macro-block" id="feedback-macro-block">
             <div class="feedback-macro-bar">
                 <button type="button" class="btn-mic" id="btn-mic-feedback" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
@@ -553,13 +552,17 @@
                 </button>
                 <textarea id="feedback-macro-text" placeholder="שתף אותנו בתחושות שלך..." rows="1"></textarea>
                 <button type="button" class="feedback-send-btn" id="btn-feedback-macro-submit" title="שליחה" aria-label="שליחה">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M2.5 21l19-9-19-9v7l14 2-14 2z"/>
                     </svg>
                 </button>
             </div>
             <div id="feedback-macro-thanks" style="display:none;">תודה על המשוב! 🙏</div>
         </div>
+
+        <button class="btn-outline">סיום ויציאה</button>
+        <button class="btn-outline">שליחת הדיאלוג במייל</button>
+        <button class="btn-outline" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
     </div>
 
 </div>
@@ -1918,15 +1921,12 @@
             const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
             msgDiv.dataset.messageId = messageId;
 
-            // תיקון UI: פיל (pill) עדין - ר' .dcard-feedback-pill ב-CSS -
-            // במקום שני אייקונים צפים בלי שום מסגרת חזותית. clear:both
-            // עדיין נדרש כאן בקוד (לא ב-CSS של ה-pill עצמו), כדי שהשורה
-            // הזו תמיד תתחיל מתחת לבועה, לא תצוף לידה.
+            // תיקון UI (דווח בפועל: "להסיט שמאלה ליד הבועה... לקרב אותם
+            // ושייראו בולטים יותר") - פיל (pill) עדין - ר' .dcard-feedback-pill
+            // ב-CSS. בעבר צף מתחת לבועה (clear:both) - עכשיו יושב לצידה
+            // (ר' aiRow למטה, שבנוי ב-flex ולא ב-float).
             const feedbackRow = document.createElement('div');
             feedbackRow.className = 'dcard-feedback-pill';
-            feedbackRow.style.clear = 'both';
-            feedbackRow.style.margin = '4px 0 8px';
-            feedbackRow.style.float = 'right'; // יישור לבועת ה-AI (ר' float בבועה עצמה למעלה)
 
             const likeBtn = document.createElement('button');
             likeBtn.type = 'button';
@@ -1935,7 +1935,7 @@
             likeBtn.style.border = 'none';
             likeBtn.style.background = 'transparent';
             likeBtn.style.cursor = 'pointer';
-            likeBtn.style.fontSize = '16px';
+            likeBtn.style.fontSize = '24px';
 
             const dislikeBtn = document.createElement('button');
             dislikeBtn.type = 'button';
@@ -1944,7 +1944,7 @@
             dislikeBtn.style.border = 'none';
             dislikeBtn.style.background = 'transparent';
             dislikeBtn.style.cursor = 'pointer';
-            dislikeBtn.style.fontSize = '16px';
+            dislikeBtn.style.fontSize = '24px';
 
             // מניעת שליחה כפולה: שני הכפתורים מושבתים אחרי הלחיצה הראשונה
             // על אחד מהם, בלי קשר להצלחת ה-fetch - זו בחירת המשתמש, לא
@@ -1961,7 +1961,24 @@
 
             feedbackRow.appendChild(likeBtn);
             feedbackRow.appendChild(dislikeBtn);
-            wrapper.appendChild(feedbackRow);
+
+            // תיקון UI (ר' ההערה למעלה): שורת flex משותפת לבועה ולפיל המשוב,
+            // במקום ה-float הנפרד שהיה על msgDiv - כך שהם יושבים זה לצד זה
+            // באותו קו, לא אחד מתחת לשני. row-reverse "הופך" את סדר ה-DOM
+            // (LTR כברירת מחדל) בחזרה ל-RTL: msgDiv (ילד ראשון) מימין, הפיל
+            // (ילד שני) משמאלו. align-items:flex-end מצמיד את הפיל לתחתית
+            // הבועה גם כשההודעה ארוכה וגבוהה.
+            msgDiv.style.float = ''; // aiRow אחראי על המיקום עכשיו, לא ה-float הישיר על msgDiv
+            const aiRow = document.createElement('div');
+            aiRow.style.display = 'flex';
+            aiRow.style.flexDirection = 'row-reverse';
+            aiRow.style.alignItems = 'flex-end';
+            aiRow.style.gap = '8px';
+            aiRow.style.float = 'right';
+            aiRow.style.maxWidth = '100%';
+            aiRow.appendChild(msgDiv);
+            aiRow.appendChild(feedbackRow);
+            wrapper.appendChild(aiRow);
         }
 
         chatHistory.appendChild(wrapper);
