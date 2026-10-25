@@ -688,13 +688,39 @@ class DCard_REST_Controller {
 		// first would just get silently overwritten back to the stale values by
 		// that call. card_turn_count resets to 0 on every card draw (1st/2nd/3rd,
 		// any mode) - see CARD_TURN_CAP above for what consumes it.
-		DCard_DB::update_state( $session_token, array( 'reading_mode' => $mode, 'card_turn_count' => 0 ) );
+		$new_state_fields = array( 'reading_mode' => $mode, 'card_turn_count' => 0 );
+		// תיקון (התבקש: "לדעת כמה שיחות עברו ממסר לשיחה מפתחת") - $session['state']
+		// כאן עדיין ה-state *הישן* (מלפני הבקשה הזו, ר' ההערה למעלה) - בדיוק
+		// הרגע הנכון לבדוק אם המצב הקודם היה 'message' ועכשיו עובר ל-'chat'.
+		// נכתב רק כש-true (אף פעם לא דורס בחזרה ל-false) - ברגע שסשן "המיר",
+		// זה נשאר true עד סוף הסשן גם אם ימשיך לצייר עוד קלפים ב-chat.
+		if ( 'chat' === $mode && isset( $session['state']['reading_mode'] ) && 'message' === $session['state']['reading_mode'] ) {
+			$new_state_fields['converted_from_message'] = true;
+		}
+		DCard_DB::update_state( $session_token, $new_state_fields );
 		// תיקון (דווח בפועל: tokens_in/tokens_out נשארו 0 תמיד) - אותה בעיה
 		// בדיוק כמו ההערה למעלה: היה קורא ל-add_token_usage *לפני*
 		// persist_memory_update, שדורס אותו בחזרה לערך הישן כי הוא כותב
 		// עותק מלא של $session['state'] הישן (מלפני הבקשה הזו) על גבי מה
 		// שכבר נכתב ל-DB. חייב לרוץ אחרי, בדיוק כמו reading_mode/card_turn_count.
 		DCard_DB::add_token_usage( $session_token, $tokens_in, $tokens_out );
+
+		// תיקון (התבקש: "טוקנים אמיתיים לפי מודל LLM") - session_completed
+		// מצטבר לכל הסשן, ולא מבדיל אם הוחלף מודל באמצע. אירוע נפרד לכל
+		// קריאת AI *בפועל* (לא ל-fast-path של chat, ששווה 0 ממילא) - מודל
+		// מדויק + הטוקנים שהוא בדיוק צרך, לא קירוב. משתמש מחדש בעמודות
+		// הקיימות (LLM Model/tokens_in/tokens_out/Route) - אין צורך במיפוי
+		// Make חדש, רק ב-"Detect new values" כדי לראות את ה-event החדש.
+		if ( $tokens_in || $tokens_out ) {
+			DCard_Analytics::track( 'ai_usage', array(
+				'session_token' => $session_token,
+				'route'         => DCard_Analytics::route_label( $mode ),
+				'llm_model'     => $provider ? DCard_Analytics::ai_label( array( array( 'provider' => $provider, 'model' => $model ) ) ) : '',
+				'tokens_in'     => $tokens_in,
+				'tokens_out'    => $tokens_out,
+				'platform'      => self::session_platform( $session ),
+			) );
+		}
 
 		DCard_DB::append_transcript_entry( $session_token, array(
 			'role'    => 'system',
@@ -861,11 +887,22 @@ class DCard_REST_Controller {
 		// ב-session_card_selected_inner. persist_memory_update כותב עותק מלא
 		// של ה-state הישן (מלפני הבקשה), שהיה דורס בחזרה כל עדכון לטוקנים
 		// שנכתב לפניו.
-		DCard_DB::add_token_usage(
-			$session_token,
-			isset( $result['usage']['input'] ) ? (int) $result['usage']['input'] : 0,
-			isset( $result['usage']['output'] ) ? (int) $result['usage']['output'] : 0
-		);
+		$turn_tokens_in  = isset( $result['usage']['input'] ) ? (int) $result['usage']['input'] : 0;
+		$turn_tokens_out = isset( $result['usage']['output'] ) ? (int) $result['usage']['output'] : 0;
+		DCard_DB::add_token_usage( $session_token, $turn_tokens_in, $turn_tokens_out );
+
+		// ר' ההערה המקבילה ב-session_card_selected_inner - /session/turn
+		// הוא תמיד 'chat' (ר' ההערה למעלה), אז route קבוע כאן.
+		if ( $turn_tokens_in || $turn_tokens_out ) {
+			DCard_Analytics::track( 'ai_usage', array(
+				'session_token' => $session_token,
+				'route'         => DCard_Analytics::route_label( 'chat' ),
+				'llm_model'     => DCard_Analytics::ai_label( array( array( 'provider' => $result['provider'], 'model' => $result['model'] ) ) ),
+				'tokens_in'     => $turn_tokens_in,
+				'tokens_out'    => $turn_tokens_out,
+				'platform'      => self::session_platform( $session ),
+			) );
+		}
 
 		DCard_DB::append_transcript_entry( $session_token, array( 'role' => 'user', 'text' => $message ) );
 		DCard_DB::append_transcript_entry( $session_token, array(
@@ -950,7 +987,12 @@ class DCard_REST_Controller {
 			'user_email'         => $resolved_email,
 			'user_phone'         => $resolved_phone,
 			'route'              => DCard_Analytics::route_label( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null ),
-			'cards_drawn'        => count( $session['drawn_cards'] ),
+			// תיקון (נמצא תוך כדי בניית דוחות): השם כאן לא תאם את 'cards_drawn_so_far'
+			// ש-card_drawn שולח (ר' למעלה) - עמודת TotalCards ב-Make ממופה
+			// ספציפית ל-{{1.cards_drawn_so_far}}, אז שורות session_completed
+			// פשוט לא מילאו את העמודה הזו בכלל עד עכשיו. אותו שם שדה כאן,
+			// כדי ששני סוגי האירועים יזינו את אותה עמודה.
+			'cards_drawn_so_far' => count( $session['drawn_cards'] ),
 			'card_ids'           => implode( ', ', array_map( 'intval', $session['drawn_cards'] ) ),
 			'turns_on_last_card' => isset( $session['state']['card_turn_count'] ) ? (int) $session['state']['card_turn_count'] : 0,
 			'llm_model'          => DCard_Analytics::ai_label( $session['transcript'] ),
@@ -960,6 +1002,16 @@ class DCard_REST_Controller {
 			'exit_type'          => $exit_type,
 			'tokens_in'          => isset( $session['state']['tokens_in'] ) ? (int) $session['state']['tokens_in'] : 0,
 			'tokens_out'         => isset( $session['state']['tokens_out'] ) ? (int) $session['state']['tokens_out'] : 0,
+			// תיקון (התבקש: "כמה שיחות עברו ממסר לשיחה מפתחת") - ר' ההערה
+			// המלאה ליד המקום שבו זה נקבע (session_card_selected_inner).
+			'converted_from_message' => ! empty( $session['state']['converted_from_message'] ) ? 'Yes' : '',
+			// תיקון (התבקש: "כמה מיילים התבקשו") - email (הפרמטר שהתקבל כאן
+			// בפועל, לא user_email/resolved_email למעלה - זה יכול להגיע גם
+			// ממשתמש רשום בלי שהוא ביקש כלום הפעם) מבדיל במפורש בין "המשתמש
+			// לחץ 'שליחת הדיאלוג במייל' והזין כתובת" לבין "יש לנו אימייל
+			// שלו מהרשמה קודמת". email_sent - האם wp_mail() גם הצליח בפועל.
+			'email_requested'    => ( $email && is_email( $email ) ) ? 'Yes' : '',
+			'email_sent'         => $email_sent ? 'Yes' : '',
 		) );
 
 		// user_is_registered is not implemented yet in this beta (no accounts) - always the "new user" text.

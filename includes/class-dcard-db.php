@@ -44,6 +44,10 @@ class DCard_DB {
 			// לניתוח עלויות מאוחר יותר (ר' גם data/ai-models.json לתעריפים).
 			'tokens_in'            => 0,
 			'tokens_out'           => 0,
+			// true ברגע שסשן עבר בפועל מ-'message' ל-'chat' ("רוצה להמשיך
+			// במסר") - ר' session_card_selected_inner, שם זה נקבע. נשאר
+			// true עד סוף הסשן, גם אם ימשיך לצייר עוד קלפים ב-chat.
+			'converted_from_message' => false,
 		);
 	}
 
