@@ -80,7 +80,7 @@ class DCard_REST_Controller {
 	// שם) - לא רק מבקש יפה מהמודל. עדיין נשאר גם בהוראה למודל (ניסיון
 	// ראשון, חוסך את ה"תפירה" הגסה של הוספה בקוד ברוב המקרים שבהם המודל
 	// כן מצליח לבד), אבל האכיפה בקוד היא הערובה האמיתית.)
-	const MESSAGE_MODE_CLOSING_LINE = 'אפשר להמשיך ולהעמיק בכפתור \'רוצה להמשיך במסר\', או שיש לך שאלה נוספת, אפשר לפתוח \'שאלה חדשה\'.';
+	const MESSAGE_MODE_CLOSING_LINE = 'אני מזמין אותך להמשיך ולהעמיק בלחיצה על "להמשיך ולהעמיק" או לשאלה נוספת בכפתור "שאלה חדשה"';
 
 	const MESSAGE_MODE_INSTRUCTION = 'הנחיה זו גוברת על תהליך השיחה הרגיל שבסעיף 5, לקריאה הזו בלבד: המשתמש בחר "קבלת מסר אישי" - לא שיחה. אצלו תיבת הכתיבה מוסתרת לגמרי ואין לו שום דרך להגיב, גם לא באיטרציה הבאה. אל תפעל לפי שלב ה׳ (אל תפתח בשאלה "מה עולה בך") ואל תשאל שום שאלה - לא בהתחלה, לא באמצע ולא בסוף. אסור שיופיע בתשובה סימן שאלה (?) ולו אחד. אסור לכתוב ניסוחים כמו "ספר לי עוד", "מה אתה מרגיש לגבי זה", "רוצה להרחיב", "מה דעתך". כתוב מסר אחד שלם וסגור: קריאה קצרה, מעצימה ומעוררת השראה של הקלף ביחס לשאלה שלו, עם תובנה או כיוון ברור - משפט סיכום שעומד בפני עצמו, לא פתיחה לדיאלוג. בסוף המסר, בשורה נפרדת (שורה ריקה לפניה), חובה להוסיף בדיוק את המשפט הבא, בלי לשנות, לקצר או להתאים למגדר: "' . self::MESSAGE_MODE_CLOSING_LINE . '"'
 		. ' CRITICAL RULE: You are providing a single, final, closed message. You are STRICTLY FORBIDDEN from asking any questions. DO NOT use question marks (?). DO NOT ask the user how they feel or what they see. Provide a complete, insightful, and conclusive answer to the user\'s question based on the drawn card, and then stop.'
@@ -787,6 +787,20 @@ class DCard_REST_Controller {
 		$session = DCard_DB::get_session( $session_token );
 		if ( ! $session || 'active' !== $session['status'] ) {
 			return new WP_REST_Response( array( 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
+		}
+
+		// תיקון (דווח בפועל: "לספור את אלה שמתחילים בקבלת מסר ולוחצים
+		// 'להמשיך ולהעמיק' - בפועל הם לא נספרים") - /session/turn קיים רק
+		// בתוך שיחה אישית (ר' ההערה למטה), אבל עד כה הוא מעולם לא עדכן את
+		// reading_mode בעצמו - רק שליפת קלף עושה זאת. משתמש שהעמיק ממסר
+		// לשיחה ופשוט *כתב* ישר בתיבה (בלי לשלוף עוד קלף קודם) היה נשאר
+		// עם reading_mode='message' ב-DB לנצח - לא רק ש-converted_from_message
+		// לא נדלק, גם ה-Route הסופי ב-session_completed היה שגוי (מראה
+		// "Message" לשיחה אמיתית). אם reading_mode עדיין 'message' ברגע
+		// הזה, זו בדיוק נקודת ה-turn הראשונה שאחרי ההעמקה - מתקנים את שניהם.
+		if ( 'message' === ( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null ) ) {
+			DCard_DB::update_state( $session_token, array( 'reading_mode' => 'chat', 'converted_from_message' => true ) );
+			$session['state']['reading_mode'] = 'chat';
 		}
 
 		// תיקון יחידת מדידה: קרדיט אחד = סשן אחד (ר' ההערה המלאה ב-

@@ -2399,7 +2399,7 @@
         // תיקון: הטקסט כאן חייב להתאים בדיוק למה שמשפט הסיום של "קבלת מסר"
         // מפנה אליו (ר' MESSAGE_MODE_INSTRUCTION ב-class-dcard-rest-controller.php) -
         // אחרת המשתמש מחפש כפתור בשם אחד ורואה כפתור בשם אחר.
-        deepenBtn.textContent = 'רוצה להמשיך במסר';
+        deepenBtn.textContent = 'להמשיך ולהעמיק';
         deepenWrapper.appendChild(deepenBtn);
         chatHistory.appendChild(deepenWrapper);
         chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -2414,7 +2414,10 @@
             // דרך appendMessage הרגילה, כדי שתתבלט כפנייה חדשה ולא תיטמע
             // בתוך משפט הסיום הקבוע של המסר.
             const followUpText = ( 'female' === userGender ) ? 'מה תרצי לשאול?' : 'מה תרצה לשאול?';
-            appendMessage('ai', followUpText);
+            // showFeedback=false: אותו עיקרון כמו שאר התבניות הקבועות (ר'
+            // runCardAI) - זו שורת מעבר קבועה, לא תוכן שה-AI ניסח, אין על
+            // מה לתת משוב (דווח בפועל: הפיל עדיין הופיע כאן, לא נבדק מספיק).
+            appendMessage('ai', followUpText, false);
 
             chatModeActive = true; // מכאן ואילך - כמו אחרי btnPathChat - גם בקלפים נוספים
             // תיקון: אותו חשיפה רטרואקטיבית של כפתור "קלף נוסף" כמו ב-
