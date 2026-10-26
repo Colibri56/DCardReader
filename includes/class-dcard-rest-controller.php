@@ -696,6 +696,17 @@ class DCard_REST_Controller {
 		// זה נשאר true עד סוף הסשן גם אם ימשיך לצייר עוד קלפים ב-chat.
 		if ( 'chat' === $mode && isset( $session['state']['reading_mode'] ) && 'message' === $session['state']['reading_mode'] ) {
 			$new_state_fields['converted_from_message'] = true;
+			// תיקון (דווח בפועל: "מספיק שהמשתמש ענה לשאלה של ה-AI, זה אומר
+			// שהוא כבר נכנס לתוך השיחה... זה שהוא לא סגר את הסשן לפי הספר -
+			// פחות חשוב לגבי המונה הזה") - עד כה ה-flag הזה נחשף רק בתוך
+			// session_completed, כלומר רק אם/כש-הסשן נסגר אי-פעם. ההמרה
+			// עצמה היא האירוע המשמעותי, לא תלויה בסגירה מסודרת - אירוע
+			// נפרד *ברגע שזה קורה בפועל*, באותו דפוס כמו card_drawn/ai_usage.
+			DCard_Analytics::track( 'session_converted', array(
+				'session_token' => $session_token,
+				'route'         => DCard_Analytics::route_label( 'chat' ),
+				'platform'      => self::session_platform( $session ),
+			) );
 		}
 		DCard_DB::update_state( $session_token, $new_state_fields );
 		// תיקון (דווח בפועל: tokens_in/tokens_out נשארו 0 תמיד) - אותה בעיה
@@ -801,6 +812,13 @@ class DCard_REST_Controller {
 		if ( 'message' === ( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null ) ) {
 			DCard_DB::update_state( $session_token, array( 'reading_mode' => 'chat', 'converted_from_message' => true ) );
 			$session['state']['reading_mode'] = 'chat';
+			// ר' ההערה המלאה ב-session_card_selected_inner - אותו עיקרון:
+			// ההמרה עצמה היא האירוע, לא תלויה בסגירה מסודרת של הסשן אי-פעם.
+			DCard_Analytics::track( 'session_converted', array(
+				'session_token' => $session_token,
+				'route'         => DCard_Analytics::route_label( 'chat' ),
+				'platform'      => self::session_platform( $session ),
+			) );
 		}
 
 		// תיקון יחידת מדידה: קרדיט אחד = סשן אחד (ר' ההערה המלאה ב-
