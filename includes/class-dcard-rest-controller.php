@@ -729,6 +729,7 @@ class DCard_REST_Controller {
 				'llm_model'     => $provider ? DCard_Analytics::ai_label( array( array( 'provider' => $provider, 'model' => $model ) ) ) : '',
 				'tokens_in'     => $tokens_in,
 				'tokens_out'    => $tokens_out,
+				'cost_usd'      => self::estimate_cost( $model, $tokens_in, $tokens_out ),
 				'platform'      => self::session_platform( $session ),
 			) );
 		}
@@ -932,6 +933,7 @@ class DCard_REST_Controller {
 				'llm_model'     => DCard_Analytics::ai_label( array( array( 'provider' => $result['provider'], 'model' => $result['model'] ) ) ),
 				'tokens_in'     => $turn_tokens_in,
 				'tokens_out'    => $turn_tokens_out,
+				'cost_usd'      => self::estimate_cost( $result['model'], $turn_tokens_in, $turn_tokens_out ),
 				'platform'      => self::session_platform( $session ),
 			) );
 		}
@@ -1507,6 +1509,22 @@ class DCard_REST_Controller {
 	 */
 	private static function is_valid_message_mode_speak( $text ) {
 		return is_string( $text ) && mb_strlen( trim( $text ) ) >= 80;
+	}
+
+	/**
+	 * עלות משוערת (USD) לקריאת AI בודדת, לפי תעריפי data/ai-models.json
+	 * (ר' DCard_Settings::get_model_price()). מחושב ונשמר *בזמן הקריאה
+	 * עצמה* (snapshot) - לא בזמן הפקת דוח - כדי שעלויות היסטוריות יישארו
+	 * נכונות גם אם תעריפים ישתנו בעתיד. '' (לא 0) כשאין תעריף למודל הזה -
+	 * מבדיל בין "עלה 0$" לבין "לא נמדד", חשוב כדי לא להטעות בסיכומים.
+	 */
+	private static function estimate_cost( $model_id, $tokens_in, $tokens_out ) {
+		$price = DCard_Settings::get_model_price( $model_id );
+		if ( null === $price ) {
+			return '';
+		}
+		$cost = ( $tokens_in / 1000000 ) * $price['input'] + ( $tokens_out / 1000000 ) * $price['output'];
+		return round( $cost, 6 );
 	}
 
 	/** נשמר פעם אחת ב-/session/start (ר' ההערה שם) - קריאה בלבד מכאן. */

@@ -126,9 +126,21 @@ class DCard_Settings {
 						continue;
 					}
 
+					// תיקון (התבקש: "להוסיף את העלות של הסשן לפי הטבלה") - מחיר
+					// אופציונלי ל-1M טוקנים (USD), קלט/פלט נפרדים. מודל בלי
+					// מחיר כאן פשוט מקבל null (ר' get_model_price()) - לא שגיאה.
+					$input_price  = isset( $entry['input_price_per_million'] ) && is_numeric( $entry['input_price_per_million'] )
+						? (float) $entry['input_price_per_million']
+						: null;
+					$output_price = isset( $entry['output_price_per_million'] ) && is_numeric( $entry['output_price_per_million'] )
+						? (float) $entry['output_price_per_million']
+						: null;
+
 					$choices[ $id ] = array(
-						'label'    => $verified ? $label : ( $label . ' (לא מאומת)' ),
-						'provider' => $provider,
+						'label'         => $verified ? $label : ( $label . ' (לא מאומת)' ),
+						'provider'      => $provider,
+						'input_price'   => $input_price,
+						'output_price'  => $output_price,
 					);
 				}
 			}
@@ -149,6 +161,26 @@ class DCard_Settings {
 
 		self::$model_choices = $choices;
 		return self::$model_choices;
+	}
+
+	/**
+	 * מחירי מודל (USD ל-1M טוקנים, קלט/פלט) מ-data/ai-models.json - ר' ההערה
+	 * ליד input_price/output_price ב-get_model_choices(). null אם המודל לא
+	 * קיים ברשימה, או שלא הוגדר לו מחיר שם (לא תאונה - פשוט לא נמדד).
+	 */
+	public static function get_model_price( $model_id ) {
+		$choices = self::get_model_choices();
+		if ( ! isset( $choices[ $model_id ] ) ) {
+			return null;
+		}
+		$entry = $choices[ $model_id ];
+		if ( null === $entry['input_price'] || null === $entry['output_price'] ) {
+			return null;
+		}
+		return array(
+			'input'  => $entry['input_price'],
+			'output' => $entry['output_price'],
+		);
 	}
 
 	/**
