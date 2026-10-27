@@ -5,9 +5,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class DCard_Mailer {
 
-	public static function send_transcript( $to_email, $user_name, array $transcript, array $card_image_urls = array(), $is_message_mode = false, $session_token = '' ) {
+	public static function send_transcript( $to_email, $user_name, array $transcript, array $card_image_urls = array(), $is_message_mode = false, $session_token = '', $user_phone = '' ) {
 		$subject = 'הקורא בקלפים - סיכום השיחה שלך';
-		$body    = self::render_html( $user_name, $transcript, $card_image_urls, $is_message_mode, $session_token );
+		$body    = self::render_html( $user_name, $transcript, $card_image_urls, $is_message_mode, $session_token, $to_email, $user_phone );
 
 		// Already HTML (not plain text) - wp_mail() defaults to text/plain otherwise.
 		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
@@ -47,7 +47,7 @@ class DCard_Mailer {
 		return implode( ', ', array_keys( $used ) );
 	}
 
-	private static function render_html( $user_name, array $transcript, array $card_image_urls = array(), $is_message_mode = false, $session_token = '' ) {
+	private static function render_html( $user_name, array $transcript, array $card_image_urls = array(), $is_message_mode = false, $session_token = '', $user_email = '', $user_phone = '' ) {
 		$greeting = $user_name ? esc_html( $user_name ) : '';
 		$intro    = $is_message_mode ? 'זה המסר שהתקבל לשאלתך:' : 'הנה סיכום התהליך לנושא שבחרת:';
 
@@ -126,20 +126,37 @@ class DCard_Mailer {
 			<?php
 			$feedback_url = DCard_Settings::get_feedback_form_url();
 			if ( $feedback_url ) :
-				// session_token (not a separate numeric id - it's the one
-				// identifier this plugin uses everywhere, including the
-				// 'session_token' field on the analytics webhook's own
-				// session_completed event) is appended as session_id, so
-				// feedback submitted through this link can be correlated
-				// with that same session. add_query_arg() handles both a
+				// מעבירים name/email/phone/session_id כפרמטרים סמויים ב-URL
+				// כדי ש-Fillout ימלא אותם מראש בשדות המתאימים, בלי שהמשתמש
+				// יזין אותם שוב. זה עובד רק אם בטופס עצמו, בכל שדה (שם/
+				// אימייל/טלפון), מגדירים ב-Fillout: "..." ליד השדה -> Prefill
+				// via URL -> ומזינים בדיוק את אותו שם פרמטר (name/email/phone)
+				// שמופיע כאן - אחרת Fillout פשוט מתעלם מהפרמטר. session_id
+				// (not a separate numeric id - it's the one identifier this
+				// plugin uses everywhere, including the 'session_token' field
+				// on the analytics webhook's own session_completed event) is
+				// for correlating feedback with the session, not for
+				// prefilling a visible field. add_query_arg() handles both a
 				// bare URL and one that already has its own query string.
-				$feedback_url_with_session = $session_token
-					? add_query_arg( 'session_id', $session_token, $feedback_url )
-					: $feedback_url;
+				$feedback_url_with_session = $feedback_url;
+				$feedback_params            = array(
+					'session_id' => $session_token,
+					'name'       => $user_name,
+					'email'      => $user_email,
+					'phone'      => $user_phone,
+				);
+				foreach ( $feedback_params as $param => $value ) {
+					if ( '' !== trim( (string) $value ) ) {
+						// add_query_arg() לא עושה urlencode לערך (ר' תיעוד WP) -
+						// קריטי כאן כי שם בעברית/רווחים/+ בטלפון היו שוברים את
+						// ה-query string בלי rawurlencode מפורש.
+						$feedback_url_with_session = add_query_arg( $param, rawurlencode( (string) $value ), $feedback_url_with_session );
+					}
+				}
 				?>
 				<div style="text-align: center; background: #f6efe6; border-radius: 10px; padding: 20px 18px; margin: 16px 0 0;">
-					<p style="font-size: 14px; color: #444; margin: 0 0 12px;">עזרו לנו להשתפר! נשמח לשמוע איך הייתה החוויה שלכם בגרסת הבטא:</p>
-					<a href="<?php echo esc_url( $feedback_url_with_session ); ?>" style="display: inline-block; background: #8B1E3F; color: #fff; text-decoration: none; font-weight: bold; padding: 10px 24px; border-radius: 30px; font-size: 14px;">שתפו אותנו בחוויה שלכם</a>
+					<p style="font-size: 14px; color: #444; margin: 0 0 12px;">רוצה לשתף אותי בחוויה שלך?</p>
+					<a href="<?php echo esc_url( $feedback_url_with_session ); ?>" style="display: inline-block; background: #8B1E3F; color: #fff; text-decoration: none; font-weight: bold; padding: 10px 24px; border-radius: 30px; font-size: 14px;"כן, אשמח לשתף ></a>
 				</div>
 			<?php endif; ?>
 		</div>

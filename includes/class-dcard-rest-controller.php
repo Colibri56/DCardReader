@@ -986,8 +986,25 @@ class DCard_REST_Controller {
 		$email_sent    = false;
 		$is_message_mode = 'message' === ( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null );
 
+		// Google Sheets logging (ר' Google Apps Script בתשובה): user_id/
+		// user_email מזוהים כאן גם דרך X-Dcard-Device-Token (לא רק מה-
+		// email שהוזן ב-/session/end עצמו, שלרוב לא נשלח כלל אם המשתמש
+		// לא בחר "שליחה במייל") - כך שמשתמש רשום מקבל שורה מלאה גם אם
+		// לא לחץ על שליחת מייל באותו סשן ספציפי. הוזז למעלה (היה אחרי
+		// send_transcript) כדי ש-$resolved_phone/$resolved_email יהיו
+		// זמינים כבר ל-send_transcript, לצורך פרמטרי ה-URL הסמויים
+		// שהוא מצרף לקישור הפידבק (ר' class-dcard-mailer.php).
+		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+		$resolved_email  = ( $email && is_email( $email ) ) ? $email : ( $registered_user ? $registered_user['email'] : null );
+		// תיקון (התבקש: "מספר טלפון - יאפשר לשלוח הודעות וואטסאפ בהמשך") -
+		// כבר נאסף ונשמר היום (DCard_Users, טופס ההרשמה/Cardcom webhook) -
+		// רק לא נחשף עד כה לתוך ה-Analytics. קיים רק למשתמשים *רשומים*
+		// (יש device token שמזהה אותם) - משתמש אנונימי אין לו טלפון לשלוף.
+		$resolved_phone = $registered_user ? $registered_user['phone'] : null;
+
 		if ( $email && is_email( $email ) ) {
-			$email_sent = DCard_Mailer::send_transcript( $email, $session['user_name'], $session['transcript'], $card_images, $is_message_mode, $session_token );
+			$email_sent = DCard_Mailer::send_transcript( $email, $session['user_name'], $session['transcript'], $card_images, $is_message_mode, $session_token, $resolved_phone );
 			if ( ! $email_sent ) {
 				DCard_Logger::warning( 'wp_mail() returned false for session end email', array(
 					'session_token' => $session_token,
@@ -999,22 +1016,8 @@ class DCard_REST_Controller {
 
 		DCard_DB::set_status( $session_token, 'completed' );
 
-		// Google Sheets logging (ר' Google Apps Script בתשובה): user_id/
-		// user_email מזוהים כאן גם דרך X-Dcard-Device-Token (לא רק מה-
-		// email שהוזן ב-/session/end עצמו, שלרוב לא נשלח כלל אם המשתמש
-		// לא בחר "שליחה במייל") - כך שמשתמש רשום מקבל שורה מלאה גם אם
-		// לא לחץ על שליחת מייל באותו סשן ספציפי.
-		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
-		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
-		$resolved_email  = ( $email && is_email( $email ) ) ? $email : ( $registered_user ? $registered_user['email'] : null );
-
 		// Beta-testing analytics (Settings > DCard AI > Analytics Webhook URL) -
 		// fire-and-forget, no-op if no URL is configured.
-		// תיקון (התבקש: "מספר טלפון - יאפשר לשלוח הודעות וואטסאפ בהמשך") -
-		// כבר נאסף ונשמר היום (DCard_Users, טופס ההרשמה/Cardcom webhook) -
-		// רק לא נחשף עד כה לתוך ה-Analytics. קיים רק למשתמשים *רשומים*
-		// (יש device token שמזהה אותם) - משתמש אנונימי אין לו טלפון לשלוף.
-		$resolved_phone = $registered_user ? $registered_user['phone'] : null;
 
 		DCard_Analytics::track( 'session_completed', array(
 			'session_token'      => $session_token,
