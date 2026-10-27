@@ -714,7 +714,8 @@ class DCard_REST_Controller {
 		// persist_memory_update, שדורס אותו בחזרה לערך הישן כי הוא כותב
 		// עותק מלא של $session['state'] הישן (מלפני הבקשה הזו) על גבי מה
 		// שכבר נכתב ל-DB. חייב לרוץ אחרי, בדיוק כמו reading_mode/card_turn_count.
-		DCard_DB::add_token_usage( $session_token, $tokens_in, $tokens_out );
+		$call_cost_usd = self::estimate_cost( $model, $tokens_in, $tokens_out );
+		DCard_DB::add_token_usage( $session_token, $tokens_in, $tokens_out, $call_cost_usd );
 
 		// תיקון (התבקש: "טוקנים אמיתיים לפי מודל LLM") - session_completed
 		// מצטבר לכל הסשן, ולא מבדיל אם הוחלף מודל באמצע. אירוע נפרד לכל
@@ -729,7 +730,7 @@ class DCard_REST_Controller {
 				'llm_model'     => $provider ? DCard_Analytics::ai_label( array( array( 'provider' => $provider, 'model' => $model ) ) ) : '',
 				'tokens_in'     => $tokens_in,
 				'tokens_out'    => $tokens_out,
-				'cost_usd'      => self::estimate_cost( $model, $tokens_in, $tokens_out ),
+				'cost_usd'      => $call_cost_usd,
 				'platform'      => self::session_platform( $session ),
 			) );
 		}
@@ -922,7 +923,8 @@ class DCard_REST_Controller {
 		// שנכתב לפניו.
 		$turn_tokens_in  = isset( $result['usage']['input'] ) ? (int) $result['usage']['input'] : 0;
 		$turn_tokens_out = isset( $result['usage']['output'] ) ? (int) $result['usage']['output'] : 0;
-		DCard_DB::add_token_usage( $session_token, $turn_tokens_in, $turn_tokens_out );
+		$turn_cost_usd   = self::estimate_cost( $result['model'], $turn_tokens_in, $turn_tokens_out );
+		DCard_DB::add_token_usage( $session_token, $turn_tokens_in, $turn_tokens_out, $turn_cost_usd );
 
 		// ר' ההערה המקבילה ב-session_card_selected_inner - /session/turn
 		// הוא תמיד 'chat' (ר' ההערה למעלה), אז route קבוע כאן.
@@ -933,7 +935,7 @@ class DCard_REST_Controller {
 				'llm_model'     => DCard_Analytics::ai_label( array( array( 'provider' => $result['provider'], 'model' => $result['model'] ) ) ),
 				'tokens_in'     => $turn_tokens_in,
 				'tokens_out'    => $turn_tokens_out,
-				'cost_usd'      => self::estimate_cost( $result['model'], $turn_tokens_in, $turn_tokens_out ),
+				'cost_usd'      => $turn_cost_usd,
 				'platform'      => self::session_platform( $session ),
 			) );
 		}
@@ -1036,6 +1038,11 @@ class DCard_REST_Controller {
 			'exit_type'          => $exit_type,
 			'tokens_in'          => isset( $session['state']['tokens_in'] ) ? (int) $session['state']['tokens_in'] : 0,
 			'tokens_out'         => isset( $session['state']['tokens_out'] ) ? (int) $session['state']['tokens_out'] : 0,
+			// תיקון (התבקש: "עלות הסשן") - סך כל עלויות ה-ai_usage של הסשן
+			// הזה יחד (ר' DCard_DB::add_token_usage) - אותה עמודת Cost כמו
+			// ב-ai_usage, רק מצטבר. 0 כאן (לא '') הוא ערך תקין ואמיתי -
+			// מתאים לסשן שבו כל הקריאות היו במודלים בלי תעריף מוגדר.
+			'cost_usd'           => isset( $session['state']['cost_usd'] ) ? (float) $session['state']['cost_usd'] : 0,
 			// תיקון (התבקש: "כמה שיחות עברו ממסר לשיחה מפתחת") - ר' ההערה
 			// המלאה ליד המקום שבו זה נקבע (session_card_selected_inner).
 			'converted_from_message' => ! empty( $session['state']['converted_from_message'] ) ? 'Yes' : '',

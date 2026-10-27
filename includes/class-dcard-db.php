@@ -44,6 +44,9 @@ class DCard_DB {
 			// לניתוח עלויות מאוחר יותר (ר' גם data/ai-models.json לתעריפים).
 			'tokens_in'            => 0,
 			'tokens_out'           => 0,
+			// סך עלות משוערת (USD) של כל קריאות ה-AI בסשן - ר' DCard_DB::
+			// add_token_usage() ו-DCard_Settings::get_model_price().
+			'cost_usd'             => 0,
 			// true ברגע שסשן עבר בפועל מ-'message' ל-'chat' ("רוצה להמשיך
 			// במסר") - ר' session_card_selected_inner, שם זה נקבע. נשאר
 			// true עד סוף הסשן, גם אם ימשיך לצייר עוד קלפים ב-chat.
@@ -158,7 +161,7 @@ class DCard_DB {
 	 * retry על JSON לא תקין). get_session נקרא כאן בנפרד (לא update_state)
 	 * כדי לקרוא ולעדכן באותה פעולה בלי round-trip כפול.
 	 */
-	public static function add_token_usage( $session_token, $input_tokens, $output_tokens ) {
+	public static function add_token_usage( $session_token, $input_tokens, $output_tokens, $cost_usd = 0 ) {
 		if ( ! $input_tokens && ! $output_tokens ) {
 			return;
 		}
@@ -171,6 +174,11 @@ class DCard_DB {
 		$state                = $session['state'];
 		$state['tokens_in']   = ( isset( $state['tokens_in'] ) ? (int) $state['tokens_in'] : 0 ) + (int) $input_tokens;
 		$state['tokens_out']  = ( isset( $state['tokens_out'] ) ? (int) $state['tokens_out'] : 0 ) + (int) $output_tokens;
+		// תיקון (התבקש: "עלות הסשן" בשורת session_completed, לא רק לכל
+		// קריאה בודדת ב-ai_usage) - $cost_usd כאן כבר '' (לא 0) כשלמודל
+		// אין תעריף (ר' DCard_Settings::get_model_price()) - '' + מספר ב-
+		// PHP מתייחס ל-'' כ-0, אז זה בטוח ולא הופך את כל הסכום ל-NaN.
+		$state['cost_usd']    = ( isset( $state['cost_usd'] ) ? (float) $state['cost_usd'] : 0 ) + (float) $cost_usd;
 
 		self::update_session( $session_token, array(
 			'state_json' => wp_json_encode( $state ),
