@@ -156,7 +156,7 @@ class DCard_Mailer {
 				?>
 				<div style="text-align: center; background: #f6efe6; border-radius: 10px; padding: 20px 18px; margin: 16px 0 0;">
 					<p style="font-size: 14px; color: #444; margin: 0 0 12px;">רוצה לשתף אותי בחוויה שלך?</p>
-					<a href="<?php echo esc_url( $feedback_url_with_session ); ?>" style="display: inline-block; background: #8B1E3F; color: #fff; text-decoration: none; font-weight: bold; padding: 10px 24px; border-radius: 30px; font-size: 14px;"כן, אשמח לשתף ></a>
+					<a href="<?php echo esc_url( $feedback_url_with_session ); ?>" style="display: inline-block; background: #8B1E3F; color: #fff; text-decoration: none; font-weight: bold; padding: 10px 24px; border-radius: 30px; font-size: 14px;"כן, אשמח לשתף"></a>
 				</div>
 			<?php endif; ?>
 		</div>
