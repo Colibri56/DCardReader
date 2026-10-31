@@ -46,7 +46,10 @@
         font-size: 24px;
         text-align: center;
         resize: none;
-        pointer-events: none;
+        /* תיקון QA ("סקרול ויזואלי בלבד - לא ניתן לגלול טקסט ארוך"): הנעילה
+           בפועל היא readOnly (ר' userQuestion.readOnly=true ב-JS) - לא
+           pointer-events:none, שחסם גם גלילה (לא רק עריכה) בשאלות ארוכות. */
+        overflow-y: auto;
     }
 
     /* מיקרופון להכתבה קולית - פינה בתוך תיבת הטקסט, לא שורה נפרדת */
@@ -353,6 +356,26 @@
         border: none;
     }
 
+    /* תיקון QA מובייל ("הפיל לצד הבועה לא הגיוני ברוחב צר, הבועה צריכה
+       לתפוס את כל הרוחב, והפיל כדאי שיתחבר ויזואלית לצבע הבועה") - במסך
+       צר: במקום flex row (ר' aiRow ב-JS, appendMessage), מניחים את הפיל
+       *מתחת* לבועה, והבועה תופסת את כל הרוחב. !important נדרש כי
+       .dcard-bubble מקבלת גם max-width:85% כ-inline style ב-JS (לכל
+       הבועות, לא רק AI) - CSS רגיל לא יכול לדרוס inline style בלי זה. */
+    @media (max-width: 600px) {
+        .dcard-ai-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+        }
+        .dcard-ai-row .dcard-bubble {
+            max-width: 100% !important;
+        }
+        .dcard-ai-row .dcard-feedback-pill {
+            align-self: flex-end;
+            background: #8B1E3F;
+        }
+    }
+
     /* משוב מאקרו - שורת קלט בסטייל וואטסאפ: פיל מעוגל אחד, לא textarea
        גדולה + כפתור טקסט נפרד כמו קודם. ה-RTL של #card-reader-app עצמו
        (direction: rtl) דואג לכך שהמיקרופון (ראשון ב-DOM) יישב מימין
@@ -561,7 +584,7 @@
         </div>
 
         <button class="btn-outline">סיום ויציאה</button>
-        <button class="btn-outline">שליחת הדיאלוג במייל</button>
+        <button class="btn-outline">שליחת השיחה במייל</button>
         <button class="btn-outline" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
     </div>
 
@@ -1486,6 +1509,29 @@
         // כרגיל ויבצע את ה-AJAX שלו בעצמו (אם/כשהוא כבר מוכן).
         e.preventDefault();
 
+        // ולידציית שם (QA: "לאפשר רק אותיות וכל סוגי המקפים") - אותיות
+        // עברית/לועזית, רווחים (שם פרטי+משפחה) וכל הגרסאות הנפוצות של מקף
+        // (מקף רגיל, מקף-מבטא עברי, en/em dash). מספרים/סימנים/<script>
+        // וכו' נדחים כאן, לפני שהם בכלל נשמרים ל-localStorage או נשלחים
+        // הלאה - גם stopPropagation (לא רק preventDefault) כדי שה-AJAX
+        // הפנימי של Elementor לא ישלח את הטופס הלא-תקין בכל זאת.
+        const DCARD_NAME_PATTERN = /^[A-Za-zא-ת\s\-‐‑‒–—־]+$/;
+        if (nameField && nameField.value.trim() && !DCARD_NAME_PATTERN.test(nameField.value.trim())) {
+            console.log('[DCard Popup] onboarding name failed validation - blocking submit:', nameField.value);
+            e.stopPropagation();
+            onboardingPopupAbort = false;
+            let errEl = form.querySelector('.dcard-name-error');
+            if (!errEl) {
+                errEl = document.createElement('div');
+                errEl.className = 'dcard-name-error';
+                errEl.style.cssText = 'color:#c0392b;font-size:13px;margin-top:4px;';
+                nameField.insertAdjacentElement('afterend', errEl);
+            }
+            errEl.textContent = 'השם יכול לכלול רק אותיות, רווחים ומקפים.';
+            nameField.focus();
+            return;
+        }
+
         if (nameField && nameField.value.trim()) {
             dcardSetLS(DCARD_LS_KEYS.name, nameField.value.trim());
             userName = nameField.value.trim(); // ר' תיקון באג 9 - מזין את הסשן הראשון בפועל, לא רק טעינות עתידיות
@@ -1987,6 +2033,9 @@
             feedbackRow.style.flexGrow = '0';
 
             const aiRow = document.createElement('div');
+            // className (לא רק inline style) - נדרש כדי שה-media query
+            // למובייל (ר' .dcard-ai-row ב-CSS) יוכל לדרוס את הפריסה כאן.
+            aiRow.className = 'dcard-ai-row';
             aiRow.style.display = 'flex';
             aiRow.style.width = '100%';
             aiRow.style.justifyContent = 'space-between';
@@ -2502,6 +2551,17 @@
                     // reload/ניווט) - כפתור מתחת להודעה עצמה, לא בתוכה.
                     offerDeepenIntoChat(aiBubble);
                 }
+            } else if (404 === cardRes.status) {
+                // תיקון (התבקש: "אולי שעתיים בין 2 הפעולות, האם יכול להיות
+                // שיש timeout?") - כן: DCard_DB::cleanup_old_sessions() מוחק
+                // סשנים 'active' אחרי 2 שעות חוסר פעילות (wp-cron יומי), אז
+                // session_card_selected_inner מחזיר כאן 404 אמיתי ("סשן לא
+                // נמצא או שאינו פעיל"). במקרה הזה "נסה שוב" מטעה לגמרי -
+                // הסשן באמת נעלם לצמיתות, אין מה לנסות שוב בשבילו. הודעה
+                // ייעודית חמה במקום הודעת השגיאה הגנרית, ונעילת התיבה (כמו
+                // מגבלת שאלות) כדי לא לעודד ניסיון חוזר חסר תוחלת.
+                appendMessage('ai', 'חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
+                lockChatInput();
             } else {
                 // תיקון: cardData.error הוא טקסט טכני מיועד ללוגים (למשל "המודל
                 // לא החזיר JSON תקין גם אחרי ניסיון חוזר") - לא מיועד למשתמש,
@@ -2509,7 +2569,7 @@
                 // מציגים הודעה ידידותית קבועה, לא את הטקסט הגולמי מהשרת.
                 // תיקון נוסף: "נסה שוב" לבדו מטעה אם הכשל חוזר על עצמו בכל
                 // ניסיון (לא בעיה חד-פעמית) - עכשיו גם מכוון למוצא בפועל.
-                appendMessage('ai', 'אירעה שגיאה בקבלת תגובה. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+                appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר להמתין מעט ולנסות שוב. במידה ולא מסתדר, אפשר ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
             }
         } catch (e) {
             appendMessage('ai', 'אירעה שגיאה בחיבור למערכת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
@@ -2634,10 +2694,15 @@
                 if (!isFinalTurn && !agentEndedConversation) {
                     maybeOfferAnotherCard(data.nextAction);
                 }
+            } else if (404 === res.status) {
+                // אותו תיקון כמו ב-runCardAI למעלה (timeout אמיתי - הסשן
+                // כבר נמחק ע"י cleanup_old_sessions אחרי 2 שעות חוסר פעילות).
+                appendMessage('ai', 'חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
+                lockChatInput();
             } else {
                 // אותו תיקון כמו ב-runCardAI למעלה - לא מציגים טקסט שגיאה גולמי
                 // מהשרת, וגם לא "נסה שוב" לבדו אם זה כשל שחוזר על עצמו.
-                appendMessage('ai', 'אירעה שגיאה בקבלת תגובה. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+                appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר להמתין מעט ולנסות שוב. במידה ולא מסתדר, אפשר ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
             }
         } catch(e) {
             appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');

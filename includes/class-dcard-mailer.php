@@ -15,41 +15,9 @@ class DCard_Mailer {
 		return wp_mail( $to_email, $subject, $body, $headers );
 	}
 
-	/**
-	 * Which provider/model actually produced the replies in this session
-	 * (read from the transcript, so a mid-session switch in Settings is
-	 * still reported correctly). Falls back to the currently active provider
-	 * for sessions with no AI replies recorded.
-	 */
-	private static function ai_label( array $transcript ) {
-		$labels = array(
-			'claude' => 'Claude',
-			'openai' => 'OpenAI',
-		);
-
-		$used = array();
-		foreach ( $transcript as $entry ) {
-			if ( empty( $entry['provider'] ) ) {
-				continue;
-			}
-			$name = isset( $labels[ $entry['provider'] ] ) ? $labels[ $entry['provider'] ] : $entry['provider'];
-			if ( ! empty( $entry['model'] ) ) {
-				$name .= ' (' . $entry['model'] . ')';
-			}
-			$used[ $name ] = true;
-		}
-
-		if ( ! $used ) {
-			$active = DCard_Settings::get_active_provider();
-			return isset( $labels[ $active ] ) ? $labels[ $active ] : $active;
-		}
-
-		return implode( ', ', array_keys( $used ) );
-	}
-
 	private static function render_html( $user_name, array $transcript, array $card_image_urls = array(), $is_message_mode = false, $session_token = '', $user_email = '', $user_phone = '' ) {
 		$greeting = $user_name ? esc_html( $user_name ) : '';
-		$intro    = $is_message_mode ? 'זה המסר שהתקבל לשאלתך:' : 'הנה סיכום התהליך לנושא שבחרת:';
+		$intro    = $is_message_mode ? 'מצורף המסר שהתקבל לשאלתך:' : 'מצורף תרשים השיחה שניהלת לאור שאלתך:';
 
 		ob_start();
 		?>
@@ -67,7 +35,6 @@ class DCard_Mailer {
 			<?php else : ?>
 				<p><?php echo esc_html( $intro ); ?></p>
 			<?php endif; ?>
-			<p style="font-size: 12px; color: #888; margin: 0;">AI: <?php echo esc_html( self::ai_label( $transcript ) ); ?></p>
 			<hr style="border: none; border-top: 1px solid #ddd; margin: 16px 0;" />
 			<?php foreach ( $transcript as $entry ) :
 				$role = isset( $entry['role'] ) ? $entry['role'] : 'user';

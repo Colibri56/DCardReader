@@ -149,10 +149,28 @@ add_action( 'init', function () {
 	} );
 }, 0 );
 
-// ניקוי יומי של סשנים ישנים (פרטיות).
+// ניקוי סשנים ישנים (פרטיות) - 'hourly' ולא 'daily': הסף לסשן 'active'
+// שננטש הוא DCard_DB::cleanup_old_sessions()'s 2 שעות חוסר פעילות (ר' שם) -
+// עם ריצה פעם ביום בלבד תוקן QA (דווח בפועל: סשן נשאר נגיש ושמיש גם אחרי
+// 8 שעות חוסר פעילות כי הטיק היומי הבא של wp-cron פשוט לא הגיע אליו עדיין),
+// כך שההודעה הייעודית ב-frontend ל-404/"סשן לא נמצא" (ר' elementor-code.html)
+// כמעט אף פעם לא הופעלה בפועל. 'hourly' (built-in ב-WP, לא custom interval)
+// מבטיח שהניקוי בפועל יקרה תוך שעה לכל היותר אחרי שהסשן חצה את הסף.
 register_activation_hook( __FILE__, function () {
 	if ( ! wp_next_scheduled( 'dcard_daily_cleanup' ) ) {
-		wp_schedule_event( time(), 'daily', 'dcard_daily_cleanup' );
+		wp_schedule_event( time(), 'hourly', 'dcard_daily_cleanup' );
+	}
+} );
+
+// תיקון QA: אתרים שכבר הפעילו את הפלאגין לפני השינוי הנ"ל נשארים עם
+// 'daily' קבוע ב-wp_options (register_activation_hook רץ רק בהפעלה, לא
+// שוב בעדכון קוד רגיל) - בודקים ב-init (רץ בכל בקשה, זול) ומתקנים פעם
+// אחת אם התדירות השמורה שונה מ-'hourly'.
+add_action( 'init', function () {
+	$next = wp_get_scheduled_event( 'dcard_daily_cleanup' );
+	if ( $next && 'hourly' !== $next->schedule ) {
+		wp_clear_scheduled_hook( 'dcard_daily_cleanup' );
+		wp_schedule_event( time(), 'hourly', 'dcard_daily_cleanup' );
 	}
 } );
 
