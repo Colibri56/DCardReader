@@ -2077,10 +2077,26 @@
         chatHistory.appendChild(wrapper);
         // תיקון QA ("בתשובה ארוכה מגלגל לסוף הטקסט, המשתמש רואה קודם את
         // המשפט האחרון ולא יכול לגלול מההתחלה") - להודעת AI מגלילים
-        // לתחילת הבועה החדשה (offsetTop), לא ל-scrollHeight (=הסוף). הודעת
-        // משתמש עצמה נשארת עם גלילה לסוף כרגיל - היא קצרה, ורוצים לראות
-        // אותה מיד ליד תיבת הקלט.
-        chatHistory.scrollTop = ( 'ai' === role ) ? wrapper.offsetTop : chatHistory.scrollHeight;
+        // לתחילת הבועה החדשה, לא ל-scrollHeight (=הסוף). הודעת משתמש
+        // עצמה נשארת עם גלילה לסוף כרגיל - היא קצרה, ורוצים לראות אותה
+        // מיד ליד תיבת הקלט.
+        //
+        // תיקון (הניסיון הקודם לא עבד בפועל: "עדיין מגלגל לסוף") - wrapper.
+        // offsetTop לא מודד מרחק מתחילת chatHistory אלא מתחילת ה-offsetParent
+        // (האב הממוקם הקרוב ביותר - position:relative/absolute/fixed) - וכאן
+        // ל-chat-history אין position מוגדר, אז offsetParent הוא אב גבוה
+        // בהרבה בעץ (למשל כל העמוד), כך ש-offsetTop יצא גדול בהרבה מגובה
+        // התוכן של chat-history עצמו (שה-CSS מגביל ל-max-height:300px) -
+        // וההשמה ל-scrollTop פשוט נחתכת (clamp) למקסימום האפשרי, שהוא...
+        // הסוף. הפתרון: למדוד הפרש מיקום אמיתי על המסך בין תחילת הבועה
+        // לתחילת chatHistory (getBoundingClientRect, לא offsetTop), ללא
+        // תלות בשרשרת ה-offsetParent.
+        if ( 'ai' === role ) {
+            const deltaFromTop = wrapper.getBoundingClientRect().top - chatHistory.getBoundingClientRect().top;
+            chatHistory.scrollTop = chatHistory.scrollTop + deltaFromTop;
+        } else {
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
 
         // מחזיר את ה-bubble עצמו (לא ה-wrapper) - נדרש כדי שקוד אחר (מעבר
         // חלק למצב "שיחה פתוחה" אחרי הודעת "קבלת מסר", ר' runCardAI למטה)
