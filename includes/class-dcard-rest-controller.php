@@ -1322,7 +1322,35 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'Transaction not successful' ), 200 ); // 200 בכוונה - קארדקום לא צריכה לנסות שוב, זו לא "שגיאה" מהצד שלנו
 		}
 
-		// 3. זיהוי המשתמש - שכבה ראשונה: ReturnValue (ר' הערה ב-elementor-
+		// 3. זיהוי מסלול מהמק"ט - *לפני* חיפוש המשתמש (תיקון אחרי שהתברר
+		// בפועל, 1.11.26: ה-webhook ב-Cardcom מוגדר ברמת כל החשבון, לא רק
+		// למוצר "הקורא בקלפים" - כל עסקה בכל מוצר אחר של נוריתה דר (ר'
+		// product_id 700/930 בלוג האמיתי) מפעילה את ה-endpoint הזה גם כן.
+		// קודם זה נבדק *אחרי* חיפוש המשתמש, אז כל עסקה כזו הייתה נכשלת ב-
+		// "משתמש לא נמצא" ומוחזרת כ-404 - מה שגרם לקארדקום לדווח על "כשל"
+		// על כל עסקה בעסק, גם אלה שלא קשורות בכלל למוצר שלנו, ובדיוק זה מה
+		// שנראה כ"404 לסירוגין" מול Hostinger (זו לא הייתה בעיית WAF/
+		// hosting בכלל). עכשיו: אם המק"ט לא שלנו - לא בודקים user בכלל,
+		// ומחזירים 200 מיידית (לא שגיאה מבחינתנו, קארדקום לא צריכה לנסות
+		// שוב) - ExtReadInvoiceLines יכול להיות שדה שטוח (שורת חשבונית
+		// בודדת) או מערך (כמה שורות), נבדקות שתי החלופות.
+		$product_id = (string) $request->get_param( 'ExtReadInvoiceLines_ProductID' );
+		if ( ! $product_id ) {
+			$lines = $request->get_param( 'ExtReadInvoiceLines' );
+			if ( is_array( $lines ) && isset( $lines[0]['ProductID'] ) ) {
+				$product_id = (string) $lines[0]['ProductID'];
+			}
+		}
+
+		error_log( '[DCard Webhook] parsed ProductID=' . wp_json_encode( $product_id ) );
+
+		$plan_id = DCard_Plans::map_product_id_to_plan( $product_id );
+		if ( ! $plan_id ) {
+			DCard_Logger::info( 'POST /webhook/ipn-update - ProductID not ours (other product on the same Cardcom account), ignoring', array( 'product_id' => $product_id ) );
+			return new WP_REST_Response( array( 'success' => true, 'error' => 'מק"ט לא שייך למוצר הזה - התעלמות' ), 200 );
+		}
+
+		// 4. זיהוי המשתמש - שכבה ראשונה: ReturnValue (ר' הערה ב-elementor-
 		// code.html). שכבה שנייה (Fallback): לוג IPN אמיתי מקארדקום (re-
 		// transmit ידני) הראה ש-ReturnValue *לא קיים בכלל* ב-payload של
 		// המוצר הספציפי הזה - כלומר דף התשלום הזה לא מהדהד פרמטרים
@@ -1358,45 +1386,18 @@ class DCard_REST_Controller {
 		}
 
 		if ( ! $user ) {
-			// תיקון אבחון (דווח בפועל: קבוצת בקשות עם מיילים לא-קשורים שהגיעו
-			// תוך שניות ספורות - לא ברור אם זה IPN אמיתי של מוצרים *אחרים*
-			// של אותו חשבון קארדקום (אם ה-webhook מוגדר ברמת החשבון, לא רק
-			// למוצר הזה) או משהו אחר). מוסיפים את ה-ProductID כאן, לפני
-			// שבודקים user - כדי לדעת מיד אם זה בכלל שייך למוצר "הקורא
-			// בקלפים" (מק"ט 601, ר' DCard_Plans) בלי לפנות לקארדקום לשאול.
-			$diag_product_id = (string) $request->get_param( 'ExtReadInvoiceLines_ProductID' );
-			if ( ! $diag_product_id ) {
-				$diag_lines = $request->get_param( 'ExtReadInvoiceLines' );
-				if ( is_array( $diag_lines ) && isset( $diag_lines[0]['ProductID'] ) ) {
-					$diag_product_id = (string) $diag_lines[0]['ProductID'];
-				}
-			}
-			DCard_Logger::warning( 'POST /webhook/ipn-update - no user found via ReturnValue or email fallback', array(
+			// מגיעים לכאן רק עבור עסקה שכבר אושרה כשייכת למוצר שלנו (מק"ט
+			// 601/602/603, ר' הבדיקה למעלה) - זו כבר לא רעש מעסקאות של
+			// מוצרים אחרים, אלא בעיה אמיתית שדורשת טיפול ידני (לקוח ששילם
+			// על "הקורא בקלפים" ולא מקבל קרדיט).
+			DCard_Logger::warning( 'POST /webhook/ipn-update - no user found via ReturnValue or email fallback (for OUR product)', array(
 				'return_value'   => $return_value,
 				'email_raw'      => $email_from_ipn,
 				'email_decoded'  => $email_decoded,
-				'product_id'     => $diag_product_id,
+				'product_id'     => $product_id,
 				'invoice_number' => (string) $request->get_param( 'ExtReadInvoiceHead_InvoiceNumber' ),
 			) );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא (ReturnValue ואימייל לא תואמים)' ), 404 );
-		}
-
-		// 4. זיהוי מסלול מהמק"ט - ExtReadInvoiceLines יכול להיות שדה שטוח
-		// (שורת חשבונית בודדת) או מערך (כמה שורות) - נבדקות שתי החלופות.
-		$product_id = (string) $request->get_param( 'ExtReadInvoiceLines_ProductID' );
-		if ( ! $product_id ) {
-			$lines = $request->get_param( 'ExtReadInvoiceLines' );
-			if ( is_array( $lines ) && isset( $lines[0]['ProductID'] ) ) {
-				$product_id = (string) $lines[0]['ProductID'];
-			}
-		}
-
-		error_log( '[DCard Webhook] parsed ProductID=' . wp_json_encode( $product_id ) );
-
-		$plan_id = DCard_Plans::map_product_id_to_plan( $product_id );
-		if ( ! $plan_id ) {
-			DCard_Logger::warning( 'POST /webhook/ipn-update - could not map ProductID to a known plan', array( 'product_id' => $product_id ) );
-			return new WP_REST_Response( array( 'success' => false, 'error' => 'מק"ט לא מוכר' ), 400 );
 		}
 
 		// 5. פרטי העסקה לטבלת ה-transactions.
