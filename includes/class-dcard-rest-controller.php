@@ -1366,22 +1366,25 @@ class DCard_REST_Controller {
 		$user = $user_id > 0 ? DCard_Users::get_by_id( $user_id ) : null;
 
 		$email_from_ipn = null;
-		$email_decoded  = null;
 
 		if ( ! $user ) {
 			$email_from_ipn = $this->get_nested_param( $request, 'ExtReadInvoiceHead', 'Email' );
 
-			// תיקון אומת מתוך לוג IPN אמיתי: האימייל מגיע עדיין מקודד-URL
-			// (%2b במקום +, %40 במקום @) - כלומר לא עבר את הפענוח הרגיל
-			// שפרסור POST/GET סטנדרטי כבר אמור לעשות לבד. urldecode()
-			// מפורש כאן על ערך שכבר *לא* מקודד הוא no-op בטוח (אין %XX
-			// לפענח) - אז זה לא מסוכן גם אם ההנחה הזו שגויה במקרה אחר.
-			$email_decoded = $email_from_ipn ? urldecode( $email_from_ipn ) : null;
+			// תיקון באג אמיתי (אומת 1.11.26 מתוך לוג IPN אמיתי עם אימייל
+			// שמכיל "+"): ההנחה הקודמת כאן הייתה שגויה - PHP/WordPress כבר
+			// מפענחים את ה-POST body הסטנדרטי (application/x-www-form-
+			// urlencoded) לבד, אז $email_from_ipn שמתקבל מ-get_nested_param
+			// כבר מכיל "heddyeldar+eden@gmail.com" נכון לגמרי (לא %2b/%40
+			// גולמיים). ה-urldecode() הנוסף שהיה כאן לא היה "no-op בטוח" -
+			// urldecode() הופך "+" ל-רווח (כך הוא מפרש טפסים), אז הוא פגע
+			// בכל אימייל עם "+" (plus-addressing, נפוץ אצל לקוחות) והפך
+			// אותו ל-"heddyeldar eden@gmail.com" (עם רווח, לא תקין) - בדיוק
+			// הסיבה לכל ה"משתמש לא נמצא" שדווחו. הוסר לגמרי - $email_from_ipn
+			// כבר השדה הנכון, בלי פענוח נוסף.
+			error_log( '[DCard Webhook] ReturnValue missing/invalid - falling back to email lookup. email=' . wp_json_encode( $email_from_ipn ) );
 
-			error_log( '[DCard Webhook] ReturnValue missing/invalid - falling back to email lookup. raw email=' . wp_json_encode( $email_from_ipn ) . ', urldecode()-ed email=' . wp_json_encode( $email_decoded ) );
-
-			if ( $email_decoded && is_email( sanitize_email( $email_decoded ) ) ) {
-				$user = DCard_Users::get_by_email( sanitize_email( $email_decoded ) );
+			if ( $email_from_ipn && is_email( sanitize_email( $email_from_ipn ) ) ) {
+				$user = DCard_Users::get_by_email( sanitize_email( $email_from_ipn ) );
 			}
 		}
 
@@ -1392,8 +1395,7 @@ class DCard_REST_Controller {
 			// על "הקורא בקלפים" ולא מקבל קרדיט).
 			DCard_Logger::warning( 'POST /webhook/ipn-update - no user found via ReturnValue or email fallback (for OUR product)', array(
 				'return_value'   => $return_value,
-				'email_raw'      => $email_from_ipn,
-				'email_decoded'  => $email_decoded,
+				'email'          => $email_from_ipn,
 				'product_id'     => $product_id,
 				'invoice_number' => (string) $request->get_param( 'ExtReadInvoiceHead_InvoiceNumber' ),
 			) );
