@@ -2484,7 +2484,12 @@
         deepenBtn.textContent = 'להמשיך ולהעמיק בשיחה';
         deepenWrapper.appendChild(deepenBtn);
         chatHistory.appendChild(deepenWrapper);
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+        // תיקון QA (דווח בפועל: "התיקון הקודם לא עבד - אחרי בחירת קבלת
+        // מסר האפליקציה עדיין מגלגלת לסוף") - appendMessage() כבר מיקם
+        // את הגלילה בתחילת בועת ה-AI; הוספת הכפתור הזה *אחריה* (wrapper
+        // נפרד שמתווסף ל-chatHistory בהמשך) הייתה דורסת את זה בחזרה
+        // ל-scrollHeight (=הסוף, אחרי הכפתור) בכל פעם. לא נוגעים בגלילה
+        // כאן בכלל - משאירים את המיקום שכבר נקבע.
 
         deepenBtn.addEventListener('click', function () {
             deepenWrapper.remove(); // לחיצה חד-פעמית - לא רלוונטי יותר אחרי המעבר לשיחה
