@@ -374,6 +374,22 @@
             align-self: flex-end;
             background: #8B1E3F;
         }
+
+        /* תיקון QA מובייל ("סדר הכפתורים צריך להתחלף - 'סיום ויציאה' למעלה,
+           הוא צריך להיות אחרון") - ב-DOM הוא ראשון מבין 3 הכפתורים, ולכן
+           ברוחב צר (כל כפתור נופל לשורה נפרדת ע"י flex-wrap הקיים ב-
+           .actions-block) הוא יוצא העליון. order קובע רק סדר *תצוגה* -
+           ה-DOM/קריאות מסך לא משתנים, ודסקטופ (אין כאן media query) לא
+           מושפע בכלל. */
+        .btn-email-chat {
+            order: 1;
+        }
+        .btn-new-question {
+            order: 2;
+        }
+        .btn-end-session {
+            order: 3;
+        }
     }
 
     /* משוב מאקרו - שורת קלט בסטייל וואטסאפ: פיל מעוגל אחד, לא textarea
@@ -583,9 +599,9 @@
             <div id="feedback-macro-thanks" style="display:none;">תודה על המשוב! 🙏</div>
         </div>
 
-        <button class="btn-outline">סיום ויציאה</button>
-        <button class="btn-outline">שליחת השיחה במייל</button>
-        <button class="btn-outline" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
+        <button class="btn-outline btn-end-session">סיום ויציאה</button>
+        <button class="btn-outline btn-email-chat">שליחת השיחה במייל</button>
+        <button class="btn-outline btn-new-question" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
     </div>
 
 </div>
@@ -657,7 +673,19 @@
     // תיקון (התבקש: שדה שמציג את פלטפורמת השימוש - מובייל/דסקטופ) - נבדק
     // פעם אחת כאן, נשלח רק ב-/session/start (ר' class-dcard-rest-controller.php -
     // נשמר שם ב-state של הסשן, אז לא צריך להישלח שוב בכל קריאה בהמשך).
-    var DCARD_PLATFORM = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop';
+    //
+    // תיקון (התבקש: "להוסיף לדשבורד כמה משתמשים בדסקטופ, טאבלט וכמה
+    // במובייל") - בעבר iPad/Android נכנסו ל-'Mobile' גם כשהם בפועל טאבלטים.
+    // זיהוי טאבלט: iPad קלאסי (UA מכיל "iPad"), Android טאבלט (UA מכיל
+    // "Android" אבל לא את המילה "Mobile" - זו ההבחנה הרשמית של גוגל בין
+    // טלפון לטאבלט אנדרואיד), ואייפאד מ-iPadOS 13+ שמתחזה ל-Mac דרך
+    // maxTouchPoints (מכשיר Mac אמיתי הוא תמיד 0).
+    var DCARD_UA = navigator.userAgent;
+    var DCARD_IS_TABLET = /iPad/.test(DCARD_UA)
+        || (/Android/.test(DCARD_UA) && !/Mobile/.test(DCARD_UA))
+        || (/Macintosh/.test(DCARD_UA) && navigator.maxTouchPoints > 1);
+    var DCARD_IS_PHONE = !DCARD_IS_TABLET && /Mobi|Android|iPhone|iPod/i.test(DCARD_UA);
+    var DCARD_PLATFORM = DCARD_IS_TABLET ? 'Tablet' : (DCARD_IS_PHONE ? 'Mobile' : 'Desktop');
 
     function dcardHeaders() {
         var headers = { 'Content-Type': 'application/json' };
@@ -2047,7 +2075,12 @@
         }
 
         chatHistory.appendChild(wrapper);
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+        // תיקון QA ("בתשובה ארוכה מגלגל לסוף הטקסט, המשתמש רואה קודם את
+        // המשפט האחרון ולא יכול לגלול מההתחלה") - להודעת AI מגלילים
+        // לתחילת הבועה החדשה (offsetTop), לא ל-scrollHeight (=הסוף). הודעת
+        // משתמש עצמה נשארת עם גלילה לסוף כרגיל - היא קצרה, ורוצים לראות
+        // אותה מיד ליד תיבת הקלט.
+        chatHistory.scrollTop = ( 'ai' === role ) ? wrapper.offsetTop : chatHistory.scrollHeight;
 
         // מחזיר את ה-bubble עצמו (לא ה-wrapper) - נדרש כדי שקוד אחר (מעבר
         // חלק למצב "שיחה פתוחה" אחרי הודעת "קבלת מסר", ר' runCardAI למטה)
@@ -2526,6 +2559,16 @@
                 return;
             }
 
+            // תיקון (התבקש: "לקוח שמתמיד... לעצור אותו בהודעה מנומסת שמזמינה
+            // להמשיך מחר") - בכוונה *לא* triggerPaymentWall: זו לא מגבלת
+            // קרדיטים, רק קצב שימוש יומי - המשתמש כבר רשום/שילם, לא מציגים
+            // לו הצעת שדרוג. סתם נועלים עם הודעה מנומסת, כמו מגבלת 15 השאלות.
+            if (403 === cardRes.status && 'daily_limit_reached' === cardData.code) {
+                stopTyping();
+                lockChatInput(cardData.error || 'הגעת להיום למספר הפניות המרבי. נשמח לפגוש אותך שוב מחר.');
+                return;
+            }
+
             if (cardData.aiReply) {
                 // תיקון (התבקש: "כששולפים קלף ועולה השאלה 'מה אתה רואה בקלף',
                 // לא להציג מיקרו משוב - זה לא נותן שום דבר ומבלבל") - במצב
@@ -2677,6 +2720,13 @@
                     dcardSetLS(DCARD_LS_KEYS.pendingQuestion, text);
                 }
                 triggerPaymentWall();
+                return;
+            }
+
+            // ר' ההערה המקבילה והמלאה ב-runCardAI - אותו עיקרון, בלי קיר תשלום.
+            if (403 === res.status && 'daily_limit_reached' === data.code) {
+                stopTyping();
+                lockChatInput(data.error || 'הגעת להיום למספר הפניות המרבי. נשמח לפגוש אותך שוב מחר.');
                 return;
             }
 

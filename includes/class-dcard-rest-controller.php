@@ -394,7 +394,11 @@ class DCard_REST_Controller {
 		// קריאה - כולל קריאות sendBeacon (/session/end על נטישה שקטה)
 		// שלא תומכות בכותרות מותאמות אישית בכלל.
 		$platform = sanitize_text_field( (string) $request->get_header( 'X-Dcard-Platform' ) );
-		if ( ! in_array( $platform, array( 'Mobile', 'Desktop' ), true ) ) {
+		// תיקון (התבקש: "להוסיף לדשבורד כמה משתמשים בדסקטופ, טאבלט וכמה
+		// במובייל") - 'Tablet' נוסף כערך שלישי אפשרי (ר' DCARD_PLATFORM
+		// ב-elementor-code.html, שעכשיו גם מזהה טאבלטים בנפרד, לא רק
+		// Mobile/Desktop כמו קודם).
+		if ( ! in_array( $platform, array( 'Mobile', 'Desktop', 'Tablet' ), true ) ) {
 			$platform = '';
 		}
 		DCard_DB::update_state( $token, array( 'platform' => $platform ) );
@@ -468,6 +472,21 @@ class DCard_REST_Controller {
 				'success' => false,
 				'error'   => 'נגמרו הקרדיטים שלך במסלול הנוכחי. אפשר לשדרג כדי להמשיך.',
 				'code'    => 'credits_exhausted',
+			), 403 );
+		}
+
+		// תיקון (התבקש: "לקוח שמתמיד במשך יום X שאלות... לעצור אותו בהודעה
+		// מנומסת שמזמינה להמשיך מחר") - ציר נפרד מהקרדיטים (שם אין "חידוש
+		// יומי" בכלל, ר' upsert_by_email): מגבלה על קצב השימוש *באותו יום*,
+		// בלי קשר ליתרת הקרדיטים. נבדק לפני הקריאה ל-AI (לא אחריה) כדי
+		// שלא נשלם על קריאה שבלאו הכי תידחה. משתמש אנונימי תמיד 0 (ר'
+		// count_calls_today) - לא נחסם כאן, אין זהות יציבה לאכוף מולה.
+		if ( $registered_user && DCard_Usage_Logs::count_calls_today( $registered_user['id'] ) >= DCard_Quotas::get_daily_ai_call_limit() ) {
+			DCard_Logger::info( 'session_card_selected - registered user hit daily AI call cap', array( 'user_id' => $registered_user['id'] ) );
+			return new WP_REST_Response( array(
+				'success' => false,
+				'error'   => 'הגעת להיום למספר הפניות המרבי לקורא בקלפים. נשמח לפגוש אותך שוב מחר.',
+				'code'    => 'daily_limit_reached',
 			), 403 );
 		}
 
@@ -716,6 +735,14 @@ class DCard_REST_Controller {
 		// שכבר נכתב ל-DB. חייב לרוץ אחרי, בדיוק כמו reading_mode/card_turn_count.
 		$call_cost_usd = self::estimate_cost( $model, $tokens_in, $tokens_out );
 		DCard_DB::add_token_usage( $session_token, $tokens_in, $tokens_out, $call_cost_usd );
+		// תיקון (התבקש: מגבלת קריאות יומית + תקרת תקציב חודשית) - רישום
+		// קבוע ל-wp_dcard_usage_logs, שעד כה היה מוכן אבל אף פעם לא נקרא
+		// בפועל (ר' ההערה בראש class-dcard-usage-logs.php). $tokens_in/out
+		// כאן כבר כוללים retry אם קרה (ר' ההערה המלאה למעלה) - שורה אחת
+		// לכל קריאת API *חיצונית* (card-selected/turn), לא לכל retry בנפרד.
+		if ( $tokens_in || $tokens_out ) {
+			DCard_Usage_Logs::log( $registered_user ? $registered_user['id'] : null, $model, $tokens_in, $tokens_out, $call_cost_usd );
+		}
 
 		// תיקון (התבקש: "טוקנים אמיתיים לפי מודל LLM") - session_completed
 		// מצטבר לכל הסשן, ולא מבדיל אם הוחלף מודל באמצע. אירוע נפרד לכל
@@ -830,6 +857,24 @@ class DCard_REST_Controller {
 		// בכלל יותר. (הוסר - קודם היה כאן בדיקת has_credits/דחיית 403
 		// זהה ל-session_card_selected_inner, שגרמה בפועל לחיוב כפול: קרדיט
 		// אחד על הקלף הראשון ועוד "בדיקה" על כל הודעת מעקב באותו סשן.)
+		//
+		// תיקון (התבקש: מגבלת קריאות AI יומית) - ציר נפרד מהקרדיטים (ר'
+		// ההערה המקבילה והמלאה ב-session_card_selected_inner): כל הודעת
+		// המשך בשיחה פתוחה היא קריאת AI בפני עצמה, אז נבדקת כאן גם כן,
+		// לא רק בשליפת הקלף. $registered_user לא נשמר/נבדק בשום מקום אחר
+		// ב-method הזה (אין כאן בדיקת קרדיטים בכוונה, ר' למעלה) - נדרש
+		// שוב מאפס, רק לצורך הזיהוי למגבלה היומית ולרישום ל-usage_logs.
+		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( $registered_user && DCard_Usage_Logs::count_calls_today( $registered_user['id'] ) >= DCard_Quotas::get_daily_ai_call_limit() ) {
+			DCard_Logger::info( 'session_turn - registered user hit daily AI call cap', array( 'user_id' => $registered_user['id'] ) );
+			return new WP_REST_Response( array(
+				'success' => false,
+				'error'   => 'הגעת להיום למספר הפניות המרבי לקורא בקלפים. נשמח לפגוש אותך שוב מחר.',
+				'code'    => 'daily_limit_reached',
+			), 403 );
+		}
 
 		if ( ! empty( $session['drawn_cards'] ) ) {
 			$session['state']['stage'] = $this->stage_after_draw( $session['state']['stage'], count( $session['drawn_cards'] ) );
@@ -925,6 +970,10 @@ class DCard_REST_Controller {
 		$turn_tokens_out = isset( $result['usage']['output'] ) ? (int) $result['usage']['output'] : 0;
 		$turn_cost_usd   = self::estimate_cost( $result['model'], $turn_tokens_in, $turn_tokens_out );
 		DCard_DB::add_token_usage( $session_token, $turn_tokens_in, $turn_tokens_out, $turn_cost_usd );
+		// ר' ההערה המקבילה ב-session_card_selected_inner - אותו רישום ל-usage_logs.
+		if ( $turn_tokens_in || $turn_tokens_out ) {
+			DCard_Usage_Logs::log( $registered_user ? $registered_user['id'] : null, $result['model'], $turn_tokens_in, $turn_tokens_out, $turn_cost_usd );
+		}
 
 		// ר' ההערה המקבילה ב-session_card_selected_inner - /session/turn
 		// הוא תמיד 'chat' (ר' ההערה למעלה), אז route קבוע כאן.

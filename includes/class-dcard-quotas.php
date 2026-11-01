@@ -30,12 +30,26 @@ class DCard_Quotas {
 	const OPTION_REG_MSG_LIMIT   = 'dcard_reg_msg_limit';
 	const OPTION_REG_CHAT_LIMIT  = 'dcard_reg_chat_limit';
 
+	// תיקון (התבקש: "לקוח שמתמיד במשך יום X שאלות... לעצור אותו בהודעה
+	// מנומסת שמזמינה להמשיך מחר" + "להגביל את הסכום החודשי") - שתי מגבלות
+	// נפרדות: קריאות AI ביום למשתמש *רשום* בודד (ר' DCard_Usage_Logs::
+	// count_calls_today, שאוכפת את זה ב-class-dcard-rest-controller.php),
+	// ותקציב דולרי חודשי *כולל* (כל המשתמשים/המודלים יחד - ר'
+	// DCard_Usage_Logs::maybe_send_monthly_budget_alert).
+	const OPTION_DAILY_AI_CALL_LIMIT = 'dcard_daily_ai_call_limit';
+	const OPTION_MONTHLY_AI_BUDGET   = 'dcard_monthly_ai_budget_usd';
+
 	// ברירות מחדל זמניות בלבד - אין שום משמעות "נכונה" ידועה מראש למגבלות
 	// האלה, המנהל צריך לכוון אותן בעצמו בעמוד ההגדרות לפי מה שמתאים לעסק.
 	const DEFAULT_ANON_MSG_LIMIT  = 1;
 	const DEFAULT_ANON_CHAT_LIMIT = 5;
 	const DEFAULT_REG_MSG_LIMIT   = 10;
 	const DEFAULT_REG_CHAT_LIMIT  = 30;
+	// הוגדר יחד עם המשתמש (31.10.26): 40 קריאות AI ביום למשתמש רשום בודד
+	// (מאפשר שיחה מפתחת אחת ארוכה-בינונית ביום בלי להרגיש חסום), ותקציב
+	// AI חודשי כולל של $150 (נקבע כברירת מחדל זהירה, ניתן לכוונן).
+	const DEFAULT_DAILY_AI_CALL_LIMIT = 40;
+	const DEFAULT_MONTHLY_AI_BUDGET   = 150;
 
 	// תיקון איחוד תפריטים: קודם add_menu_page() נפרד ("DCard Quotas") - עכשיו
 	// תת-תפריט של ה-CPT "הקורא בקלפים" (projective_card), לצד "הגדרות AI"
@@ -74,6 +88,27 @@ class DCard_Quotas {
 			'sanitize_callback' => $int_sanitizer,
 			'default'           => self::DEFAULT_REG_CHAT_LIMIT,
 		) );
+		register_setting( self::OPTION_GROUP, self::OPTION_DAILY_AI_CALL_LIMIT, array(
+			'sanitize_callback' => $int_sanitizer,
+			'default'           => self::DEFAULT_DAILY_AI_CALL_LIMIT,
+		) );
+		register_setting( self::OPTION_GROUP, self::OPTION_MONTHLY_AI_BUDGET, array(
+			// תקציב בדולרים, יכול להיות עם אגורות (150.5) - לא absint כמו
+			// שאר המגבלות (שהן כולן ספירת סשנים/קריאות, מספרים שלמים).
+			'sanitize_callback' => function ( $value ) {
+				$float = (float) $value;
+				return $float > 0 ? round( $float, 2 ) : 0.0;
+			},
+			'default'           => self::DEFAULT_MONTHLY_AI_BUDGET,
+		) );
+	}
+
+	public static function get_daily_ai_call_limit() {
+		return (int) get_option( self::OPTION_DAILY_AI_CALL_LIMIT, self::DEFAULT_DAILY_AI_CALL_LIMIT );
+	}
+
+	public static function get_monthly_ai_budget_usd() {
+		return (float) get_option( self::OPTION_MONTHLY_AI_BUDGET, self::DEFAULT_MONTHLY_AI_BUDGET );
 	}
 
 	/**
@@ -105,7 +140,7 @@ class DCard_Quotas {
 		?>
 		<div class="wrap" dir="rtl">
 			<h1>קורא בקלפים - הגדרות מכסות (Freemium)</h1>
-			<p>המגבלות האלה חלות כרגע רק על משתמשים אנונימיים (ר' הערה בקוד) - נספרות בדפדפן של המשתמש (localStorage), לא בשרת.</p>
+			<p>ארבעת השדות הראשונים חלים כרגע רק על משתמשים אנונימיים (ר' הערה בקוד) - נספרים בדפדפן של המשתמש (localStorage), לא בשרת. שני השדות האחרונים (מגבלת קריאות יומית ותקציב חודשי) כן נאכפים בצד השרת.</p>
 			<?php
 			settings_errors();
 			foreach ( self::take_notices() as $notice ) {
@@ -141,6 +176,20 @@ class DCard_Quotas {
 						<td>
 							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_REG_CHAT_LIMIT, self::DEFAULT_REG_CHAT_LIMIT ) ); ?>" class="small-text" />
 							<p class="description">שמור לשלב הבא - עדיין אין הבדל בפועל בין מסלולים לפי המספר הזה ספציפית (ר' הערה למעלה - מסלול "חינמי" נשלט כרגע ע"י OPTION_REG_MSG_LIMIT בלבד, לשני סוגי הסשן).</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_DAILY_AI_CALL_LIMIT ); ?>">מגבלת קריאות AI ביום - משתמש רשום בודד</label></th>
+						<td>
+							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_DAILY_AI_CALL_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_DAILY_AI_CALL_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_DAILY_AI_CALL_LIMIT, self::DEFAULT_DAILY_AI_CALL_LIMIT ) ); ?>" class="small-text" />
+							<p class="description">נאכף בצד השרת (ר' DCard_Usage_Logs::count_calls_today): כשמשתמש רשום בודד עובר את המספר הזה של קריאות AI בפועל (שליפת קלף + כל הודעה בשיחה) <strong>באותו יום</strong>, הוא מקבל הודעה מנומסת לחזור מחר - בלי לפתוח קיר תשלום. 0 = בלי מגבלה.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_MONTHLY_AI_BUDGET ); ?>">תקציב AI חודשי כולל ($)</label></th>
+						<td>
+							<input type="number" min="0" step="0.01" id="<?php echo esc_attr( self::OPTION_MONTHLY_AI_BUDGET ); ?>" name="<?php echo esc_attr( self::OPTION_MONTHLY_AI_BUDGET ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_MONTHLY_AI_BUDGET, self::DEFAULT_MONTHLY_AI_BUDGET ) ); ?>" class="small-text" />
+							<p class="description">סכום כולל (כל המשתמשים וכל המודלים יחד) לחודש קלנדרי. בחציית 80% ו-100% נשלחת התראת מייל אחת לכתובת הניהול (admin_email) - <strong>בלי חסימה אוטומטית של שימוש</strong> (נבחר במכוון כצעד ראשון זהיר). 0 = בלי מעקב/התראה.</p>
 						</td>
 					</tr>
 				</table>
