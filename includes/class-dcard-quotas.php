@@ -39,6 +39,23 @@ class DCard_Quotas {
 	const OPTION_DAILY_AI_CALL_LIMIT = 'dcard_daily_ai_call_limit';
 	const OPTION_MONTHLY_AI_BUDGET   = 'dcard_monthly_ai_budget_usd';
 
+	// תיקון (התבקש: "הגדרה חיצונית של מספר השימושים המקסימלי... לכל
+	// מסלול", ואז הורחב: "לא רק למסלול נרקיס") - קרדיטים (סשנים) בכל אחד
+	// מהמסלולים בתשלום היו קשיחים ב-DCard_Plans::all(); עכשיו מוגדרים כאן,
+	// באותו עמוד שבו כבר מוגדרת מכסת המסלול החינמי. נורית/נורית-שנתי
+	// ברירת המחדל שלהם היא DCard_Plans::UNLIMITED_CREDITS (999999) - מספר
+	// כזה (או כל מספר >= 999999) ממשיך להתפרש כ"ללא הגבלה" ע"י
+	// DCard_Plans::is_unlimited(), כדי לא להוסיף מושג/שדה "checkbox ללא
+	// הגבלה" נפרד רק בשביל זה.
+	const OPTION_NARKIS_CREDITS       = 'dcard_narkis_plan_credits';
+	const OPTION_NURIT_CREDITS        = 'dcard_nurit_plan_credits';
+	const OPTION_NURIT_YEARLY_CREDITS = 'dcard_nurit_yearly_plan_credits';
+	const DEFAULT_NARKIS_CREDITS       = 15;
+	// 999999 = ללא הגבלה (זהה ל-DCard_Plans::UNLIMITED_CREDITS - לא
+	// מפנים לקבוע של מחלקה אחרת כאן כדי לא להסתמך על סדר טעינת הקבצים).
+	const DEFAULT_NURIT_CREDITS        = 999999;
+	const DEFAULT_NURIT_YEARLY_CREDITS = 999999;
+
 	// ברירות מחדל זמניות בלבד - אין שום משמעות "נכונה" ידועה מראש למגבלות
 	// האלה, המנהל צריך לכוון אותן בעצמו בעמוד ההגדרות לפי מה שמתאים לעסק.
 	const DEFAULT_ANON_MSG_LIMIT  = 1;
@@ -92,6 +109,18 @@ class DCard_Quotas {
 			'sanitize_callback' => $int_sanitizer,
 			'default'           => self::DEFAULT_DAILY_AI_CALL_LIMIT,
 		) );
+		register_setting( self::OPTION_GROUP, self::OPTION_NARKIS_CREDITS, array(
+			'sanitize_callback' => $int_sanitizer,
+			'default'           => self::DEFAULT_NARKIS_CREDITS,
+		) );
+		register_setting( self::OPTION_GROUP, self::OPTION_NURIT_CREDITS, array(
+			'sanitize_callback' => $int_sanitizer,
+			'default'           => self::DEFAULT_NURIT_CREDITS,
+		) );
+		register_setting( self::OPTION_GROUP, self::OPTION_NURIT_YEARLY_CREDITS, array(
+			'sanitize_callback' => $int_sanitizer,
+			'default'           => self::DEFAULT_NURIT_YEARLY_CREDITS,
+		) );
 		register_setting( self::OPTION_GROUP, self::OPTION_MONTHLY_AI_BUDGET, array(
 			// תקציב בדולרים, יכול להיות עם אגורות (150.5) - לא absint כמו
 			// שאר המגבלות (שהן כולן ספירת סשנים/קריאות, מספרים שלמים).
@@ -109,6 +138,18 @@ class DCard_Quotas {
 
 	public static function get_monthly_ai_budget_usd() {
 		return (float) get_option( self::OPTION_MONTHLY_AI_BUDGET, self::DEFAULT_MONTHLY_AI_BUDGET );
+	}
+
+	public static function get_narkis_plan_credits() {
+		return (int) get_option( self::OPTION_NARKIS_CREDITS, self::DEFAULT_NARKIS_CREDITS );
+	}
+
+	public static function get_nurit_plan_credits() {
+		return (int) get_option( self::OPTION_NURIT_CREDITS, self::DEFAULT_NURIT_CREDITS );
+	}
+
+	public static function get_nurit_yearly_plan_credits() {
+		return (int) get_option( self::OPTION_NURIT_YEARLY_CREDITS, self::DEFAULT_NURIT_YEARLY_CREDITS );
 	}
 
 	/**
@@ -176,6 +217,27 @@ class DCard_Quotas {
 						<td>
 							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_REG_CHAT_LIMIT, self::DEFAULT_REG_CHAT_LIMIT ) ); ?>" class="small-text" />
 							<p class="description">שמור לשלב הבא - עדיין אין הבדל בפועל בין מסלולים לפי המספר הזה ספציפית (ר' הערה למעלה - מסלול "חינמי" נשלט כרגע ע"י OPTION_REG_MSG_LIMIT בלבד, לשני סוגי הסשן).</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_NARKIS_CREDITS ); ?>">קרדיטים (סשנים) במסלול "נרקיס" (תשלום חודשי)</label></th>
+						<td>
+							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_NARKIS_CREDITS ); ?>" name="<?php echo esc_attr( self::OPTION_NARKIS_CREDITS ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_NARKIS_CREDITS, self::DEFAULT_NARKIS_CREDITS ) ); ?>" class="small-text" />
+							<p class="description">כמה קרדיטים (סשנים) מקבל לקוח ששילם על מסלול "נרקיס" (מק"ט 601) לחידוש החודשי שלו.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_NURIT_CREDITS ); ?>">קרדיטים (סשנים) במסלול "נורית" (תשלום חודשי)</label></th>
+						<td>
+							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_NURIT_CREDITS ); ?>" name="<?php echo esc_attr( self::OPTION_NURIT_CREDITS ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_NURIT_CREDITS, self::DEFAULT_NURIT_CREDITS ) ); ?>" class="small-text" />
+							<p class="description">ברירת המחדל (999999) מתפרשת בקוד כ"ללא הגבלה" - כל מספר מ-999999 ומעלה נחשב ללא הגבלה. להגביל בפועל - להזין מספר קרדיטים אמיתי (למשל 100).</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_NURIT_YEARLY_CREDITS ); ?>">קרדיטים (סשנים) במסלול "נורית (שנתי)"</label></th>
+						<td>
+							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_NURIT_YEARLY_CREDITS ); ?>" name="<?php echo esc_attr( self::OPTION_NURIT_YEARLY_CREDITS ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_NURIT_YEARLY_CREDITS, self::DEFAULT_NURIT_YEARLY_CREDITS ) ); ?>" class="small-text" />
+							<p class="description">אותו עקרון כמו "נורית": 999999 ומעלה = ללא הגבלה, מספר קטן יותר = הגבלה בפועל.</p>
 						</td>
 					</tr>
 					<tr>

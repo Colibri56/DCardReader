@@ -42,9 +42,9 @@ class DCard_Plans {
 	public static function all() {
 		return array(
 			self::FREE         => array( 'label' => 'חינמי',         'credits' => self::free_plan_credits() ),
-			self::NARKIS       => array( 'label' => 'נרקיס',         'credits' => 15 ),
-			self::NURIT        => array( 'label' => 'נורית',         'credits' => self::UNLIMITED_CREDITS ),
-			self::NURIT_YEARLY => array( 'label' => 'נורית (שנתי)',  'credits' => self::UNLIMITED_CREDITS ),
+			self::NARKIS       => array( 'label' => 'נרקיס',         'credits' => self::narkis_plan_credits() ),
+			self::NURIT        => array( 'label' => 'נורית',         'credits' => self::nurit_plan_credits() ),
+			self::NURIT_YEARLY => array( 'label' => 'נורית (שנתי)',  'credits' => self::nurit_yearly_plan_credits() ),
 		);
 	}
 
@@ -63,6 +63,28 @@ class DCard_Plans {
 	 */
 	private static function free_plan_credits() {
 		return (int) get_option( DCard_Quotas::OPTION_REG_MSG_LIMIT, DCard_Quotas::DEFAULT_REG_MSG_LIMIT );
+	}
+
+	/**
+	 * אותו תיקון בדיוק עבור מסלול "נרקיס" (תשלום) - הוזז מקשיח (15) לשדה
+	 * הגדרות חיצוני (DCard_Quotas::OPTION_NARKIS_CREDITS), כדי שעדכון מספר
+	 * הקרדיטים לא ידרוש deploy.
+	 */
+	private static function narkis_plan_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_NARKIS_CREDITS, DCard_Quotas::DEFAULT_NARKIS_CREDITS );
+	}
+
+	// אותו תיקון, הורחב (התבקש: "לא רק למסלול נרקיס") - "נורית"/"נורית
+	// (שנתי)" עברו גם הם מקשיח (UNLIMITED_CREDITS) לשדה הגדרות חיצוני.
+	// ברירת המחדל של השדות עצמם היא 999999 (ר' class-dcard-quotas.php),
+	// שעדיין מתפרש כ"ללא הגבלה" ע"י is_unlimited() למטה - אפשר בעתיד
+	// להזין מספר קטן יותר ולהפוך את המסלול למוגבל קרדיטים בפועל.
+	private static function nurit_plan_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_NURIT_CREDITS, DCard_Quotas::DEFAULT_NURIT_CREDITS );
+	}
+
+	private static function nurit_yearly_plan_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_NURIT_YEARLY_CREDITS, DCard_Quotas::DEFAULT_NURIT_YEARLY_CREDITS );
 	}
 
 	public static function is_valid_plan( $plan_id ) {

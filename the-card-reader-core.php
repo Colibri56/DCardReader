@@ -82,6 +82,9 @@ add_action( 'admin_menu', function () {
 	if ( class_exists( 'DCard_Quotas' ) ) {
 		DCard_Quotas::register_menu();
 	}
+	if ( class_exists( 'DCard_Customers_Admin' ) ) {
+		DCard_Customers_Admin::register_menu();
+	}
 } );
 
 add_action( 'admin_init', function () {
