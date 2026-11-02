@@ -53,7 +53,7 @@ class DCard_Customers_Admin {
 		?>
 		<div class="wrap" dir="rtl">
 			<h1>לקוחות</h1>
-			<p>כל משתמש רשום (נרשם בטופס ו/או שילם) - מסלול נוכחי, קרדיטים שנותרו, תוקף, וסכום ששולם בסך הכול. ר' <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=projective_card&page=dcard-quotas' ) ); ?>">ניהול מכסות</a> לעריכת מספר הקרדיטים לכל מסלול.</p>
+			<p>כל משתמש רשום (נרשם בטופס ו/או שילם) - מסלול נוכחי, קרדיטים שנותרו (בנפרד למסרים ולשיחות מפתחות), תוקף, וסכום ששולם בסך הכול. ר' <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=projective_card&page=dcard-quotas' ) ); ?>">ניהול מכסות</a> לעריכת מספר הקרדיטים לכל מסלול.</p>
 			<table class="wp-list-table widefat fixed striped">
 				<thead>
 					<tr>
@@ -61,7 +61,8 @@ class DCard_Customers_Admin {
 						<th>שם</th>
 						<th>טלפון</th>
 						<th>מסלול</th>
-						<th>קרדיטים שנותרו</th>
+						<th>קרדיטים - מסרים</th>
+						<th>קרדיטים - שיחה מפתחת</th>
 						<th>תוקף המסלול</th>
 						<th>סה"כ שולם</th>
 						<th>מספר עסקאות</th>
@@ -70,20 +71,22 @@ class DCard_Customers_Admin {
 				</thead>
 				<tbody>
 					<?php if ( empty( $customers ) ) : ?>
-						<tr><td colspan="9">אין עדיין משתמשים רשומים.</td></tr>
+						<tr><td colspan="10">אין עדיין משתמשים רשומים.</td></tr>
 					<?php else : ?>
 						<?php foreach ( $customers as $customer ) : ?>
 							<?php
-							$plan_id      = $customer['current_plan'];
-							$is_unlimited = class_exists( 'DCard_Plans' ) && DCard_Plans::is_unlimited( $plan_id );
-							$plan_label   = class_exists( 'DCard_Plans' ) ? DCard_Plans::label_for_plan( $plan_id ) : $plan_id;
+							$plan_id           = $customer['current_plan'];
+							$is_unlimited_msg  = class_exists( 'DCard_Plans' ) && DCard_Plans::is_unlimited( $plan_id, 'msg' );
+							$is_unlimited_chat = class_exists( 'DCard_Plans' ) && DCard_Plans::is_unlimited( $plan_id, 'chat' );
+							$plan_label        = class_exists( 'DCard_Plans' ) ? DCard_Plans::label_for_plan( $plan_id ) : $plan_id;
 							?>
 							<tr>
 								<td><?php echo esc_html( $customer['email'] ); ?></td>
 								<td><?php echo esc_html( $customer['name'] ); ?></td>
 								<td><?php echo esc_html( $customer['phone'] ); ?></td>
 								<td><?php echo esc_html( $plan_label ); ?></td>
-								<td><?php echo $is_unlimited ? 'ללא הגבלה' : esc_html( $customer['current_credits'] ); ?></td>
+								<td><?php echo $is_unlimited_msg ? 'ללא הגבלה' : esc_html( $customer['current_credits_msg'] ); ?></td>
+								<td><?php echo $is_unlimited_chat ? 'ללא הגבלה' : esc_html( $customer['current_credits_chat'] ); ?></td>
 								<td><?php echo $customer['plan_expires_at'] ? esc_html( $customer['plan_expires_at'] ) : '-'; ?></td>
 								<td><?php echo esc_html( number_format( (float) $customer['total_paid'], 2 ) ); ?> ₪</td>
 								<td><?php echo esc_html( $customer['transactions_count'] ); ?></td>

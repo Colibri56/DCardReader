@@ -19,7 +19,11 @@ define( 'TCR_CORE_URL', plugin_dir_url( __FILE__ ) );
 define( 'DCARD_PLUGIN_FILE', __FILE__ );
 define( 'DCARD_PLUGIN_DIR', TCR_CORE_PATH );
 define( 'DCARD_PLUGIN_URL', TCR_CORE_URL );
-define( 'DCARD_DB_VERSION', '1.2.0' );
+// עודכן 1.3.0 - עמודות current_credits_msg/current_credits_chat (פיצול
+// מאגר הקרדיטים למסר/שיחה מפתחת, ר' class-dcard-users.php) - עדכון
+// הגרסה הזה הוא מה שגורם ל-maybe_upgrade() למטה להריץ את ה-dbDelta
+// שמוסיף אותן בפועל על אתר חי, לא רק על התקנה חדשה.
+define( 'DCARD_DB_VERSION', '1.3.0' );
 
 // *** אבטחה: ר' ההערה המלאה שהייתה ב-dcard-ai-reader-backend.php - מומלץ
 // לעבור בהזדמנות לסוד המוגדר רק ב-wp-config.php, לא כאן. ***

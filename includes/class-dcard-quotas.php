@@ -6,20 +6,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Freemium PLG funnel, step 1: usage quotas for anonymous vs. registered
  * users. This class only owns the admin settings page (top-level menu,
- * "קורא בקלפים - הגדרות") and the wp_options the four limits live in, plus
+ * "קורא בקלפים - הגדרות") and the wp_options the limits live in, plus
  * localizing the two ANONYMOUS limits to the frontend. The actual
- * tracking/gatekeeping (localStorage counters + triggerRegistrationWall())
- * lives in frontend/elementor-code.html - there is no server-side
- * enforcement of these limits yet (a determined user could clear
- * localStorage and keep going); that's a known, accepted gap for this
- * first step, same as the client-side-only MAX_USER_QUESTIONS cap already
- * in the frontend before this feature.
+ * tracking/gatekeeping for anonymous users (localStorage counters +
+ * triggerRegistrationWall()) lives in frontend/elementor-code.html; the
+ * registered-user limits below ARE enforced server-side (ר' DCard_Users
+ * ו-DCard_Plans).
  *
- * "Registered" vs "anonymous" isn't resolved here at all - this plugin has
- * no concept of a logged-in/registered end user yet (DCard sessions aren't
- * tied to a WP user account). dcard_reg_msg_limit/dcard_reg_chat_limit are
- * therefore stored and shown in the admin UI (so the fields exist ahead of
- * that later work, as asked), but nothing currently reads them.
+ * תיקון (התבקש: "לכל מסלול יש להגדיר כמות מקסימלית למסרים וכמות
+ * מקסימלית לשיחה מפתחת... להציג את זה כטבלה ולא טור ארוך") - כל שדה
+ * "קרדיטים" כאן פוצל לשני שדות נפרדים (מסר/שיחה מפתחת) לכל מסלול, ו-
+ * render_page() מציג את כולם (כולל האנונימי, חינמי) כטבלה אחת עם עמודות
+ * "מקס' מסרים" ו"מקס' שיחות מפתחות" - לא טור ארוך של שדות בודדים. ר'
+ * ההסבר המלא ב-DCard_Plans על איך הקרדיטים האלה בפועל מנוצלים/מקוזזים.
  */
 class DCard_Quotas {
 
@@ -39,29 +38,32 @@ class DCard_Quotas {
 	const OPTION_DAILY_AI_CALL_LIMIT = 'dcard_daily_ai_call_limit';
 	const OPTION_MONTHLY_AI_BUDGET   = 'dcard_monthly_ai_budget_usd';
 
-	// תיקון (התבקש: "הגדרה חיצונית של מספר השימושים המקסימלי... לכל
-	// מסלול", ואז הורחב: "לא רק למסלול נרקיס") - קרדיטים (סשנים) בכל אחד
-	// מהמסלולים בתשלום היו קשיחים ב-DCard_Plans::all(); עכשיו מוגדרים כאן,
-	// באותו עמוד שבו כבר מוגדרת מכסת המסלול החינמי. נורית/נורית-שנתי
-	// ברירת המחדל שלהם היא DCard_Plans::UNLIMITED_CREDITS (999999) - מספר
-	// כזה (או כל מספר >= 999999) ממשיך להתפרש כ"ללא הגבלה" ע"י
-	// DCard_Plans::is_unlimited(), כדי לא להוסיף מושג/שדה "checkbox ללא
-	// הגבלה" נפרד רק בשביל זה.
-	const OPTION_NARKIS_CREDITS       = 'dcard_narkis_plan_credits';
-	const OPTION_NURIT_CREDITS        = 'dcard_nurit_plan_credits';
-	const OPTION_NURIT_YEARLY_CREDITS = 'dcard_nurit_yearly_plan_credits';
-	const DEFAULT_NARKIS_CREDITS       = 15;
-	// 999999 = ללא הגבלה (זהה ל-DCard_Plans::UNLIMITED_CREDITS - לא
-	// מפנים לקבוע של מחלקה אחרת כאן כדי לא להסתמך על סדר טעינת הקבצים).
-	const DEFAULT_NURIT_CREDITS        = 999999;
-	const DEFAULT_NURIT_YEARLY_CREDITS = 999999;
+	// קרדיטים לכל מסלול בתשלום, מפוצלים מסר/שיחה מפתחת (ר' הערת ה-class
+	// למעלה). 999999 ומעלה = ללא הגבלה (זהה ל-DCard_Plans::UNLIMITED_
+	// CREDITS - לא מפנים לקבוע של מחלקה אחרת כאן כדי לא להסתמך על סדר
+	// טעינת הקבצים).
+	const OPTION_NARKIS_MSG_CREDITS        = 'dcard_narkis_msg_credits';
+	const OPTION_NARKIS_CHAT_CREDITS       = 'dcard_narkis_chat_credits';
+	const OPTION_NURIT_MSG_CREDITS         = 'dcard_nurit_msg_credits';
+	const OPTION_NURIT_CHAT_CREDITS        = 'dcard_nurit_chat_credits';
+	const OPTION_NURIT_YEARLY_MSG_CREDITS  = 'dcard_nurit_yearly_msg_credits';
+	const OPTION_NURIT_YEARLY_CHAT_CREDITS = 'dcard_nurit_yearly_chat_credits';
 
 	// ברירות מחדל זמניות בלבד - אין שום משמעות "נכונה" ידועה מראש למגבלות
 	// האלה, המנהל צריך לכוון אותן בעצמו בעמוד ההגדרות לפי מה שמתאים לעסק.
+	// "נרקיס" (המסלול המוגבל) מקבל 15/15 כנקודת פתיחה (אותו מספר שהיה
+	// קודם למאגר המשולב) - "נורית"/"נורית (שנתי)" נשארים ללא הגבלה בשני
+	// הצירים כברירת מחדל, כמו שהיו קודם.
 	const DEFAULT_ANON_MSG_LIMIT  = 1;
 	const DEFAULT_ANON_CHAT_LIMIT = 5;
 	const DEFAULT_REG_MSG_LIMIT   = 10;
 	const DEFAULT_REG_CHAT_LIMIT  = 30;
+	const DEFAULT_NARKIS_MSG_CREDITS        = 15;
+	const DEFAULT_NARKIS_CHAT_CREDITS       = 15;
+	const DEFAULT_NURIT_MSG_CREDITS         = 999999;
+	const DEFAULT_NURIT_CHAT_CREDITS        = 999999;
+	const DEFAULT_NURIT_YEARLY_MSG_CREDITS  = 999999;
+	const DEFAULT_NURIT_YEARLY_CHAT_CREDITS = 999999;
 	// הוגדר יחד עם המשתמש (31.10.26): 40 קריאות AI ביום למשתמש רשום בודד
 	// (מאפשר שיחה מפתחת אחת ארוכה-בינונית ביום בלי להרגיש חסום), ותקציב
 	// AI חודשי כולל של $150 (נקבע כברירת מחדל זהירה, ניתן לכוונן).
@@ -89,38 +91,27 @@ class DCard_Quotas {
 			return $int;
 		};
 
-		register_setting( self::OPTION_GROUP, self::OPTION_ANON_MSG_LIMIT, array(
-			'sanitize_callback' => $int_sanitizer,
-			'default'           => self::DEFAULT_ANON_MSG_LIMIT,
-		) );
-		register_setting( self::OPTION_GROUP, self::OPTION_ANON_CHAT_LIMIT, array(
-			'sanitize_callback' => $int_sanitizer,
-			'default'           => self::DEFAULT_ANON_CHAT_LIMIT,
-		) );
-		register_setting( self::OPTION_GROUP, self::OPTION_REG_MSG_LIMIT, array(
-			'sanitize_callback' => $int_sanitizer,
-			'default'           => self::DEFAULT_REG_MSG_LIMIT,
-		) );
-		register_setting( self::OPTION_GROUP, self::OPTION_REG_CHAT_LIMIT, array(
-			'sanitize_callback' => $int_sanitizer,
-			'default'           => self::DEFAULT_REG_CHAT_LIMIT,
-		) );
-		register_setting( self::OPTION_GROUP, self::OPTION_DAILY_AI_CALL_LIMIT, array(
-			'sanitize_callback' => $int_sanitizer,
-			'default'           => self::DEFAULT_DAILY_AI_CALL_LIMIT,
-		) );
-		register_setting( self::OPTION_GROUP, self::OPTION_NARKIS_CREDITS, array(
-			'sanitize_callback' => $int_sanitizer,
-			'default'           => self::DEFAULT_NARKIS_CREDITS,
-		) );
-		register_setting( self::OPTION_GROUP, self::OPTION_NURIT_CREDITS, array(
-			'sanitize_callback' => $int_sanitizer,
-			'default'           => self::DEFAULT_NURIT_CREDITS,
-		) );
-		register_setting( self::OPTION_GROUP, self::OPTION_NURIT_YEARLY_CREDITS, array(
-			'sanitize_callback' => $int_sanitizer,
-			'default'           => self::DEFAULT_NURIT_YEARLY_CREDITS,
-		) );
+		$int_options = array(
+			self::OPTION_ANON_MSG_LIMIT             => self::DEFAULT_ANON_MSG_LIMIT,
+			self::OPTION_ANON_CHAT_LIMIT            => self::DEFAULT_ANON_CHAT_LIMIT,
+			self::OPTION_REG_MSG_LIMIT              => self::DEFAULT_REG_MSG_LIMIT,
+			self::OPTION_REG_CHAT_LIMIT             => self::DEFAULT_REG_CHAT_LIMIT,
+			self::OPTION_DAILY_AI_CALL_LIMIT        => self::DEFAULT_DAILY_AI_CALL_LIMIT,
+			self::OPTION_NARKIS_MSG_CREDITS         => self::DEFAULT_NARKIS_MSG_CREDITS,
+			self::OPTION_NARKIS_CHAT_CREDITS        => self::DEFAULT_NARKIS_CHAT_CREDITS,
+			self::OPTION_NURIT_MSG_CREDITS          => self::DEFAULT_NURIT_MSG_CREDITS,
+			self::OPTION_NURIT_CHAT_CREDITS         => self::DEFAULT_NURIT_CHAT_CREDITS,
+			self::OPTION_NURIT_YEARLY_MSG_CREDITS   => self::DEFAULT_NURIT_YEARLY_MSG_CREDITS,
+			self::OPTION_NURIT_YEARLY_CHAT_CREDITS  => self::DEFAULT_NURIT_YEARLY_CHAT_CREDITS,
+		);
+
+		foreach ( $int_options as $option_name => $default ) {
+			register_setting( self::OPTION_GROUP, $option_name, array(
+				'sanitize_callback' => $int_sanitizer,
+				'default'           => $default,
+			) );
+		}
+
 		register_setting( self::OPTION_GROUP, self::OPTION_MONTHLY_AI_BUDGET, array(
 			// תקציב בדולרים, יכול להיות עם אגורות (150.5) - לא absint כמו
 			// שאר המגבלות (שהן כולן ספירת סשנים/קריאות, מספרים שלמים).
@@ -140,16 +131,28 @@ class DCard_Quotas {
 		return (float) get_option( self::OPTION_MONTHLY_AI_BUDGET, self::DEFAULT_MONTHLY_AI_BUDGET );
 	}
 
-	public static function get_narkis_plan_credits() {
-		return (int) get_option( self::OPTION_NARKIS_CREDITS, self::DEFAULT_NARKIS_CREDITS );
+	public static function get_narkis_msg_credits() {
+		return (int) get_option( self::OPTION_NARKIS_MSG_CREDITS, self::DEFAULT_NARKIS_MSG_CREDITS );
 	}
 
-	public static function get_nurit_plan_credits() {
-		return (int) get_option( self::OPTION_NURIT_CREDITS, self::DEFAULT_NURIT_CREDITS );
+	public static function get_narkis_chat_credits() {
+		return (int) get_option( self::OPTION_NARKIS_CHAT_CREDITS, self::DEFAULT_NARKIS_CHAT_CREDITS );
 	}
 
-	public static function get_nurit_yearly_plan_credits() {
-		return (int) get_option( self::OPTION_NURIT_YEARLY_CREDITS, self::DEFAULT_NURIT_YEARLY_CREDITS );
+	public static function get_nurit_msg_credits() {
+		return (int) get_option( self::OPTION_NURIT_MSG_CREDITS, self::DEFAULT_NURIT_MSG_CREDITS );
+	}
+
+	public static function get_nurit_chat_credits() {
+		return (int) get_option( self::OPTION_NURIT_CHAT_CREDITS, self::DEFAULT_NURIT_CHAT_CREDITS );
+	}
+
+	public static function get_nurit_yearly_msg_credits() {
+		return (int) get_option( self::OPTION_NURIT_YEARLY_MSG_CREDITS, self::DEFAULT_NURIT_YEARLY_MSG_CREDITS );
+	}
+
+	public static function get_nurit_yearly_chat_credits() {
+		return (int) get_option( self::OPTION_NURIT_YEARLY_CHAT_CREDITS, self::DEFAULT_NURIT_YEARLY_CHAT_CREDITS );
 	}
 
 	/**
@@ -177,11 +180,36 @@ class DCard_Quotas {
 		return is_array( $notices ) ? $notices : array();
 	}
 
+	/**
+	 * שורה אחת בטבלה - שם המסלול + שני שדות (מסר/שיחה מפתחת). אנונימי
+	 * ו"חינמי" לא נאכפים/מתפרשים כ"ללא הגבלה" בכלל (הערך פשוט המספר
+	 * שהוזן), לכן $allow_unlimited=false עבורם; מסלולי התשלום כן יכולים
+	 * להיות "ללא הגבלה" (999999+), אז מוצג רמז לכך בתיאור.
+	 */
+	private static function render_plan_row( $label, $msg_option, $msg_default, $chat_option, $chat_default, $allow_unlimited ) {
+		$msg_value  = get_option( $msg_option, $msg_default );
+		$chat_value = get_option( $chat_option, $chat_default );
+		?>
+		<tr>
+			<th scope="row"><?php echo esc_html( $label ); ?></th>
+			<td>
+				<input type="number" min="0" step="1" id="<?php echo esc_attr( $msg_option ); ?>" name="<?php echo esc_attr( $msg_option ); ?>" value="<?php echo esc_attr( $msg_value ); ?>" class="small-text" />
+			</td>
+			<td>
+				<input type="number" min="0" step="1" id="<?php echo esc_attr( $chat_option ); ?>" name="<?php echo esc_attr( $chat_option ); ?>" value="<?php echo esc_attr( $chat_value ); ?>" class="small-text" />
+			</td>
+			<td class="description">
+				<?php echo $allow_unlimited ? '999999 ומעלה = ללא הגבלה בכל אחד מהשדות.' : ''; ?>
+			</td>
+		</tr>
+		<?php
+	}
+
 	public static function render_page() {
 		?>
 		<div class="wrap" dir="rtl">
 			<h1>קורא בקלפים - הגדרות מכסות (Freemium)</h1>
-			<p>ארבעת השדות הראשונים חלים כרגע רק על משתמשים אנונימיים (ר' הערה בקוד) - נספרים בדפדפן של המשתמש (localStorage), לא בשרת. שני השדות האחרונים (מגבלת קריאות יומית ותקציב חודשי) כן נאכפים בצד השרת.</p>
+			<p>לכל מסלול - כמה <strong>סשנים</strong> (שאלה אחת, עד 3 קלפים + כל השיחה סביבם) מקבל לקוח במסלול "קבלת מסר" ובמסלול "שיחה פתוחה" בנפרד. ר' עמוד <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=projective_card&page=dcard-customers' ) ); ?>">לקוחות</a> לצפייה ביתרת הקרדיטים בפועל של כל לקוח. אנונימי נאכף בדפדפן (לא בשרת) - שאר השורות נאכפות בצד השרת.</p>
 			<?php
 			settings_errors();
 			foreach ( self::take_notices() as $notice ) {
@@ -190,56 +218,29 @@ class DCard_Quotas {
 			?>
 			<form method="post" action="options.php">
 				<?php settings_fields( self::OPTION_GROUP ); ?>
+				<table class="wp-list-table widefat fixed striped" style="max-width: 820px;">
+					<thead>
+						<tr>
+							<th scope="col">מסלול</th>
+							<th scope="col">מקס' מסרים (קבלת מסר)</th>
+							<th scope="col">מקס' שיחות מפתחות</th>
+							<th scope="col">הערה</th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php
+						self::render_plan_row( 'אנונימי', self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT, self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT, false );
+						self::render_plan_row( 'חינמי (רשום)', self::OPTION_REG_MSG_LIMIT, self::DEFAULT_REG_MSG_LIMIT, self::OPTION_REG_CHAT_LIMIT, self::DEFAULT_REG_CHAT_LIMIT, false );
+						self::render_plan_row( 'נרקיס (תשלום חודשי)', self::OPTION_NARKIS_MSG_CREDITS, self::DEFAULT_NARKIS_MSG_CREDITS, self::OPTION_NARKIS_CHAT_CREDITS, self::DEFAULT_NARKIS_CHAT_CREDITS, true );
+						self::render_plan_row( 'נורית (תשלום חודשי)', self::OPTION_NURIT_MSG_CREDITS, self::DEFAULT_NURIT_MSG_CREDITS, self::OPTION_NURIT_CHAT_CREDITS, self::DEFAULT_NURIT_CHAT_CREDITS, true );
+						self::render_plan_row( 'נורית (שנתי)', self::OPTION_NURIT_YEARLY_MSG_CREDITS, self::DEFAULT_NURIT_YEARLY_MSG_CREDITS, self::OPTION_NURIT_YEARLY_CHAT_CREDITS, self::DEFAULT_NURIT_YEARLY_CHAT_CREDITS, true );
+						?>
+					</tbody>
+				</table>
+				<p class="description" style="max-width: 820px;">
+					איך קרדיט מתקזז בפועל בתוך סשן בודד: סשן ש<strong>נשאר</strong> "קבלת מסר" לכל אורכו מקזז קרדיט אחד מ"מסרים". סשן שמתחיל כ"שיחה פתוחה" מקזז קרדיט אחד מ"שיחות מפתחות". סשן ש<strong>עבר</strong> מ"קבלת מסר" ל"שיחה פתוחה" (לחיצה על "להמשיך ולהעמיק בשיחה", או המשך כתיבה חופשית אחרי מסר) מקזז קרדיט אחד מ"מסרים" <strong>וגם</strong> קרדיט אחד מ"שיחות מפתחות" - שני המונים יורדים על אותו סשן בודד.
+				</p>
 				<table class="form-table" role="presentation">
-					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_ANON_MSG_LIMIT ); ?>">מגבלת סשנים (קבלת מסר) - אנונימי</label></th>
-						<td>
-							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_ANON_MSG_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_ANON_MSG_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT ) ); ?>" class="small-text" />
-							<p class="description">כמה <strong>סשנים</strong> (שאלה אחת שנשאלה בתיבת הטקסט הראשית, עד 3 קלפים בכל סשן) במסלול "קבלת מסר" משתמש אנונימי יכול לפתוח לפני שמוצג קיר הרשמה - לא מספר הודעות/קלפים בפועל.</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_ANON_CHAT_LIMIT ); ?>">מגבלת סשנים (שיחה פתוחה) - אנונימי</label></th>
-						<td>
-							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_ANON_CHAT_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_ANON_CHAT_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT ) ); ?>" class="small-text" />
-							<p class="description">כמה <strong>סשנים</strong> במסלול "שיחה פתוחה" משתמש אנונימי יכול לפתוח לפני שמוצג קיר הרשמה - לא מספר השאלות שנשלחות בתוך השיחה.</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_REG_MSG_LIMIT ); ?>">מגבלת סשנים (קבלת מסר) - רשום (מסלול חינמי)</label></th>
-						<td>
-							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_REG_MSG_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_REG_MSG_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_REG_MSG_LIMIT, self::DEFAULT_REG_MSG_LIMIT ) ); ?>" class="small-text" />
-							<p class="description">נאכף בפועל: זה גם מספר הקרדיטים (סשנים) שמשתמש רשום במסלול "חינמי" מקבל (ר' DCard_Plans::free_plan_credits) - קלף שני/שלישי באותו סשן, וכל הודעות השיחה סביבו, לא מורידים קרדיט נוסף.</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>">מגבלת סשנים (שיחה פתוחה) - רשום</label></th>
-						<td>
-							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>" name="<?php echo esc_attr( self::OPTION_REG_CHAT_LIMIT ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_REG_CHAT_LIMIT, self::DEFAULT_REG_CHAT_LIMIT ) ); ?>" class="small-text" />
-							<p class="description">שמור לשלב הבא - עדיין אין הבדל בפועל בין מסלולים לפי המספר הזה ספציפית (ר' הערה למעלה - מסלול "חינמי" נשלט כרגע ע"י OPTION_REG_MSG_LIMIT בלבד, לשני סוגי הסשן).</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_NARKIS_CREDITS ); ?>">קרדיטים (סשנים) במסלול "נרקיס" (תשלום חודשי)</label></th>
-						<td>
-							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_NARKIS_CREDITS ); ?>" name="<?php echo esc_attr( self::OPTION_NARKIS_CREDITS ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_NARKIS_CREDITS, self::DEFAULT_NARKIS_CREDITS ) ); ?>" class="small-text" />
-							<p class="description">כמה קרדיטים (סשנים) מקבל לקוח ששילם על מסלול "נרקיס" (מק"ט 601) לחידוש החודשי שלו.</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_NURIT_CREDITS ); ?>">קרדיטים (סשנים) במסלול "נורית" (תשלום חודשי)</label></th>
-						<td>
-							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_NURIT_CREDITS ); ?>" name="<?php echo esc_attr( self::OPTION_NURIT_CREDITS ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_NURIT_CREDITS, self::DEFAULT_NURIT_CREDITS ) ); ?>" class="small-text" />
-							<p class="description">ברירת המחדל (999999) מתפרשת בקוד כ"ללא הגבלה" - כל מספר מ-999999 ומעלה נחשב ללא הגבלה. להגביל בפועל - להזין מספר קרדיטים אמיתי (למשל 100).</p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_NURIT_YEARLY_CREDITS ); ?>">קרדיטים (סשנים) במסלול "נורית (שנתי)"</label></th>
-						<td>
-							<input type="number" min="0" step="1" id="<?php echo esc_attr( self::OPTION_NURIT_YEARLY_CREDITS ); ?>" name="<?php echo esc_attr( self::OPTION_NURIT_YEARLY_CREDITS ); ?>" value="<?php echo esc_attr( get_option( self::OPTION_NURIT_YEARLY_CREDITS, self::DEFAULT_NURIT_YEARLY_CREDITS ) ); ?>" class="small-text" />
-							<p class="description">אותו עקרון כמו "נורית": 999999 ומעלה = ללא הגבלה, מספר קטן יותר = הגבלה בפועל.</p>
-						</td>
-					</tr>
 					<tr>
 						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_DAILY_AI_CALL_LIMIT ); ?>">מגבלת קריאות AI ביום - משתמש רשום בודד</label></th>
 						<td>

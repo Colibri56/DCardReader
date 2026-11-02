@@ -16,6 +16,11 @@ class DCard_Activator {
 	private static function create_all_tables() {
 		self::create_table();
 		DCard_Users::create_table();
+		// תיקון (פיצול קרדיטים מסר/שיחה מפתחת) - חייב לרוץ רק אחרי
+		// create_table() (שמוסיפה, דרך dbDelta, את העמודות החדשות
+		// current_credits_msg/current_credits_chat אם הן חסרות). מוגן
+		// ב-wp_option ייעודי בפנים - לא ירוץ שוב על אתר שכבר עבר מיגרציה.
+		DCard_Users::migrate_split_credits_if_needed();
 		DCard_Model_Pricing::create_table();
 		DCard_Model_Pricing::seed_defaults_if_empty();
 		DCard_Usage_Logs::create_table();

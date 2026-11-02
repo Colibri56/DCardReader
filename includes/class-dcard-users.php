@@ -34,6 +34,11 @@ class DCard_Users {
 		$table_name      = self::table();
 		$charset_collate = $wpdb->get_charset_collate();
 
+		// current_credits (יחיד) הוחלף ב-current_credits_msg/current_credits_
+		// chat (ר' הערת ה-class למעלה) - נשאר כאן, לא נמחק, כעמודה legacy
+		// שרק migrate_split_credits_if_needed() למטה עדיין קורא ממנה (ל-
+		// אתר שכבר היה חי עם מאגר יחיד); dbDelta לעולם לא מוחק עמודות, אז
+		// אין טעם/צורך להסיר אותה מההגדרה כאן.
 		$sql = "CREATE TABLE {$table_name} (
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			email VARCHAR(190) NOT NULL,
@@ -42,6 +47,8 @@ class DCard_Users {
 			gender VARCHAR(10) NULL,
 			current_plan VARCHAR(20) NOT NULL DEFAULT 'free',
 			current_credits INT NOT NULL DEFAULT 0,
+			current_credits_msg INT NOT NULL DEFAULT 0,
+			current_credits_chat INT NOT NULL DEFAULT 0,
 			plan_expires_at DATETIME NULL,
 			session_token VARCHAR(64) NULL,
 			created_at DATETIME NOT NULL,
@@ -53,6 +60,29 @@ class DCard_Users {
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
+	}
+
+	/**
+	 * מיגרציה חד-פעמית (לא תלויה ב-dcard_db_version - ר' ההסבר המלא
+	 * ב-DCard_Activator) - אתר שכבר רץ עם מאגר קרדיטים יחיד (current_
+	 * credits) מקבל את אותו מספר גם למסרים וגם לשיחות מפתחות, כדי שאף
+	 * לקוח לא "יאבד" קרדיטים קיימים ברגע השדרוג. מוגן ב-wp_option ייעודי
+	 * (לא ב-current_credits_msg/chat=0, כדי שלא יוחל בטעות שוב בעתיד על
+	 * משתמש שבאמת מיצה את שני המאגרים שלו לגמרי בשימוש רגיל).
+	 */
+	public static function migrate_split_credits_if_needed() {
+		if ( get_option( 'dcard_credits_split_migrated' ) ) {
+			return;
+		}
+
+		global $wpdb;
+		self::ensure_table_exists();
+
+		$wpdb->query(
+			"UPDATE " . self::table() . " SET current_credits_msg = current_credits, current_credits_chat = current_credits WHERE current_credits_msg = 0 AND current_credits_chat = 0 AND current_credits > 0"
+		);
+
+		update_option( 'dcard_credits_split_migrated', 1, false );
 	}
 
 	/**
@@ -108,16 +138,17 @@ class DCard_Users {
 		$inserted = $wpdb->insert(
 			self::table(),
 			array(
-				'email'            => $email,
-				'name'             => $name,
-				'phone'            => $phone,
-				'gender'           => $gender,
-				'current_plan'     => $plan_id,
-				'current_credits'  => DCard_Plans::credits_for_plan( $plan_id ),
-				'created_at'       => $now,
-				'updated_at'       => $now,
+				'email'                 => $email,
+				'name'                  => $name,
+				'phone'                 => $phone,
+				'gender'                => $gender,
+				'current_plan'          => $plan_id,
+				'current_credits_msg'   => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
+				'current_credits_chat'  => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
+				'created_at'            => $now,
+				'updated_at'            => $now,
 			),
-			array( '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
+			array( '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s' )
 		);
 
 		if ( ! $inserted ) {
@@ -155,7 +186,12 @@ class DCard_Users {
 			'user_id'      => $user_id,
 			'device_token' => $device_token,
 			'current_plan' => $user ? $user['current_plan'] : DCard_Plans::FREE,
-			'credits'      => $user ? (int) $user['current_credits'] : 0,
+			// 'credits' (יחיד) נשאר = מאגר המסרים, לתאימות לאחור עם קוד
+			// קורא קיים שמציג "קרדיטים" כמספר יחיד - ר' ההסבר המלא ב-
+			// account_status_inner ב-class-dcard-rest-controller.php.
+			'credits'      => $user ? (int) $user['current_credits_msg'] : 0,
+			'credits_msg'  => $user ? (int) $user['current_credits_msg'] : 0,
+			'credits_chat' => $user ? (int) $user['current_credits_chat'] : 0,
 		);
 	}
 
@@ -231,13 +267,14 @@ class DCard_Users {
 		return false !== $wpdb->update(
 			self::table(),
 			array(
-				'current_plan'    => $plan_id,
-				'current_credits' => DCard_Plans::credits_for_plan( $plan_id ),
-				'plan_expires_at' => $expires_at,
-				'updated_at'      => current_time( 'mysql', true ),
+				'current_plan'         => $plan_id,
+				'current_credits_msg'  => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
+				'current_credits_chat' => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
+				'plan_expires_at'      => $expires_at,
+				'updated_at'           => current_time( 'mysql', true ),
 			),
 			array( 'id' => $user_id ),
-			array( '%s', '%d', '%s', '%s' ),
+			array( '%s', '%d', '%d', '%s', '%s' ),
 			array( '%d' )
 		);
 	}
@@ -270,38 +307,46 @@ class DCard_Users {
 	}
 
 	/**
-	 * בדיקה לפני פריסת קלף: יש קרדיט פנוי? מסלולים ללא הגבלה (ר'
-	 * DCard_Plans::is_unlimited) תמיד "true" בלי לבדוק את המספר בפועל -
-	 * כדי שלעולם לא יתקעו על מירוץ עדכון-קרדיט, גם אם current_credits
-	 * בטבלה פיגר מאחור מאיזושהי סיבה.
+	 * בדיקה לפני פריסת קלף: יש קרדיט פנוי *במאגר הרלוונטי*? $type: 'msg'
+	 * (קבלת מסר) או 'chat' (שיחה מפתחת) - ר' הערת ה-class המלאה ב-
+	 * DCard_Plans על הפיצול בין שני המאגרים ואיך הם מתקזזים. מסלולים ללא
+	 * הגבלה *באותו $type* (ר' DCard_Plans::is_unlimited) תמיד "true" בלי
+	 * לבדוק את המספר בפועל - כדי שלעולם לא יתקעו על מירוץ עדכון-קרדיט,
+	 * גם אם העמודה בטבלה פיגרה מאחור מאיזושהי סיבה.
 	 */
-	public static function has_credits( $user_id ) {
+	public static function has_credits( $user_id, $type = 'msg' ) {
 		$user = self::get_by_id( $user_id );
 		if ( ! $user ) {
 			return false;
 		}
-		if ( DCard_Plans::is_unlimited( $user['current_plan'] ) ) {
+		if ( DCard_Plans::is_unlimited( $user['current_plan'], $type ) ) {
 			return true;
 		}
-		return (int) $user['current_credits'] > 0;
+		$column = ( 'chat' === $type ) ? 'current_credits_chat' : 'current_credits_msg';
+		return (int) $user[ $column ] > 0;
 	}
 
 	/**
-	 * מורידה קרדיט אחד בפועל (אחרי פריסת קלף שהצליחה) - no-op (ולא
-	 * שגיאה) למסלולים ללא הגבלה, כדי שלא "יתרוקנו" בטעות עם השימוש.
+	 * מורידה קרדיט אחד בפועל *מהמאגר $type* (אחרי פריסת קלף שהצליחה, או
+	 * ברגע שסשן "העמיק" ממסר לשיחה - ר' session_card_selected_inner/
+	 * session_turn_inner ב-class-dcard-rest-controller.php) - no-op (ולא
+	 * שגיאה) למסלולים ללא הגבלה *באותו $type*, כדי שלא "יתרוקנו" בטעות
+	 * עם השימוש.
 	 */
-	public static function deduct_credit( $user_id ) {
+	public static function deduct_credit( $user_id, $type = 'msg' ) {
 		global $wpdb;
 		self::ensure_table_exists();
 
 		$user = self::get_by_id( $user_id );
-		if ( ! $user || DCard_Plans::is_unlimited( $user['current_plan'] ) ) {
+		if ( ! $user || DCard_Plans::is_unlimited( $user['current_plan'], $type ) ) {
 			return true;
 		}
 
+		$column = ( 'chat' === $type ) ? 'current_credits_chat' : 'current_credits_msg';
+
 		return false !== $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE " . self::table() . " SET current_credits = GREATEST(current_credits - 1, 0), updated_at = %s WHERE id = %d",
+				"UPDATE " . self::table() . " SET {$column} = GREATEST({$column} - 1, 0), updated_at = %s WHERE id = %d",
 				current_time( 'mysql', true ),
 				$user_id
 			)

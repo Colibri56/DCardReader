@@ -5,9 +5,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * מקור האמת היחיד לחוקי המסלולים (credits/unlimited) - שום מקום אחר
- * בפלאגין רושם את המספרים האלה (15, 999999 וכו') בעצמו. כל קוד שצריך
- * לדעת "כמה קרדיטים יש למסלול X" או "האם X ללא הגבלה" קורא לכאן
- * (credits_for_plan()/is_unlimited()), לא למספר קבוע.
+ * בפלאגין רושם את המספרים האלה בעצמו. כל קוד שצריך לדעת "כמה קרדיטים
+ * יש למסלול X" או "האם X ללא הגבלה" קורא לכאן (credits_for_plan()/
+ * is_unlimited()), לא למספר קבוע.
+ *
+ * תיקון (התבקש: "לכל מסלול יש להגדיר כמות מקסימלית למסרים וכמות
+ * מקסימלית לשיחה מפתחת... ולא רק למסלול נרקיס") - כל מסלול מחזיק עכשיו
+ * *שני* מאגרי קרדיטים נפרדים ('msg'=קבלת מסר, 'chat'=שיחה מפתחת) במקום
+ * מאגר יחיד. הסיבה: סשן יכול להתחיל כ"קבלת מסר" ו"להעמיק" לשיחה פתוחה -
+ * ר' ההסבר המלא ב-DCard_Users::deduct_credit ואיך זה מתקזז בפועל
+ * ב-session_card_selected_inner/session_turn_inner.
  *
  * הרחבה למסלול נוסף = שורה אחת כאן, לא חיפוש-והחלפה בכמה קבצים.
  */
@@ -19,7 +26,8 @@ class DCard_Plans {
 	const NURIT_YEARLY = 'nurit_yearly'; // מק"ט 603 - אותם קרדיטים כמו NURIT, רק תוקף 365 יום במקום 30
 
 	// ערך "ללא הגבלה" מוסכם - לא Infinity/null, כדי שאפשר לשמור אותו
-	// כ-INT רגיל בעמודת current_credits (INT) מבלי טיפול מיוחד ב-DB.
+	// כ-INT רגיל בעמודות current_credits_msg/current_credits_chat (INT)
+	// מבלי טיפול מיוחד ב-DB.
 	const UNLIMITED_CREDITS = 999999;
 
 	/**
@@ -37,14 +45,30 @@ class DCard_Plans {
 	}
 
 	/**
-	 * @return array<string, array{label: string, credits: int}>
+	 * @return array<string, array{label: string, credits_msg: int, credits_chat: int}>
 	 */
 	public static function all() {
 		return array(
-			self::FREE         => array( 'label' => 'חינמי',         'credits' => self::free_plan_credits() ),
-			self::NARKIS       => array( 'label' => 'נרקיס',         'credits' => self::narkis_plan_credits() ),
-			self::NURIT        => array( 'label' => 'נורית',         'credits' => self::nurit_plan_credits() ),
-			self::NURIT_YEARLY => array( 'label' => 'נורית (שנתי)',  'credits' => self::nurit_yearly_plan_credits() ),
+			self::FREE         => array(
+				'label'        => 'חינמי',
+				'credits_msg'  => self::free_plan_msg_credits(),
+				'credits_chat' => self::free_plan_chat_credits(),
+			),
+			self::NARKIS       => array(
+				'label'        => 'נרקיס',
+				'credits_msg'  => self::narkis_msg_credits(),
+				'credits_chat' => self::narkis_chat_credits(),
+			),
+			self::NURIT        => array(
+				'label'        => 'נורית',
+				'credits_msg'  => self::nurit_msg_credits(),
+				'credits_chat' => self::nurit_chat_credits(),
+			),
+			self::NURIT_YEARLY => array(
+				'label'        => 'נורית (שנתי)',
+				'credits_msg'  => self::nurit_yearly_msg_credits(),
+				'credits_chat' => self::nurit_yearly_chat_credits(),
+			),
 		);
 	}
 
@@ -52,7 +76,7 @@ class DCard_Plans {
 	 * תיקון לולאה (דווח בפועל): משתמש שנרשם וקיבל מסלול free היה מקבל
 	 * current_credits=0 (ערך קשיח), שגרם לכישלון חוזר בכל פעולה ול"לופ"
 	 * של פתיחת פופאפ ההרשמה. עכשיו דינמי - נשלף מההגדרה הקיימת ב-
-	 * Settings > DCard Quotas ("מגבלת הודעות (קבלת מסר) - רשום").
+	 * Settings > ניהול מכסות ("מקס' מסרים" בשורת "חינמי").
 	 *
 	 * *** שם המפתח: לא dcard_registered_msg_limit (כפי שהוצע כ-placeholder
 	 * אם לא ייזכר השם המדויק) - המפתח כבר קיים בפועל וכבר יש לו עמוד
@@ -61,43 +85,65 @@ class DCard_Plans {
 	 * חדש היה מפצל את ההגדרה לשני מקומות נפרדים בלי קשר אמיתי ביניהם -
 	 * זה שכבר קיים הוא בדיוק ההגדרה שהתיאור מבקש. ***
 	 */
-	private static function free_plan_credits() {
+	private static function free_plan_msg_credits() {
 		return (int) get_option( DCard_Quotas::OPTION_REG_MSG_LIMIT, DCard_Quotas::DEFAULT_REG_MSG_LIMIT );
 	}
 
 	/**
-	 * אותו תיקון בדיוק עבור מסלול "נרקיס" (תשלום) - הוזז מקשיח (15) לשדה
-	 * הגדרות חיצוני (DCard_Quotas::OPTION_NARKIS_CREDITS), כדי שעדכון מספר
-	 * הקרדיטים לא ידרוש deploy.
+	 * תיקון (אותו פיצול מסר/שיחה) - OPTION_REG_CHAT_LIMIT כבר היה קיים
+	 * בעמוד ההגדרות (לשימוש עתידי, ר' ההיסטוריה בקוד) אבל שום קוד לא
+	 * קרא לו בפועל עד כה - עכשיו זה המקור למאגר הקרדיטים של "שיחה מפתחת"
+	 * במסלול החינמי.
 	 */
-	private static function narkis_plan_credits() {
-		return (int) get_option( DCard_Quotas::OPTION_NARKIS_CREDITS, DCard_Quotas::DEFAULT_NARKIS_CREDITS );
+	private static function free_plan_chat_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_REG_CHAT_LIMIT, DCard_Quotas::DEFAULT_REG_CHAT_LIMIT );
 	}
 
-	// אותו תיקון, הורחב (התבקש: "לא רק למסלול נרקיס") - "נורית"/"נורית
-	// (שנתי)" עברו גם הם מקשיח (UNLIMITED_CREDITS) לשדה הגדרות חיצוני.
-	// ברירת המחדל של השדות עצמם היא 999999 (ר' class-dcard-quotas.php),
-	// שעדיין מתפרש כ"ללא הגבלה" ע"י is_unlimited() למטה - אפשר בעתיד
-	// להזין מספר קטן יותר ולהפוך את המסלול למוגבל קרדיטים בפועל.
-	private static function nurit_plan_credits() {
-		return (int) get_option( DCard_Quotas::OPTION_NURIT_CREDITS, DCard_Quotas::DEFAULT_NURIT_CREDITS );
+	private static function narkis_msg_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_NARKIS_MSG_CREDITS, DCard_Quotas::DEFAULT_NARKIS_MSG_CREDITS );
 	}
 
-	private static function nurit_yearly_plan_credits() {
-		return (int) get_option( DCard_Quotas::OPTION_NURIT_YEARLY_CREDITS, DCard_Quotas::DEFAULT_NURIT_YEARLY_CREDITS );
+	private static function narkis_chat_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_NARKIS_CHAT_CREDITS, DCard_Quotas::DEFAULT_NARKIS_CHAT_CREDITS );
+	}
+
+	private static function nurit_msg_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_NURIT_MSG_CREDITS, DCard_Quotas::DEFAULT_NURIT_MSG_CREDITS );
+	}
+
+	private static function nurit_chat_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_NURIT_CHAT_CREDITS, DCard_Quotas::DEFAULT_NURIT_CHAT_CREDITS );
+	}
+
+	private static function nurit_yearly_msg_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_NURIT_YEARLY_MSG_CREDITS, DCard_Quotas::DEFAULT_NURIT_YEARLY_MSG_CREDITS );
+	}
+
+	private static function nurit_yearly_chat_credits() {
+		return (int) get_option( DCard_Quotas::OPTION_NURIT_YEARLY_CHAT_CREDITS, DCard_Quotas::DEFAULT_NURIT_YEARLY_CHAT_CREDITS );
 	}
 
 	public static function is_valid_plan( $plan_id ) {
 		return isset( self::all()[ $plan_id ] );
 	}
 
-	public static function credits_for_plan( $plan_id ) {
+	/**
+	 * $type: 'msg' (קבלת מסר) או 'chat' (שיחה מפתחת) - ר' הערת ה-class
+	 * למעלה. כל קלט אחר מתייחס כ-'msg' (אותה התנהגות כמו קודם, כש-$type
+	 * לא היה קיים בכלל).
+	 */
+	public static function credits_for_plan( $plan_id, $type = 'msg' ) {
 		$plans = self::all();
-		return isset( $plans[ $plan_id ] ) ? (int) $plans[ $plan_id ]['credits'] : (int) $plans[ self::FREE ]['credits'];
+		$key   = ( 'chat' === $type ) ? 'credits_chat' : 'credits_msg';
+
+		if ( isset( $plans[ $plan_id ] ) ) {
+			return (int) $plans[ $plan_id ][ $key ];
+		}
+		return (int) $plans[ self::FREE ][ $key ];
 	}
 
-	public static function is_unlimited( $plan_id ) {
-		return self::credits_for_plan( $plan_id ) >= self::UNLIMITED_CREDITS;
+	public static function is_unlimited( $plan_id, $type = 'msg' ) {
+		return self::credits_for_plan( $plan_id, $type ) >= self::UNLIMITED_CREDITS;
 	}
 
 	public static function label_for_plan( $plan_id ) {

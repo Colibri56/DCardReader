@@ -465,9 +465,15 @@ class DCard_REST_Controller {
 		$device_token      = $request->get_header( 'X-Dcard-Device-Token' );
 		$registered_user   = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
 		$is_first_card_draw = empty( $session['drawn_cards'] );
+		// תיקון (פיצול קרדיטים מסר/שיחה מפתחת, ר' ההערה המלאה ב-DCard_Plans) -
+		// $mode כאן הוא המצב שהסשן *נפתח* בו (קבלת מסר/שיחה פתוחה); זה
+		// המאגר שנבדק/מקוזז על הקלף הראשון. אם הסשן "יעמיק" לשיחה פתוחה
+		// בהמשך (ר' $new_state_fields['converted_from_message'] למטה) -
+		// יקוזז אז קרדיט *נוסף* ממאגר ה-chat, בנוסף למה שכבר קוזז כאן.
+		$credit_type = ( 'message' === $mode ) ? 'msg' : 'chat';
 
-		if ( $registered_user && $is_first_card_draw && ! DCard_Users::has_credits( $registered_user['id'] ) ) {
-			DCard_Logger::info( 'session_card_selected - registered user out of credits, rejecting with 403', array( 'user_id' => $registered_user['id'] ) );
+		if ( $registered_user && $is_first_card_draw && ! DCard_Users::has_credits( $registered_user['id'], $credit_type ) ) {
+			DCard_Logger::info( 'session_card_selected - registered user out of credits, rejecting with 403', array( 'user_id' => $registered_user['id'], 'credit_type' => $credit_type ) );
 			return new WP_REST_Response( array(
 				'success' => false,
 				'error'   => 'נגמרו הקרדיטים שלך במסלול הנוכחי. אפשר לשדרג כדי להמשיך.',
@@ -697,7 +703,7 @@ class DCard_REST_Controller {
 		// בינתיים). קלף שני/שלישי באותו סשן לא מוריד קרדיט נוסף - הסשן
 		// כולו (עד 3 קלפים + כל השיחה) הוא יחידת החיוב, לא כל קלף בנפרד.
 		if ( $registered_user && $is_first_card_draw ) {
-			DCard_Users::deduct_credit( $registered_user['id'] );
+			DCard_Users::deduct_credit( $registered_user['id'], $credit_type );
 		}
 		$this->persist_memory_update( $session_token, $session['state'], $data['memory_update'], count( $candidate_ids ) );
 		// Recorded so /session/end knows which email intro text to use (DCard_Mailer).
@@ -726,6 +732,15 @@ class DCard_REST_Controller {
 				'route'         => DCard_Analytics::route_label( 'chat' ),
 				'platform'      => self::session_platform( $session ),
 			) );
+			// תיקון (התבקש: "אם זה מעבר ממסר לשיחה מפתחת - יקוזז 1 ממסר
+			// ואחד משיחה מפתחת") - קרדיט ה-msg כבר קוזז על הקלף הראשון של
+			// הסשן (שנפתח כ'message'); הסשן הזה "העמיק" לשיחה פתוחה, אז
+			// מקוזז עליו עכשיו *בנוסף* קרדיט אחד ממאגר ה-chat - זה הרגע
+			// שבו ההעמקה קורית בפועל (קלף נוסף שנשלף תחת mode='chat' אחרי
+			// שהסשן התחיל כ-'message').
+			if ( $registered_user ) {
+				DCard_Users::deduct_credit( $registered_user['id'], 'chat' );
+			}
 		}
 		DCard_DB::update_state( $session_token, $new_state_fields );
 		// תיקון (דווח בפועל: tokens_in/tokens_out נשארו 0 תמיד) - אותה בעיה
@@ -829,6 +844,13 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
 		}
 
+		// הוזז לכאן (היה קודם אחרי בדיקת ההמרה למטה) - תיקון (התבקש:
+		// "מעבר ממסר לשיחה מפתחת מקזז קרדיט נוסף מהמאגר של שיחה מפתחת") -
+		// $registered_user נדרש כבר בבדיקת ההמרה שממש אחרי זה, לא רק
+		// למגבלת הקריאות היומית שהייתה כאן קודם.
+		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
 		// תיקון (דווח בפועל: "לספור את אלה שמתחילים בקבלת מסר ולוחצים
 		// 'להמשיך ולהעמיק' - בפועל הם לא נספרים") - /session/turn קיים רק
 		// בתוך שיחה אישית (ר' ההערה למטה), אבל עד כה הוא מעולם לא עדכן את
@@ -848,6 +870,12 @@ class DCard_REST_Controller {
 				'route'         => DCard_Analytics::route_label( 'chat' ),
 				'platform'      => self::session_platform( $session ),
 			) );
+			// אותו תיקון בדיוק כמו ב-session_card_selected_inner - המרה
+			// שקורית *בלי* שליפת קלף נוספת (המשתמש פשוט כתב הודעה חופשית
+			// אחרי שלחץ "להמשיך ולהעמיק") עדיין מקזזת קרדיט chat נוסף.
+			if ( $registered_user ) {
+				DCard_Users::deduct_credit( $registered_user['id'], 'chat' );
+			}
 		}
 
 		// תיקון יחידת מדידה: קרדיט אחד = סשן אחד (ר' ההערה המלאה ב-
@@ -861,12 +889,8 @@ class DCard_REST_Controller {
 		// תיקון (התבקש: מגבלת קריאות AI יומית) - ציר נפרד מהקרדיטים (ר'
 		// ההערה המקבילה והמלאה ב-session_card_selected_inner): כל הודעת
 		// המשך בשיחה פתוחה היא קריאת AI בפני עצמה, אז נבדקת כאן גם כן,
-		// לא רק בשליפת הקלף. $registered_user לא נשמר/נבדק בשום מקום אחר
-		// ב-method הזה (אין כאן בדיקת קרדיטים בכוונה, ר' למעלה) - נדרש
-		// שוב מאפס, רק לצורך הזיהוי למגבלה היומית ולרישום ל-usage_logs.
-		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
-		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
-
+		// לא רק בשליפת הקלף. $registered_user נשלף כעת כבר למעלה (נדרש
+		// לבדיקת ההמרה ממסר לשיחה), נשתמש בו כאן בלי לשלוף אותו שוב.
 		if ( $registered_user && DCard_Usage_Logs::count_calls_today( $registered_user['id'] ) >= DCard_Quotas::get_daily_ai_call_limit() ) {
 			DCard_Logger::info( 'session_turn - registered user hit daily AI call cap', array( 'user_id' => $registered_user['id'] ) );
 			return new WP_REST_Response( array(
@@ -1450,16 +1474,19 @@ class DCard_REST_Controller {
 			'user_id'                => $user['id'],
 			'plan_id'                => $plan_id,
 			'cardcom_transaction_id' => $cardcom_transaction_id,
-			'credits'                => DCard_Plans::credits_for_plan( $plan_id ),
+			'credits_msg'            => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
+			'credits_chat'           => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
 			'expires_at'             => $expires_at,
 		) );
 
 		return new WP_REST_Response( array(
-			'success'  => true,
-			'user_id'  => $user['id'],
-			'plan_id'  => $plan_id,
-			'credits'  => DCard_Plans::credits_for_plan( $plan_id ),
-			'expires_at' => $expires_at,
+			'success'      => true,
+			'user_id'      => $user['id'],
+			'plan_id'      => $plan_id,
+			'credits'      => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
+			'credits_msg'  => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
+			'credits_chat' => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
+			'expires_at'   => $expires_at,
 		), 200 );
 	}
 
@@ -1501,12 +1528,18 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
 		}
 
+		// תיקון (פיצול קרדיטים מסר/שיחה מפתחת - ר' DCard_Plans) -
+		// current_credits (יחיד) הוחלף בשני המאגרים; נשאר גם בתגובה
+		// בשם הישן current_credits (= credits_msg) בשביל הלוג הקיים ב-
+		// elementor-code.html שעדיין קורא אותו, לצד שני המפתחות החדשים.
 		return new WP_REST_Response( array(
-			'success'        => true,
-			'user_id'        => (int) $user['id'],
-			'current_plan'   => $user['current_plan'],
-			'current_credits'=> (int) $user['current_credits'],
-			'plan_expires_at'=> $user['plan_expires_at'],
+			'success'             => true,
+			'user_id'             => (int) $user['id'],
+			'current_plan'        => $user['current_plan'],
+			'current_credits'     => (int) $user['current_credits_msg'],
+			'current_credits_msg' => (int) $user['current_credits_msg'],
+			'current_credits_chat'=> (int) $user['current_credits_chat'],
+			'plan_expires_at'     => $user['plan_expires_at'],
 		), 200 );
 	}
 
