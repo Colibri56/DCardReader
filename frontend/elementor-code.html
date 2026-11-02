@@ -311,6 +311,19 @@
         font-size: 16px;
     }
 
+    /* תיקון QA מובייל (התבקש: "תיבת הטקסט תהיה לאורך כל רוחב המסך בדומה
+       לתיבת הטקסט למשוב, רק שגם תכיל יותר שורות") - flex-basis: 100% גורם
+       ל-textarea לרדת לשורה משלה (אותה טכניקה שכבר בשימוש להודעת שגיאת
+       המיקרופון, ר' ההערה ליד .chat-input-area), במקום להצטמצם לצד הכפתורים
+       כשהם לא משאירים לה מספיק מקום ברוחב צר. min-height מבטיח שתיראה
+       כמה שורות, לא רק שורה אחת שחוסמת תחושת "כאן אפשר לכתוב עוד". */
+    @media (max-width: 600px) {
+        .chat-input-area textarea {
+            flex-basis: 100%;
+            min-height: 90px;
+        }
+    }
+
     /* בלוק ביניים: בחירת מסלול אחרי שליפת קלף - "שיחה אישית" מול "קבלת מסר" */
     .path-choice-block {
         display: none;
@@ -563,7 +576,7 @@
             (כאן תוצג תגובת הקורא בקלפים)
         </div>
         <div class="chat-input-area">
-            <textarea id="ai-reply-input" rows="3" placeholder="כאן רושמים את התגובה לקורא בקלפים ובהתייחס לתמונת הקלף/ים"></textarea>
+            <textarea id="ai-reply-input" rows="3" placeholder="כתבו כאן את מה שעולה לכם בעקבות הקלף, או שאלו שאלת המשך..."></textarea>
             <button type="button" class="btn-mic" id="btn-mic-chat" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
                     <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>

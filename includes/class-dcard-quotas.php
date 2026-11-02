@@ -205,6 +205,35 @@ class DCard_Quotas {
 		<?php
 	}
 
+	/**
+	 * שורת כותרת-קבוצה (colspan על פני כל 4 העמודות) - מפרידה ויזואלית בין
+	 * "לא משלמים" (אנונימי/חינמי, נאכפים בלי קשר למסלול תשלום) לבין
+	 * "משלמים" (נרקיס/נורית/נורית שנתי, שדרכם עובר CARDCOM) - התבקש
+	 * כ"שינוי קטן בטבלה שיהיה נוח יותר לקריאה".
+	 */
+	private static function render_group_header( $label ) {
+		echo '<tr class="dcard-quotas-group-row"><th colspan="4" style="background:#f0f0f1;">' . esc_html( $label ) . '</th></tr>';
+	}
+
+	/**
+	 * מערך-תצורה אחד לכל השורות, שמוזן ל-foreach (לא קריאה בודדת לכל שורה
+	 * בגוף render_page()) - שינוי/הוספת מסלול עכשיו נוגע בשורה אחת כאן,
+	 * לא בשני מקומות (גם תחזוקתית נוח יותר, כמו שהתבקש).
+	 */
+	private static function plan_rows_config() {
+		return array(
+			'לא משלמים' => array(
+				array( 'אנונימי', self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT, self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT, false ),
+				array( 'חינמי (רשום)', self::OPTION_REG_MSG_LIMIT, self::DEFAULT_REG_MSG_LIMIT, self::OPTION_REG_CHAT_LIMIT, self::DEFAULT_REG_CHAT_LIMIT, false ),
+			),
+			'משלמים'    => array(
+				array( 'נרקיס (תשלום חודשי)', self::OPTION_NARKIS_MSG_CREDITS, self::DEFAULT_NARKIS_MSG_CREDITS, self::OPTION_NARKIS_CHAT_CREDITS, self::DEFAULT_NARKIS_CHAT_CREDITS, true ),
+				array( 'נורית (תשלום חודשי)', self::OPTION_NURIT_MSG_CREDITS, self::DEFAULT_NURIT_MSG_CREDITS, self::OPTION_NURIT_CHAT_CREDITS, self::DEFAULT_NURIT_CHAT_CREDITS, true ),
+				array( 'נורית (שנתי)', self::OPTION_NURIT_YEARLY_MSG_CREDITS, self::DEFAULT_NURIT_YEARLY_MSG_CREDITS, self::OPTION_NURIT_YEARLY_CHAT_CREDITS, self::DEFAULT_NURIT_YEARLY_CHAT_CREDITS, true ),
+			),
+		);
+	}
+
 	public static function render_page() {
 		?>
 		<div class="wrap" dir="rtl">
@@ -229,11 +258,12 @@ class DCard_Quotas {
 					</thead>
 					<tbody>
 						<?php
-						self::render_plan_row( 'אנונימי', self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT, self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT, false );
-						self::render_plan_row( 'חינמי (רשום)', self::OPTION_REG_MSG_LIMIT, self::DEFAULT_REG_MSG_LIMIT, self::OPTION_REG_CHAT_LIMIT, self::DEFAULT_REG_CHAT_LIMIT, false );
-						self::render_plan_row( 'נרקיס (תשלום חודשי)', self::OPTION_NARKIS_MSG_CREDITS, self::DEFAULT_NARKIS_MSG_CREDITS, self::OPTION_NARKIS_CHAT_CREDITS, self::DEFAULT_NARKIS_CHAT_CREDITS, true );
-						self::render_plan_row( 'נורית (תשלום חודשי)', self::OPTION_NURIT_MSG_CREDITS, self::DEFAULT_NURIT_MSG_CREDITS, self::OPTION_NURIT_CHAT_CREDITS, self::DEFAULT_NURIT_CHAT_CREDITS, true );
-						self::render_plan_row( 'נורית (שנתי)', self::OPTION_NURIT_YEARLY_MSG_CREDITS, self::DEFAULT_NURIT_YEARLY_MSG_CREDITS, self::OPTION_NURIT_YEARLY_CHAT_CREDITS, self::DEFAULT_NURIT_YEARLY_CHAT_CREDITS, true );
+						foreach ( self::plan_rows_config() as $group_label => $rows ) {
+							self::render_group_header( $group_label );
+							foreach ( $rows as $row ) {
+								self::render_plan_row( $row[0], $row[1], $row[2], $row[3], $row[4], $row[5] );
+							}
+						}
 						?>
 					</tbody>
 				</table>
