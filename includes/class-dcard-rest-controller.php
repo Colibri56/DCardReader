@@ -1616,6 +1616,17 @@ class DCard_REST_Controller {
 	private static function estimate_cost( $model_id, $tokens_in, $tokens_out ) {
 		$price = DCard_Settings::get_model_price( $model_id );
 		if ( null === $price ) {
+			// תיקון אבחון (דווח בפועל: "Cost $" ריק ב-Google Sheets ל-gpt-6.1-sol
+			// למרות ש-data/ai-models.json על השרת החי מכיל מחיר תקין לו") - עד
+			// כה הנתיב הזה היה שקט לגמרי, בלי שום עקבה בלוג. רושם כאן את
+			// המזהה המדויק שהגיע לכאן (מרכאות כדי לחשוף רווח/תו נסתר) מול כל
+			// המפתחות שבאמת נטענו מהקובץ ברגע הזה - אם המודל שנבחר בפועל לא
+			// מופיע ברשימה הזו, זה מוכיח אי-התאמה במזהה (לא בעיית תעריף).
+			DCard_Logger::warning( 'No price found for model - cost_usd will be blank', array(
+				'model_id'            => '"' . $model_id . '"',
+				'loaded_model_ids'    => array_keys( DCard_Settings::get_model_choices() ),
+				'model_choices_errors'=> DCard_Settings::get_model_choices_errors(),
+			) );
 			return '';
 		}
 		$cost = ( $tokens_in / 1000000 ) * $price['input'] + ( $tokens_out / 1000000 ) * $price['output'];
