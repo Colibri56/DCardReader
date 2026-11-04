@@ -186,6 +186,12 @@ register_deactivation_hook( __FILE__, function () {
 } );
 
 add_action( 'dcard_daily_cleanup', function () {
+	// חייב לרוץ *לפני* DCard_DB::cleanup_old_sessions() - ר' ההערה המלאה
+	// ב-DCard_REST_Controller::report_abandoned_sessions(): הדיווח חייב
+	// לקרות לפני שהשורה נמחקת, לא אחרי.
+	if ( class_exists( 'DCard_REST_Controller' ) ) {
+		DCard_REST_Controller::report_abandoned_sessions();
+	}
 	if ( class_exists( 'DCard_DB' ) ) {
 		DCard_DB::cleanup_old_sessions();
 	}

@@ -401,7 +401,14 @@ class DCard_REST_Controller {
 		if ( ! in_array( $platform, array( 'Mobile', 'Desktop', 'Tablet' ), true ) ) {
 			$platform = '';
 		}
-		DCard_DB::update_state( $token, array( 'platform' => $platform ) );
+		DCard_DB::update_state( $token, array(
+			'platform' => $platform,
+			// נשמר כאן (לא רק נגזר מה-header בכל בקשה) כדי ש-
+			// report_abandoned_sessions() יוכל לזהות משתמש רשום גם כש-
+			// ה-cron סוגר סשן נטוש בלי בקשת HTTP חיה - ר' ההערה המלאה
+			// ב-default_state() ב-class-dcard-db.php.
+			'user_id'  => $claimed_user_id > 0 ? $claimed_user_id : null,
+		) );
 
 		$greeting = 'שאלת:';
 
@@ -1056,19 +1063,42 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'error' => 'סשן לא נמצא' ), 404 );
 		}
 
-		$email_sent    = false;
-		$is_message_mode = 'message' === ( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null );
-
 		// Google Sheets logging (ר' Google Apps Script בתשובה): user_id/
 		// user_email מזוהים כאן גם דרך X-Dcard-Device-Token (לא רק מה-
 		// email שהוזן ב-/session/end עצמו, שלרוב לא נשלח כלל אם המשתמש
 		// לא בחר "שליחה במייל") - כך שמשתמש רשום מקבל שורה מלאה גם אם
-		// לא לחץ על שליחת מייל באותו סשן ספציפי. הוזז למעלה (היה אחרי
-		// send_transcript) כדי ש-$resolved_phone/$resolved_email יהיו
-		// זמינים כבר ל-send_transcript, לצורך פרמטרי ה-URL הסמויים
-		// שהוא מצרף לקישור הפידבק (ר' class-dcard-mailer.php).
-		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		// לא לחץ על שליחת מייל באותו סשן ספציפי.
+		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+		$email_sent   = self::finalize_session( $session, $session_token, $exit_type, $email, $card_images, $device_token );
+
+		// user_is_registered is not implemented yet in this beta (no accounts) - always the "new user" text.
+		$closing_message = DCard_Settings::get_closing_text( false );
+
+		return new WP_REST_Response( array(
+			'emailSent'      => $email_sent,
+			'closingMessage' => $closing_message,
+		), 200 );
+	}
+
+	/**
+	 * מרכז בקוד אחד את מה שהיה קודם מפוזר בתוך session_end_inner בלבד -
+	 * כדי ש-report_abandoned_sessions() (ר' למטה) יוכל "לסגור" סשן נטוש
+	 * בדיוק באותו אופן (status='completed' + אירוע session_completed),
+	 * גם כש-ה-cron מפעיל אותו בלי שום בקשת HTTP חיה ברקע (אין $request,
+	 * אין device-token header - לכן $device_token מגיע כפרמטר, לא נקרא
+	 * כאן מתוך header; ר' $claimed_user_id שנשמר ב-state ב-session_start_inner
+	 * לשימוש בדיוק במקרה הזה).
+	 *
+	 * מחזיר bool - האם נשלח בפועל מייל עם תמלול השיחה (email_sent).
+	 */
+	private static function finalize_session( array $session, $session_token, $exit_type, $email, array $card_images = array(), $device_token = null ) {
+		$email_sent       = false;
+		$is_message_mode  = 'message' === ( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null );
+
 		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+		if ( ! $registered_user && ! empty( $session['state']['user_id'] ) ) {
+			$registered_user = DCard_Users::get_by_id( (int) $session['state']['user_id'] );
+		}
 		$resolved_email  = ( $email && is_email( $email ) ) ? $email : ( $registered_user ? $registered_user['email'] : null );
 		// תיקון (התבקש: "מספר טלפון - יאפשר לשלוח הודעות וואטסאפ בהמשך") -
 		// כבר נאסף ונשמר היום (DCard_Users, טופס ההרשמה/Cardcom webhook) -
@@ -1131,13 +1161,31 @@ class DCard_REST_Controller {
 			'email_sent'         => $email_sent ? 'Yes' : '',
 		) );
 
-		// user_is_registered is not implemented yet in this beta (no accounts) - always the "new user" text.
-		$closing_message = DCard_Settings::get_closing_text( false );
+		return $email_sent;
+	}
 
-		return new WP_REST_Response( array(
-			'emailSent'      => $email_sent,
-			'closingMessage' => $closing_message,
-		), 200 );
+	/**
+	 * תיקון (דווח בפועל: "משתמש שמשאיר את האפליקציה פתוחה על תשובה שקיבל
+	 * ועובר הלאה - זו נטישה, צריך למצוא לזה פתרון") - עד כה סשן 'active'
+	 * שלא התעדכן שעתיים פשוט *נמחק* ב-DCard_DB::cleanup_old_sessions(),
+	 * בלי שום דיווח - אם ה-pagehide/sendBeacon בצד הלקוח (ר' elementor-
+	 * code.html) לא הספיק להישלח/להתקבל *לפני* שה-cron השעתי הגיע לאותו
+	 * סשן (או בכלל לא נורה - קריסת דפדפן, נייד שנסגר באגרסיביות ברקע,
+	 * אין רשת ברגע הסגירה), השורה נעלמת מה-DB לצמיתות בלי זכר בגיליון.
+	 * נקרא מ-dcard_daily_cleanup *לפני* DCard_DB::cleanup_old_sessions(),
+	 * כדי שכל סשן נטוש כזה "ייסגר" רשמית (status='completed' + אירוע
+	 * session_completed עם exit_type='abandoned') כאן, בצד השרת, לפני
+	 * שהוא נמחק - בלי תלות באמינות של pagehide בצד הלקוח בכלל.
+	 */
+	public static function report_abandoned_sessions() {
+		if ( ! class_exists( 'DCard_DB' ) ) {
+			return;
+		}
+
+		$stale_sessions = DCard_DB::get_stale_active_sessions( 2 );
+		foreach ( $stale_sessions as $session ) {
+			self::finalize_session( $session, $session['session_token'], 'abandoned', '' );
+		}
 	}
 
 	// ---------------------------------------------------------------

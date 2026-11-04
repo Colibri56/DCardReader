@@ -51,6 +51,12 @@ class DCard_DB {
 			// במסר") - ר' session_card_selected_inner, שם זה נקבע. נשאר
 			// true עד סוף הסשן, גם אם ימשיך לצייר עוד קלפים ב-chat.
 			'converted_from_message' => false,
+			// מזהה המשתמש הרשום (wp_dcard_users.id), אם הסשן נפתח עם
+			// X-Dcard-Device-Token תקין (ר' session_start_inner) - null
+			// למשתמש אנונימי. נשמר כאן (ולא רק נקרא מה-header בכל בקשה)
+			// כדי ש-report_abandoned_sessions() יוכל לזהות את המשתמש גם
+			// כש-ה-cron סוגר סשן בלי שום בקשת HTTP חיה להישען עליה.
+			'user_id'              => null,
 		);
 	}
 
@@ -94,6 +100,10 @@ class DCard_DB {
 			return null;
 		}
 
+		return self::decode_row( $row );
+	}
+
+	private static function decode_row( array $row ) {
 		$row['drawn_cards'] = json_decode( $row['drawn_cards'], true );
 		if ( ! is_array( $row['drawn_cards'] ) ) {
 			$row['drawn_cards'] = array();
@@ -110,6 +120,30 @@ class DCard_DB {
 		}
 
 		return $row;
+	}
+
+	/**
+	 * סשנים 'active' שלא התעדכנו כבר $hours שעות - בדיוק האוכלוסייה
+	 * ש-cleanup_old_sessions() עומד למחוק בשקט. נקרא *לפני* המחיקה (ר'
+	 * dcard_daily_cleanup ב-the-card-reader-core.php) כדי שאפשר יהיה
+	 * לדווח עליהם כ-'abandoned' ל-Analytics לפני שהם נעלמים לצמיתות.
+	 */
+	public static function get_stale_active_sessions( $hours ) {
+		global $wpdb;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM " . self::table() . " WHERE status = 'active' AND updated_at < UTC_TIMESTAMP() - INTERVAL %d HOUR",
+				$hours
+			),
+			ARRAY_A
+		);
+
+		if ( ! $rows ) {
+			return array();
+		}
+
+		return array_map( array( __CLASS__, 'decode_row' ), $rows );
 	}
 
 	public static function append_transcript_entry( $session_token, $entry ) {
