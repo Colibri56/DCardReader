@@ -121,6 +121,19 @@ class DCard_REST_Controller {
 	const CARD_TURN_CAP = 4;
 	const CARD_TURN_CAP_INSTRUCTION = 'הנחיה זו גוברת על תהליך השיחה הרגיל שבסעיף 5, לתשובה הזו בלבד: הגעת למגבלת השרת של 4 תורות עיבוד סביב הקלף הנוכחי ("חוק עצירת הלולאה" בשלב ו׳). אסור להמשיך לשאול או להעמיק יותר סביב הקלף הזה. עבור ישר לשלב ט׳: תן מסר סיום החלטי, מעצים וברור, מבוסס על הקלף ועל מה שעלה בשיחה עד כה - בלי שום שאלה נוספת. אסור שיופיע בתשובה סימן שאלה (?) ולו אחד. זו חתימה, לא פתיחה להמשך.';
 
+	// תיקון (דווח בפועל: "חותך את השיחה בצורה לא טבעית... גם לא הייתה
+	// אינדיקציה מצד המשתמש לסיום") - שלב ו׳ בהוראות הסוכן קובע תקרה של 2-4
+	// תורות עיבוד לכל קלף (ר' CARD_TURN_CAP למעלה), אבל עד כה לא היה שום
+	// *רצפה* מקבילה - שלב ט׳ מאפשר למודל לזהות "סימן הבנה" (ואפילו תשובה
+	// קצרה/מהוססת יכולה להיחשב ככזה) ולסגור כבר בתגובת ההעמקה הראשונה סביב
+	// הקלף (turn 1), בלי שום בדיקה מול המשתמש ובלי שום אינדיקציה אמיתית
+	// ממנו שהוא מוכן לסיים - בדיוק המקרה שדווח. אותו מנגנון בדיוק כמו
+	// CARD_TURN_CAP למעלה, רק בכיוון ההפוך: נאכף בשרת (לא רק מבוקש מהמודל),
+	// כי אי אפשר לסמוך על המודל "לא לסגור מוקדם מדי" יותר מאשר אפשר לסמוך
+	// עליו "לעצור בזמן" - שתי הבעיות דורשות את אותו סוג רשת ביטחון.
+	const CARD_TURN_FLOOR = 2;
+	const CARD_TURN_FLOOR_INSTRUCTION = 'הנחיה זו גוברת על תהליך השיחה הרגיל שבסעיף 5, לתשובה הזו בלבד: זו תגובת ההעמקה הראשונה שלך סביב הקלף הנוכחי. אסור לעבור לשלב ט׳ (זיהוי תשובה וסיכום) או לתת מסר סיום/סיכום בתשובה הזו, גם אם נדמה לך שיש כבר סימן הבנה ברור מהמשתמש - "חוק עצירת הלולאה" בשלב ו׳ קובע מינימום של 2 תורות עיבוד סביב כל קלף לפני שמותר לעבור לסיכום, בלי קשר לסימני הבנה. המשך בשלב ו׳ הרגיל: גשר משמעות וחיזוק, הארה וזווית חדשה, ושאלת המשך פתוחה אחת. אסור ש-end_session יהיה true בתשובה הזו.';
+
 	// נשמר בתמליל (role: 'error', ר' AI_ERROR_ROLE למטה) בשני המקומות שבהם
 	// קריאת AI יכולה להיכשל (card-selected ו-turn) - כך שמייל הסיכום תמיד
 	// משקף את זה שהשיחה נקטעה, במקום להיגמר באמצע בלי שום סימן. נוסח אחיד
@@ -947,6 +960,8 @@ class DCard_REST_Controller {
 			$extra_instruction = self::FINAL_TURN_INSTRUCTION;
 		} elseif ( $new_card_turn_count >= self::CARD_TURN_CAP ) {
 			$extra_instruction = self::CARD_TURN_CAP_INSTRUCTION;
+		} elseif ( $new_card_turn_count < self::CARD_TURN_FLOOR ) {
+			$extra_instruction = self::CARD_TURN_FLOOR_INSTRUCTION;
 		} else {
 			$extra_instruction = '';
 		}
@@ -985,6 +1000,7 @@ class DCard_REST_Controller {
 
 		$data = $this->enforce_end_session_consistency( $result['data'] );
 		$data = $this->enforce_card_cap_consistency( $data, count( $session['drawn_cards'] ), $session['user_gender'] );
+		$data = $this->enforce_card_turn_floor( $data, $new_card_turn_count, $is_final_turn );
 
 		// turn_count and card_turn_count are server-owned; everything else in
 		// memory_update is trusted.
@@ -1616,6 +1632,31 @@ class DCard_REST_Controller {
 		if ( ! empty( $data['end_session'] ) && false !== strpos( (string) $data['speak'], '?' ) ) {
 			DCard_Logger::warning( 'Model set end_session=true but speak still contains a question mark - overriding to false', array(
 				'speak' => mb_substr( (string) $data['speak'], 0, 300 ),
+			) );
+			$data['end_session'] = false;
+		}
+		return $data;
+	}
+
+	/**
+	 * תיקון (דווח בפועל: "חותך את השיחה בצורה לא טבעית... גם לא הייתה
+	 * אינדיקציה מצד המשתמש לסיום") - CARD_TURN_FLOOR_INSTRUCTION (ר' למעלה)
+	 * מבקשת יפה מהמודל לא לסגור בתגובת ההעמקה הראשונה, אבל בקשה בפרומפט
+	 * בלבד היא בדיוק מה שנכשל כאן מלכתחילה (שלב ט' נתן למודל שיקול דעת
+	 * רחב מדי לזהות "סימן הבנה" גם מתשובה קצרה/מהוססת אחת). אותו עיקרון
+	 * בדיוק כמו enforce_end_session_consistency למעלה: רשת ביטחון בשרת,
+	 * לא תלויה בציות המודל. לא נוגעים בטקסט של speak עצמו (גם אם הוא נשמע
+	 * כמו סיכום) - רק מוודאים ש-end_session נשאר false כדי שתיבת הכתיבה לא
+	 * תיסגר ולמשתמש תישאר דרך אמיתית להמשיך.
+	 */
+	private function enforce_card_turn_floor( array $data, $new_card_turn_count, $is_final_turn ) {
+		if ( $is_final_turn || $new_card_turn_count >= self::CARD_TURN_FLOOR ) {
+			return $data;
+		}
+		if ( ! empty( $data['end_session'] ) ) {
+			DCard_Logger::warning( 'Model set end_session=true before CARD_TURN_FLOOR reflection turns - overriding to false', array(
+				'new_card_turn_count' => $new_card_turn_count,
+				'speak'               => mb_substr( (string) $data['speak'], 0, 300 ),
 			) );
 			$data['end_session'] = false;
 		}

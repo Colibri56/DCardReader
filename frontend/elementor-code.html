@@ -2052,12 +2052,17 @@
             dislikeBtn.style.cursor = 'pointer';
             dislikeBtn.style.fontSize = '24px';
 
-            // מניעת שליחה כפולה: שני הכפתורים מושבתים אחרי הלחיצה הראשונה
-            // על אחד מהם, בלי קשר להצלחת ה-fetch - זו בחירת המשתמש, לא
-            // תלויה ברשת.
+            // תיקון (התבקש: "לאפשר שינוי/תיקון הבחירה של מיקרו משוב - ייתכן
+            // ולחצו בטעות ורוצים לתקן") - הכפתורים לא ננעלים יותר אחרי
+            // לחיצה ראשונה; אפשר ללחוץ על השני בכל רגע כדי להחליף את
+            // הבחירה (כל שינוי נשלח כאירוע feedback_micro נפרד - ר'
+            // class-api-feedback.php - כך שהשורה האחרונה בגיליון לכל
+            // message_id היא התשובה הנכונה). currentFeedbackValue מונע רק
+            // שליחה כפולה מיותרת כשלוחצים שוב על אותו כפתור שכבר נבחר.
+            let currentFeedbackValue = null;
             function handleFeedbackClick(value, chosenBtn, otherBtn) {
-                likeBtn.disabled = true;
-                dislikeBtn.disabled = true;
+                if (currentFeedbackValue === value) return;
+                currentFeedbackValue = value;
                 chosenBtn.style.opacity = '1';
                 otherBtn.style.opacity = '0.3';
                 sendMicroFeedback(messageId, value);
@@ -2341,40 +2346,64 @@
         }, 400);
     }
 
+    // תיקון "נתקע על מבצע התחברות": אם initSession() עדיין לא רצה בכלל, או
+    // שרצה ונכשלה (sessionInitiated התאפס ל-false, ר' initSession למעלה) -
+    // מנסים כאן ממש, לא רק מתריעים ומוותרים. המשתמש לוחץ שוב ביודעין, אז זו
+    // בדיוק נקודת ה"ניסיון חוזר" הטבעית, בלי צורך בכפתור "נסה שוב" נפרד.
+    // משותף עכשיו לשלוש נקודות כניסה: btnDeckAction (קלף נוסף) ושני כפתורי
+    // בחירת המסלול (ר' למטה - הועלו להתחיל את העירבוב מיד בעצמם).
+    async function ensureSessionReady() {
+        if (sessionToken) return true;
+        if (!sessionInitiated) {
+            await initSession();
+        }
+        if (!sessionToken) {
+            alert(sessionInitError || "המערכת מבצעת התחברות לשרת, אנא המתן שניה ונסה שוב.");
+            return false;
+        }
+        return true;
+    }
+
+    // תיקון UX (התבקש: "מיד כשהמשתמש לוחץ על כפתור המסר או שיחה מפתחת -
+    // עירבוב הקלפים מתחיל") - מריץ את מה שקודם קרה רק בלחיצה הראשונה על
+    // "ערבוב קלפים" (appState==='start'), עכשיו מתוך btnPathChat/
+    // btnPathMessage ישירות - אין יותר לחיצה נפרדת להתחלת העירבוב על הקלף
+    // הראשון. מחזיר false (ולא נועל/מתחיל כלום) אם השאלה עדיין ריקה.
+    function lockQuestionAndStartShuffling() {
+        if (userQuestion.value.trim() === "") {
+            alert("אנא כתוב את שאלתך לפני שנתחיל.");
+            return false;
+        }
+        userQuestion.classList.add('locked');
+        userQuestion.readOnly = true;
+        btnMic.style.display = 'none'; // השאלה ננעלה, אין יותר למה להכתיב
+
+        // שינוי UX (#1): בועת השאלה מוזרקת מיד ברגע שהמשתמש נועל
+        // את השאלה שלו ומתחיל את התהליך - לא מחכה לתשובת ה-AI
+        // הראשונה כמו קודם. הפורמט קבוע: שאלת: "...".
+        appendMessage('user', `שאלת: "${userQuestion.value.trim()}"`);
+
+        block2Deck.style.display = 'flex';
+        beginShuffling();
+        visualDeck.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return true;
+    }
+
+    // תיקון UX (התבקש: "לאפשר להפסיק את העירבוב ושליפת הקלף גם על ידי
+    // לחיצה על הקלף") - מדמה לחיצה על btnDeckAction (אותו דפוס בדיוק כמו
+    // shuffleAutoPickTimer למעלה), כדי לא לשכפל את לוגיקת השליפה עצמה.
+    visualDeck.addEventListener('click', function () {
+        if ('shuffling' === appState) {
+            btnDeckAction.click();
+        }
+    });
+
     // 3. ניהול שליפת הקלפים והפנייה הראשונית למודל
     btnDeckAction.addEventListener('click', async function() {
-        if (!sessionToken) {
-            // תיקון "נתקע על מבצע התחברות": אם initSession() עדיין לא רצה
-            // בכלל, או שרצה ונכשלה (sessionInitiated התאפס ל-false, ר'
-            // initSession למעלה) - מנסים כאן ממש, לא רק מתריעים ומוותרים.
-            // המשתמש לוחץ שוב ביודעין (הכפתור "ערבוב קלפים"), אז זו בדיוק
-            // נקודת ה"ניסיון חוזר" הטבעית, בלי צורך בכפתור "נסה שוב" נפרד.
-            if (!sessionInitiated) {
-                await initSession();
-            }
-            if (!sessionToken) {
-                alert(sessionInitError || "המערכת מבצעת התחברות לשרת, אנא המתן שניה ונסה שוב.");
-                return;
-            }
-            // חוזר (retry) הצליח - sessionToken קיים כעת, ממשיכים בלי return
-            // להמשך ההתנהלות הרגילה של הלחיצה (למטה), לא רק "מתחברים ועוצרים".
-        }
+        if (!(await ensureSessionReady())) return;
 
-        if (appState === 'start' || appState === 'drawn') {
-            if (appState === 'start' && userQuestion.value.trim() === "") {
-                alert("אנא כתוב את שאלתך לפני שנתחיל.");
-                return;
-            }
-            if (appState === 'start') {
-                userQuestion.classList.add('locked');
-                userQuestion.readOnly = true;
-                btnMic.style.display = 'none'; // השאלה ננעלה, אין יותר למה להכתיב
-
-                // שינוי UX (#1): בועת השאלה מוזרקת מיד ברגע שהמשתמש נועל
-                // את השאלה שלו ומתחיל את התהליך - לא מחכה לתשובת ה-AI
-                // הראשונה כמו קודם. הפורמט קבוע: שאלת: "...".
-                appendMessage('user', `שאלת: "${userQuestion.value.trim()}"`);
-            }
+        if (appState === 'drawn') {
+            // קלף נוסף (לא הראשון) - השאלה כבר ננעלה מזמן, רק ממשיכים לעירבוב.
             beginShuffling();
             return;
         }
@@ -2647,10 +2676,9 @@
     // הכפתורים הועלו מתחת לתיבת השאלה (block-1) ומוצגים מיד מתחילת
     // הטעינה, *לפני* שהקופה (block-2) בכלל נחשפת - ר' ההערה המלאה למטה,
     // ליד ההסתרה הראשונית. אין יותר "בחירה אחרי השליפה" - pendingCardId
-    // הוסר כליל, שני ה-handlers האלה כבר לא מקבלים/מריצים קלף בעצמם,
-    // רק קובעים את chatModeActive וחושפים את הקופה; runCardAI על הקלף
-    // הראשון נקרא מאוחר יותר, בשליפה עצמה (ר' appState === 'shuffling' למעלה).
-    btnPathChat.addEventListener('click', () => {
+    // הוסר כליל; lockQuestionAndStartShuffling() (ר' למעלה, ליד
+    // btnDeckAction) כבר מתחיל את העירבוב מיד כאן, ולא ממתין ללחיצה נוספת.
+    btnPathChat.addEventListener('click', async () => {
         if (pathChosen) return; // חד-פעמי - לא רלוונטי יותר אחרי שהקופה כבר נחשפה
 
         // תיקון יחידת מדידה: הבדיקה (ולא רק הספירה) עברה לכאן - נקודת
@@ -2661,16 +2689,17 @@
             return;
         }
 
+        if (!(await ensureSessionReady())) return;
+        if (!lockQuestionAndStartShuffling()) return; // שאלה ריקה - נשארים על מסך בחירת המסלול
+
         pathChosen = true;
         countSessionIfNeeded(DCARD_LS_KEYS.anonChatCount);
         chatModeActive = true; // מכאן ואילך תיבת ההקלדה נשארת גלויה גם בקלפים נוספים
         pathChoiceBlock.style.display = 'none';
         chatInputArea.style.display = '';
-        block2Deck.style.display = 'flex';
-        visualDeck.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
-    btnPathMessage.addEventListener('click', () => {
+    btnPathMessage.addEventListener('click', async () => {
         if (pathChosen) return;
 
         // Freemium PLG, שלב 1: בדיקה *לפני* הקריאה בפועל - חוסמים את
@@ -2686,13 +2715,14 @@
             return;
         }
 
+        if (!(await ensureSessionReady())) return;
+        if (!lockQuestionAndStartShuffling()) return;
+
         pathChosen = true;
         resetUserQuestionCount(); // מסלול קבלת מסר לא כולל שיחה, אבל מאפסים ליתר ביטחון
         pathChoiceBlock.style.display = 'none';
         // תיבת ההקלדה נשארת מוסתרת למשך שאר הסשן - זה מסלול חד-פעמי.
         chatInputArea.style.display = 'none';
-        block2Deck.style.display = 'flex';
-        visualDeck.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
     // 4. שליחת הודעת טקסט רגילה בצ'אט
