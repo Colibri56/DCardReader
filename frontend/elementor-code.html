@@ -324,7 +324,10 @@
         }
     }
 
-    /* בלוק ביניים: בחירת מסלול אחרי שליפת קלף - "שיחה אישית" מול "קבלת מסר" */
+    /* תיקון UX (התבקש: "לחייב את המשתמש דבר ראשון לבחור את הנתיב") - בחירת
+       מסלול "שיחה אישית" מול "קבלת מסר", מוצגת מתחת לתיבת השאלה (block-1)
+       עוד *לפני* שהקופה (block-2) נחשפת - ר' ה-JS, שמגדיר display:flex
+       כאן כבר מתחילת הטעינה. */
     .path-choice-block {
         display: none;
         justify-content: center;
@@ -357,37 +360,34 @@
         color: white;
     }
 
-    /* משוב מיקרו (לייק/דיסלייק) - פיל (pill) עדין מתחת לבועת AI, לא שני
-       אייקונים צפים בלי הקשר ולא כפתורים "כבדים". הכלאה מכוונת בין השתיים. */
+    /* משוב מיקרו (לייק/דיסלייק) - תיקון UI (התבקש: "להכניס את המיקרו משוב
+       לתוך תיבת התשובה של ה-AI") - עכשיו שורה בתוך הבועה עצמה (ר' JS,
+       appendMessage: feedbackRow מתווסף כילד של msgDiv, לא לצידו/מתחתיו
+       כאלמנט נפרד) - לכן גם באותו רוחב מסך זהה לבועה עצמה, בלי צורך
+       ב-media query נפרד (שהוסר - היה רלוונטי רק לפריסת ה-flex הישנה
+       בין הבועה לפיל, aiRow, שכבר לא קיימת). רקע בהיר למחצה כדי להתבלט
+       על רקע הבועה הכהה (#8B1E3F) בלי "קופסה" בולטת מדי. */
     .dcard-feedback-pill {
-        display: inline-flex;
+        /* display:flex (לא inline-flex) + width:fit-content + margin-
+           inline-start:auto, לא float - הבועה (msgDiv) היא display:inline-
+           block בלי overflow מוגדר, ו-float לא היה מתפתח לגובה שלה
+           (הפיל היה "בורח" מתחת לקצה התחתון של הבועה במקום לדחוף אותה
+           לגבוה יותר). flex רגיל בזרימה נשאר בתוך גובה הבועה כמו כל ילד
+           אחר. margin-inline-start:auto דוחף אותו לקצה השני (שמאל, כי
+           direction:rtl על #card-reader-app) בלי תלות בכיוון. */
+        display: flex;
+        width: fit-content;
         gap: 4px;
-        background: rgba(0,0,0,0.08);
-        padding: 6px 10px;
+        background: rgba(255,255,255,0.15);
+        padding: 4px 10px;
         border-radius: 20px;
         align-items: center;
         border: none;
+        margin-top: 8px;
+        margin-inline-start: auto;
     }
 
-    /* תיקון QA מובייל ("הפיל לצד הבועה לא הגיוני ברוחב צר, הבועה צריכה
-       לתפוס את כל הרוחב, והפיל כדאי שיתחבר ויזואלית לצבע הבועה") - במסך
-       צר: במקום flex row (ר' aiRow ב-JS, appendMessage), מניחים את הפיל
-       *מתחת* לבועה, והבועה תופסת את כל הרוחב. !important נדרש כי
-       .dcard-bubble מקבלת גם max-width:85% כ-inline style ב-JS (לכל
-       הבועות, לא רק AI) - CSS רגיל לא יכול לדרוס inline style בלי זה. */
     @media (max-width: 600px) {
-        .dcard-ai-row {
-            flex-direction: column !important;
-            align-items: stretch !important;
-        }
-        .dcard-ai-row .dcard-bubble {
-            max-width: 100% !important;
-        }
-        .dcard-ai-row .dcard-feedback-pill {
-            align-self: flex-end;
-            background: #8B1E3F;
-        }
-
         /* תיקון QA מובייל ("סדר הכפתורים צריך להתחלף - 'סיום ויציאה' למעלה,
            הוא צריך להיות אחרון") - ב-DOM הוא ראשון מבין 3 הכפתורים, ולכן
            ברוחב צר (כל כפתור נופל לשורה נפרדת ע"י flex-wrap הקיים ב-
@@ -549,6 +549,14 @@
         </button>
     </div>
 
+    <!-- תיקון UX (התבקש: "לחייב את המשתמש דבר ראשון לבחור את הנתיב") -
+         בחירה בין שיחה אישית לקבלת מסר, מוצג מיד מתחת לתיבת השאלה, לפני
+         שהקופה (block-2) בכלל נחשפת - ר' ה-JS. -->
+    <div class="path-choice-block" id="block-path-choice">
+        <button class="btn-main" id="btn-path-chat">לשיחה מפתחת</button>
+        <button class="btn-outline" id="btn-path-message">לקבלת מסר אישי</button>
+    </div>
+
     <!-- בלוק 2: ערימת קלפים לאנימציה וכפתור פעולה -->
     <div class="deck-block" id="block-2">
         <div class="deck" id="card-deck">
@@ -562,12 +570,6 @@
     <!-- בלוק 3: אזור הצגת הקלפים שנשלפו -->
     <div class="cards-block" id="block-3">
         <div id="cards-container" class="drawn-cards-container"></div>
-    </div>
-
-    <!-- בלוק ביניים: בחירה בין שיחה אישית לקבלת מסר, מוצג אחרי כל שליפת קלף -->
-    <div class="path-choice-block" id="block-path-choice">
-        <button class="btn-main" id="btn-path-chat">לשיחה מפתחת</button>
-        <button class="btn-outline" id="btn-path-message">לקבלת מסר אישי</button>
     </div>
 
     <!-- בלוק 4: דיאלוג עם ה-AI -->
@@ -1034,6 +1036,10 @@
     // שמאלה/ימינה) ל-'bounce' (חדש - קפיצה אנכית).
     let shuffleMode = 'horizontal';
     let shuffleStepCount = 0;
+    // תיקון (התבקש: "במצב עירבוב קלפים, אם לא נבחר קלף תוך 8 שניות,
+    // שהאפליקציה תבחר אקראית") - נקבע ב-beginShuffling(), מבוטל ברגע
+    // שהקלף נבחר בפועל (ידנית או אוטומטית) - ר' שני המקומות למטה.
+    let shuffleAutoPickTimer = null;
 
     // אלמנטים מה-DOM
     const userQuestion = document.getElementById('user-question');
@@ -1042,6 +1048,7 @@
     // override ב-Settings > DCard AI > Test User Gender לבדיקות). עד אז,
     // הפלייסהולדר שבברירת המחדל של ה-HTML (זכר) מוצג לרגע קצר.
     const btnMic = document.getElementById('btn-mic');
+    const block2Deck = document.getElementById('block-2');
     const btnDeckAction = document.getElementById('btn-deck-action');
     const visualDeck = document.getElementById('card-deck');
     const animationCards = document.querySelectorAll('.card-back');
@@ -1062,8 +1069,17 @@
     const pathChoiceBlock = document.getElementById('block-path-choice');
     const btnPathChat = document.getElementById('btn-path-chat');
     const btnPathMessage = document.getElementById('btn-path-message');
-    let pendingCardId = null; // הקלף שממתין לבחירת מסלול (שיחה אישית / קבלת מסר)
+    // תיקון UX (התבקש: "לחייב את המשתמש דבר ראשון לבחור את הנתיב") -
+    // block-path-choice מוצג כבר מתחילת הטעינה (ר' למטה), ו-block-2 (הקופה)
+    // מוסתר עד שנבחר מסלול - pathChosen מונע לחיצה כפולה/מאוחרת על אחד
+    // משני הכפתורים אחרי שכבר נבחר מסלול.
+    let pathChosen = false;
     let chatModeActive = false; // true לאחר שנבחר "שיחה אישית" - שאר הסשן, תיבת ההקלדה תמיד גלויה
+
+    // מצב התחלתי: הקופה מוסתרת, בחירת המסלול גלויה מיד מתחת לתיבת השאלה -
+    // ר' ההערה המלאה ליד btnPathChat/btnPathMessage למטה.
+    block2Deck.style.display = 'none';
+    pathChoiceBlock.style.display = 'flex';
     // סופר אך ורק שליחות בפועל של שאלה על ידי המשתמש (btnSend/Enter) - לא
     // הודעות AI אוטומטיות (שאילת קלף, "מה עולה בך"), לא ניסיונות חסומים.
     let userQuestionCount = 0;
@@ -2011,10 +2027,10 @@
             const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
             msgDiv.dataset.messageId = messageId;
 
-            // תיקון UI (דווח בפועל: "להסיט שמאלה ליד הבועה... לקרב אותם
-            // ושייראו בולטים יותר") - פיל (pill) עדין - ר' .dcard-feedback-pill
-            // ב-CSS. בעבר צף מתחת לבועה (clear:both) - עכשיו יושב לצידה
-            // (ר' aiRow למטה, שבנוי ב-flex ולא ב-float).
+            // תיקון UI (התבקש: "להכניס את המיקרו משוב לתוך תיבת התשובה
+            // של ה-AI") - פיל (pill) עדין - ר' .dcard-feedback-pill ב-CSS,
+            // עכשיו מתווסף ישירות כילד של msgDiv (הבועה עצמה) למטה, לא
+            // כאלמנט נפרד לצידה/מתחתיה.
             const feedbackRow = document.createElement('div');
             feedbackRow.className = 'dcard-feedback-pill';
 
@@ -2052,39 +2068,8 @@
             feedbackRow.appendChild(likeBtn);
             feedbackRow.appendChild(dislikeBtn);
 
-            // תיקון UI (דווח בפועל: "חפיפה בין 2 הבועות") - position:absolute
-            // הקודם היה מנותק לגמרי מהבועה, אז כשהיא רחבה (קרוב ל-85%) היא
-            // פשוט חפפה את הפיל שיושב תמיד ב-left:0. וגם קודם לכן, דווח
-            // "הקטנה" של האייקונים - גרסת ה-flex הראשונה (row-reverse, בלי
-            // flex-shrink:0 מפורש) כיווצה את *שניהם* יחד כשלא היה מספיק
-            // מקום. הפתרון הנכון: flex אמיתי, ששני הצדדים יודעים *במפורש*
-            // מי מתכווץ (msgDiv - min-width:0 מאפשר לו לעטוף טקסט ולהצטמצם
-            // באמת, לא רק לגלוש) ומי לא (feedbackRow - flex-shrink/grow:0,
-            // גודל קבוע לנצח). direction:rtl כבר על #card-reader-app (ר'
-            // למעלה בקובץ) - אז flex-direction:row רגיל (לא row-reverse)
-            // כבר שם את הילד הראשון (msgDiv) ב-flex-start=ימין והשני
-            // (feedbackRow) ב-flex-end=שמאל, ו-justify-content:space-between
-            // דואג שתמיד יהיה רווח אמיתי ביניהם - לא חפיפה, ולא תלוי ברוחב
-            // הבועה. aiRow תופס את כל הרוחב (לא float:right עם shrink-to-
-            // fit) כדי ש-flex-end=שמאל יתייחס לדופן השמאלית *האמיתית*, לא
-            // לקצה הבועה.
-            msgDiv.style.float = '';
-            msgDiv.style.minWidth = '0';
-            feedbackRow.style.flexShrink = '0';
-            feedbackRow.style.flexGrow = '0';
-
-            const aiRow = document.createElement('div');
-            // className (לא רק inline style) - נדרש כדי שה-media query
-            // למובייל (ר' .dcard-ai-row ב-CSS) יוכל לדרוס את הפריסה כאן.
-            aiRow.className = 'dcard-ai-row';
-            aiRow.style.display = 'flex';
-            aiRow.style.width = '100%';
-            aiRow.style.justifyContent = 'space-between';
-            aiRow.style.alignItems = 'flex-end';
-            aiRow.style.gap = '10px';
-            aiRow.appendChild(msgDiv);
-            aiRow.appendChild(feedbackRow);
-            wrapper.appendChild(aiRow);
+            // בתוך הבועה עצמה - ר' ההערה המלאה למעלה ליד יצירת feedbackRow.
+            msgDiv.appendChild(feedbackRow);
         }
 
         chatHistory.appendChild(wrapper);
@@ -2284,6 +2269,18 @@
         shuffleStepCount = 0;
         performShuffleStep();
         shuffleInterval = setInterval(performShuffleStep, 900);
+
+        // תיקון (התבקש: "אם לא נבחר קלף תוך 8 שניות, שהאפליקציה תבחר
+        // אקראית") - אם המשתמש עדיין לא לחץ "בחר קלף" עד אז, מדמים לחיצה
+        // בעצמנו. clearTimeout מראש (ליתר ביטחון, לא אמור לקרות בפועל -
+        // beginShuffling לא נקרא פעמיים ברצף בלי שהקודם נפתר) כדי שלעולם
+        // לא ירוצו שני טיימרים במקביל.
+        clearTimeout(shuffleAutoPickTimer);
+        shuffleAutoPickTimer = setTimeout(function () {
+            if ('shuffling' === appState) {
+                btnDeckAction.click();
+            }
+        }, 8000);
     }
 
     // נועל את תיבת הכתיבה ומציג הודעת סיום במקומה. נקרא משני מקומות שונים
@@ -2384,6 +2381,7 @@
 
         if (appState === 'shuffling') {
             clearInterval(shuffleInterval);
+            clearTimeout(shuffleAutoPickTimer); // נבחר קלף (ידנית או שהטיימר עצמו הגיע) - אין עוד למה לחכות
 
             let randomCardId;
             if (forceCardId && !drawnCards.includes(forceCardId)) {
@@ -2429,15 +2427,12 @@
             // שני המסלולים מובילים לאותה פונקציה). מוצג רק אם עוד לא הגענו
             // למגבלה (MAX_CARDS) - בלי תלות ב-nextAction של הסוכן.
             //
-            // תיקון באג (דווח בפועל: "הכפתור נעלם גם בשיחה מפתחת"): הקלף
-            // *הראשון* תמיד נוצר *לפני* שהמשתמש בכלל בחר מסלול (בלוק בחירת
-            // המסלול מוצג רק אחרי זה) - כלומר chatModeActive עדיין false
-            // בדיוק ברגע היצירה שלו, גם אם המשתמש יבחר "שיחה מפתחת" שנייה
-            // אחר כך. בדיקה חד-פעמית כאן (if chatModeActive) הייתה שוגה
-            // תמיד על הקלף הראשון. הפתרון: הכפתור *תמיד* נוצר (כש-
-            // drawnCards.length < MAX_CARDS), אבל מוסתר ב-CSS אם המסלול
-            // עדיין לא שיחה - ו-btnPathChat (ר' למטה) חושף אותו רטרואקטיבית
-            // ברגע שהמסלול נבחר, גם עבור קלף שכבר מוצג על המסך.
+            // הכפתור תמיד נוצר (כש-drawnCards.length < MAX_CARDS), אבל מוסתר
+            // ב-CSS אם המסלול עדיין לא שיחה. מאז שבחירת המסלול הועלתה
+            // לפני השליפה הראשונה (ר' btnPathChat/btnPathMessage למטה),
+            // chatModeActive כבר נכון גם על הקלף הראשון - השימוש היחיד
+            // שעוד נשאר ב"חשיפה רטרואקטיבית" הוא offerDeepenIntoChat
+            // (העמקה מ"קבלת מסר" ל"שיחה", ר' שם), לא יותר כאן.
             if (drawnCards.length < MAX_CARDS) {
                 const extraCardBtn = document.createElement('button');
                 extraCardBtn.type = 'button';
@@ -2475,19 +2470,13 @@
                 btnDeckAction.style.display = 'none';
             }
 
-            if (chatModeActive) {
-                // כבר בחרו "שיחה אישית" קודם (קלף נוסף שהוצע תוך כדי הצ'אט) -
-                // לא חוזרים לבחירת מסלול ולא מסתירים את תיבת ההקלדה שוב,
-                // ממשיכים ישר לתגובת ה-AI על הקלף החדש.
-                runCardAI(randomCardId, 'chat');
-            } else {
-                // בכל שליפת קלף ראשון בוחרים קודם מסלול: שיחה אישית או קבלת
-                // מסר חד-פעמי. עד לבחירה, תיבת ההקלדה מוסתרת כדי שלא יכתוב
-                // לתוכה לפני שהמסלול נקבע.
-                pendingCardId = randomCardId;
-                chatInputArea.style.display = 'none';
-                pathChoiceBlock.style.display = 'flex';
-            }
+            // תיקון UX (התבקש: "לחייב את המשתמש דבר ראשון לבחור את הנתיב") -
+            // בחירת המסלול (btnPathChat/btnPathMessage) עברה להיות הצעד
+            // הראשון, מיד אחרי כתיבת השאלה - לפני שהוקופה בכלל מופיעה (ר'
+            // שם). עד שהקלף הראשון נשלף, המסלול כבר תמיד ידוע - אין יותר
+            // "בלוק ביניים" אחרי השליפה; chatModeActive (שנקבע כבר בבחירה)
+            // הוא הדגל היחיד שמכריע כאן, גם על הקלף הראשון וגם על נוספים.
+            runCardAI(randomCardId, chatModeActive ? 'chat' : 'message');
         }
     });
 
@@ -2654,8 +2643,15 @@
         }
     }
 
+    // תיקון UX (התבקש: "לחייב את המשתמש דבר ראשון לבחור את הנתיב") - שני
+    // הכפתורים הועלו מתחת לתיבת השאלה (block-1) ומוצגים מיד מתחילת
+    // הטעינה, *לפני* שהקופה (block-2) בכלל נחשפת - ר' ההערה המלאה למטה,
+    // ליד ההסתרה הראשונית. אין יותר "בחירה אחרי השליפה" - pendingCardId
+    // הוסר כליל, שני ה-handlers האלה כבר לא מקבלים/מריצים קלף בעצמם,
+    // רק קובעים את chatModeActive וחושפים את הקופה; runCardAI על הקלף
+    // הראשון נקרא מאוחר יותר, בשליפה עצמה (ר' appState === 'shuffling' למעלה).
     btnPathChat.addEventListener('click', () => {
-        if (pendingCardId === null) return;
+        if (pathChosen) return; // חד-פעמי - לא רלוונטי יותר אחרי שהקופה כבר נחשפה
 
         // תיקון יחידת מדידה: הבדיקה (ולא רק הספירה) עברה לכאן - נקודת
         // הכניסה בפועל לשיחה פתוחה, במקום על כל הודעה בתוכה (ר' btnSend).
@@ -2665,27 +2661,22 @@
             return;
         }
 
+        pathChosen = true;
         countSessionIfNeeded(DCARD_LS_KEYS.anonChatCount);
         chatModeActive = true; // מכאן ואילך תיבת ההקלדה נשארת גלויה גם בקלפים נוספים
-        // תיקון: חושף רטרואקטיבית את כפתור "קלף נוסף" שכבר נוצר (מוסתר)
-        // על הקלף הראשון - ר' ההערה המלאה למעלה ליד יצירת הכפתור.
-        document.querySelectorAll('.btn-extra-card').forEach(function (btn) {
-            btn.style.display = '';
-        });
         pathChoiceBlock.style.display = 'none';
         chatInputArea.style.display = '';
-        const cardId = pendingCardId;
-        pendingCardId = null;
-        runCardAI(cardId, 'chat');
+        block2Deck.style.display = 'flex';
+        visualDeck.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
     btnPathMessage.addEventListener('click', () => {
-        if (pendingCardId === null) return;
+        if (pathChosen) return;
 
         // Freemium PLG, שלב 1: בדיקה *לפני* הקריאה בפועל - חוסמים את
         // הקריאה עצמה, לא רק משהו אחריה. משאירים את מסך בחירת המסלול כמו
-        // שהוא (לא מאפסים pendingCardId) כדי שעדיין אפשר לבחור "שיחה
-        // אישית" במקום, שנספר במגבלה נפרדת (anonChatCount).
+        // שהוא (pathChosen נשאר false) כדי שעדיין אפשר לבחור "שיחה אישית"
+        // במקום, שנספר במגבלה נפרדת (anonChatCount).
         //
         // תיקון: !dcardIsRegistered() - למשתמש רשום, הבדיקה המקומית הזו
         // לא רלוונטית בכלל (ר' ההערה על dcardIsRegistered למעלה) - מדלגים
@@ -2695,12 +2686,13 @@
             return;
         }
 
+        pathChosen = true;
         resetUserQuestionCount(); // מסלול קבלת מסר לא כולל שיחה, אבל מאפסים ליתר ביטחון
         pathChoiceBlock.style.display = 'none';
         // תיבת ההקלדה נשארת מוסתרת למשך שאר הסשן - זה מסלול חד-פעמי.
-        const cardId = pendingCardId;
-        pendingCardId = null;
-        runCardAI(cardId, 'message');
+        chatInputArea.style.display = 'none';
+        block2Deck.style.display = 'flex';
+        visualDeck.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
     // 4. שליחת הודעת טקסט רגילה בצ'אט
