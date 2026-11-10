@@ -157,3 +157,135 @@
 @media (max-width: 768px) {
   .kb-logo { width: 26px; height: 22px; }
 }
+
+/* ============================================================
+   שלב 2: דף כניסה, "נעים להכיר", מסך הבית, תפריט ☰ (סעיפים 5, 6.1-6.3)
+   ============================================================ */
+
+/* חלונות קופצים כלליים (סעיף 3.4) */
+.kb-modal-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+}
+.kb-modal-scrim[hidden] { display: none; }
+.kb-modal {
+  background: var(--paper);
+  width: 100%;
+  max-width: 520px;
+  border-radius: 28px 28px 0 0;
+  padding: 14px 24px 34px;
+  box-sizing: border-box;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.kb-modal-handle {
+  width: 44px; height: 5px; background: var(--line);
+  border-radius: 999px; margin: 0 auto 16px;
+}
+.kb-modal-title { font-size: 24px; font-weight: 500; margin: 0 0 8px; }
+.kb-modal-text { font-size: 15px; color: var(--muted); margin: 0 0 20px; line-height: 1.5; }
+.kb-modal-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.kb-modal-actions .btn-main, .kb-modal-actions .btn-outline { width: 100%; }
+@media (min-width: 768px) {
+  .kb-modal-scrim { align-items: center; }
+  .kb-modal { border-radius: 24px; padding: 24px; }
+  .kb-modal-handle { display: none; }
+}
+
+/* דף כניסה (סעיף 6.1) */
+.kb-landing { padding: 24px 4px 40px; }
+.kb-landing-grid { display: flex; flex-direction: column; gap: 28px; }
+.kb-landing-fan { display: flex; justify-content: center; align-items: center; height: 140px; position: relative; }
+.kb-fan-card {
+  width: 92px; height: 138px; background: var(--bordeaux); border: 3px solid #fff;
+  border-radius: 13px; box-shadow: var(--shadow-small);
+  display: flex; align-items: center; justify-content: center;
+  position: absolute;
+}
+.kb-fan-card:nth-child(1) { transform: rotate(-12deg) translateX(-10px); z-index: 1; }
+.kb-fan-card:nth-child(2) { transform: rotate(-3deg); z-index: 2; }
+.kb-fan-card:nth-child(3) { transform: rotate(7deg) translateX(10px); z-index: 1; }
+.kb-landing-title { font-size: 34px; font-weight: 500; line-height: 1.15; margin: 0 0 14px; }
+.kb-landing-text { font-size: 16px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
+.kb-landing-hint { font-size: 14px; color: var(--muted); margin-top: 10px; }
+.kb-landing-divider { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
+.kb-landing-subtitle { font-size: 22px; font-weight: 500; margin: 0 0 16px; }
+.kb-landing-steps { list-style: none; margin: 0 0 24px; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.kb-landing-steps li { display: flex; align-items: flex-start; gap: 14px; font-size: 16px; line-height: 1.5; }
+.kb-step-num {
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%;
+  border: 1.5px solid var(--bordeaux); color: var(--bordeaux);
+  display: flex; align-items: center; justify-content: center; font-weight: 500;
+}
+.kb-landing-footnote { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.kb-landing-footnote a { color: var(--bordeaux); }
+
+@media (min-width: 768px) {
+  .kb-landing-grid { flex-direction: row-reverse; align-items: flex-start; gap: 48px; }
+  .kb-landing-copy { flex: 1; }
+  .kb-landing-fan { flex-basis: 360px; height: 220px; }
+  .kb-fan-card { width: 130px; height: 195px; }
+  .kb-landing-title { font-size: 56px; }
+}
+
+/* "נעים להכיר" (סעיף 6.2) */
+.kb-onboarding-icon {
+  width: 72px; height: 72px; border-radius: 50%; background: var(--blush);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+}
+.kb-radio-group { display: flex; gap: 10px; margin-bottom: 18px; }
+.kb-radio-card {
+  flex: 1; min-height: 52px; border-radius: 14px; border: 1.5px solid var(--line-strong);
+  background: var(--surface); color: var(--ink); font-family: 'Rubik', sans-serif; font-size: 15px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.kb-radio-card[aria-pressed="true"] { border: 2px solid var(--bordeaux); background: var(--blush); }
+
+/* מסך הבית (סעיף 6.3) */
+.kb-home-greeting { font-size: 20px; color: var(--muted); margin: 0 0 4px; }
+.kb-home-title { font-size: 52px; font-weight: 500; line-height: 1.15; margin: 0 0 14px; }
+.kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 24px; }
+.kb-btn-sub { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+.btn-main .kb-btn-sub { color: #F3E7EA; }
+.path-choice-block .btn-main,
+.path-choice-block .btn-outline {
+  flex-direction: column;
+  height: auto;
+  min-height: 64px;
+  padding: 14px 24px;
+  gap: 2px;
+  flex: 1 1 260px;
+}
+
+/* תפריט ☰ (סעיף 5) */
+.kb-menu-overlay { position: fixed; inset: 0; z-index: 1000; background: var(--paper); }
+.kb-menu-overlay[hidden] { display: none; }
+.kb-menu-panel { width: 100%; height: 100%; max-width: 100%; padding: 20px 24px; box-sizing: border-box; overflow-y: auto; }
+.kb-menu-close {
+  width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--surface);
+  font-size: 20px; cursor: pointer; margin-inline-start: auto; display: block;
+}
+.kb-menu-item {
+  display: flex; align-items: center; width: 100%; min-height: 56px; font-size: 18px;
+  background: none; border: none; border-bottom: 1px solid var(--line); color: var(--ink);
+  cursor: pointer; text-align: right; padding: 0;
+}
+.kb-menu-footer { margin-top: 24px; font-size: 15px; color: var(--muted); display: flex; flex-direction: column; gap: 10px; }
+.kb-menu-footer a { color: var(--muted); }
+
+@media (min-width: 768px) {
+  .kb-menu-overlay { background: var(--scrim); display: flex; }
+  .kb-menu-panel { max-width: 380px; height: 100%; background: var(--paper); position: absolute; left: 0; top: 0; }
+}
+
+/* תוכן פופאפ ההנחיות (4729 לשעבר) */
+.kb-guidelines-section { margin-bottom: 18px; }
+.kb-guidelines-section h3 { font-size: 17px; font-weight: 500; margin: 0 0 8px; }
+.kb-guidelines-section ul { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 8px; }
+.kb-guidelines-section li { font-size: 15px; line-height: 1.5; color: var(--ink-soft); }
+.kb-guidelines-section li strong { color: var(--ink); }

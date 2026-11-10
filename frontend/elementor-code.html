@@ -62,6 +62,24 @@
     @media (max-width: 768px) {
         .kb-logo { width: 26px; height: 22px; }
     }
+    .kb-field-label {
+        display: block;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--ink-soft);
+        margin-bottom: 6px;
+    }
+    .kb-field {
+        background: var(--surface);
+        border: 1.5px solid var(--line-strong);
+        border-radius: 16px;
+        font-family: 'Rubik', sans-serif;
+        font-size: 17px;
+        color: var(--ink);
+        resize: none;
+        box-sizing: border-box;
+    }
+    .kb-field:focus { border-color: var(--bordeaux); }
 
     /* תיקון גרדיאנט - הוסר לפי העיצוב החדש ("בלי גרדיאנטים בכלל, הרקע אחיד
        בצבע --paper"). קודם הוחל ישירות על #card-reader-app, אבל האלמנט הזה
@@ -615,12 +633,188 @@
         0%, 60%, 100% { transform: translateX(0); }
         30%           { transform: translateX(5px); }
     }
+
+    /* ============================================================
+       שלב 2: דף כניסה, "נעים להכיר", מסך הבית, תפריט ☰ (סעיפים 5, 6.1-6.3)
+       מקור הייחוס: frontend/kb-design.css - לעדכן שם גם.
+       ============================================================ */
+    .kb-modal-scrim {
+        position: fixed;
+        inset: 0;
+        background: var(--scrim);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        z-index: 1000;
+    }
+    .kb-modal-scrim[hidden] { display: none; }
+    .kb-modal {
+        background: var(--paper);
+        width: 100%;
+        max-width: 520px;
+        border-radius: 28px 28px 0 0;
+        padding: 14px 24px 34px;
+        box-sizing: border-box;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .kb-modal-handle {
+        width: 44px; height: 5px; background: var(--line);
+        border-radius: 999px; margin: 0 auto 16px;
+    }
+    .kb-modal-title { font-size: 24px; font-weight: 500; margin: 0 0 8px; }
+    .kb-modal-text { font-size: 15px; color: var(--muted); margin: 0 0 20px; line-height: 1.5; }
+    .kb-modal-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+    .kb-modal-actions .btn-main, .kb-modal-actions .btn-outline { width: 100%; }
+    @media (min-width: 768px) {
+        .kb-modal-scrim { align-items: center; }
+        .kb-modal { border-radius: 24px; padding: 24px; }
+        .kb-modal-handle { display: none; }
+    }
+
+    .kb-landing { padding: 24px 4px 40px; }
+    .kb-landing-grid { display: flex; flex-direction: column; gap: 28px; }
+    .kb-landing-fan { display: flex; justify-content: center; align-items: center; height: 140px; position: relative; }
+    .kb-fan-card {
+        width: 92px; height: 138px; background: var(--bordeaux); border: 3px solid #fff;
+        border-radius: 13px; box-shadow: var(--shadow-small);
+        display: flex; align-items: center; justify-content: center;
+        position: absolute;
+    }
+    .kb-fan-card:nth-child(1) { transform: rotate(-12deg) translateX(-10px); z-index: 1; }
+    .kb-fan-card:nth-child(2) { transform: rotate(-3deg); z-index: 2; }
+    .kb-fan-card:nth-child(3) { transform: rotate(7deg) translateX(10px); z-index: 1; }
+    .kb-landing-title { font-size: 34px; font-weight: 500; line-height: 1.15; margin: 0 0 14px; }
+    .kb-landing-text { font-size: 16px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
+    .kb-landing-hint { font-size: 14px; color: var(--muted); margin-top: 10px; }
+    .kb-landing-divider { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
+    .kb-landing-subtitle { font-size: 22px; font-weight: 500; margin: 0 0 16px; }
+    .kb-landing-steps { list-style: none; margin: 0 0 24px; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+    .kb-landing-steps li { display: flex; align-items: flex-start; gap: 14px; font-size: 16px; line-height: 1.5; }
+    .kb-step-num {
+        flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%;
+        border: 1.5px solid var(--bordeaux); color: var(--bordeaux);
+        display: flex; align-items: center; justify-content: center; font-weight: 500;
+    }
+    .kb-landing-footnote { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .kb-landing-footnote a { color: var(--bordeaux); }
+    @media (min-width: 768px) {
+        .kb-landing-grid { flex-direction: row-reverse; align-items: flex-start; gap: 48px; }
+        .kb-landing-copy { flex: 1; }
+        .kb-landing-fan { flex-basis: 360px; height: 220px; }
+        .kb-fan-card { width: 130px; height: 195px; }
+        .kb-landing-title { font-size: 56px; }
+    }
+
+    .kb-onboarding-icon {
+        width: 72px; height: 72px; border-radius: 50%; background: var(--blush);
+        display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+    }
+    .kb-radio-group { display: flex; gap: 10px; margin-bottom: 18px; }
+    .kb-radio-card {
+        flex: 1; min-height: 52px; border-radius: 14px; border: 1.5px solid var(--line-strong);
+        background: var(--surface); color: var(--ink); font-family: 'Rubik', sans-serif; font-size: 15px;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .kb-radio-card[aria-pressed="true"] { border: 2px solid var(--bordeaux); background: var(--blush); }
+
+    .kb-home-greeting { font-size: 20px; color: var(--muted); margin: 0 0 4px; }
+    .kb-home-title { font-size: 52px; font-weight: 500; line-height: 1.15; margin: 0 0 14px; }
+    .kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 24px; }
+    .kb-btn-sub { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 2px; }
+    .btn-main .kb-btn-sub { color: #F3E7EA; }
+    .path-choice-block .btn-main,
+    .path-choice-block .btn-outline {
+        flex-direction: column;
+        height: auto;
+        min-height: 64px;
+        padding: 14px 24px;
+        gap: 2px;
+        flex: 1 1 260px;
+    }
+
+    .kb-menu-overlay { position: fixed; inset: 0; z-index: 1000; background: var(--paper); }
+    .kb-menu-overlay[hidden] { display: none; }
+    .kb-menu-panel { width: 100%; height: 100%; max-width: 100%; padding: 20px 24px; box-sizing: border-box; overflow-y: auto; }
+    .kb-menu-close {
+        width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--surface);
+        font-size: 20px; cursor: pointer; margin-inline-start: auto; display: block;
+    }
+    .kb-menu-item {
+        display: flex; align-items: center; width: 100%; min-height: 56px; font-size: 18px;
+        background: none; border: none; border-bottom: 1px solid var(--line); color: var(--ink);
+        cursor: pointer; text-align: right; padding: 0;
+    }
+    .kb-menu-footer { margin-top: 24px; font-size: 15px; color: var(--muted); display: flex; flex-direction: column; gap: 10px; }
+    .kb-menu-footer a { color: var(--muted); }
+    @media (min-width: 768px) {
+        .kb-menu-overlay { background: var(--scrim); display: flex; }
+        .kb-menu-panel { max-width: 380px; height: 100%; background: var(--paper); position: absolute; left: 0; top: 0; }
+    }
+
+    .kb-guidelines-section { margin-bottom: 18px; }
+    .kb-guidelines-section h3 { font-size: 17px; font-weight: 500; margin: 0 0 8px; }
+    .kb-guidelines-section ul { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 8px; }
+    .kb-guidelines-section li { font-size: 15px; line-height: 1.5; color: var(--ink-soft); }
+    .kb-guidelines-section li strong { color: var(--ink); }
 </style>
 
 <div id="card-reader-app" class="kb-app">
 
-    <!-- כותרת עליונה חדשה (סעיף 3.6) - בשלב הזה הלוגו ושם המוצר בלבד;
-         כפתור ה-תפריט מעוצב אך לא פונקציונלי עדיין (התפריט המלא הוא שלב 2). -->
+    <!-- דף כניסה (סעיף 6.1) - מוצג רק בביקור ראשון (ר' JS: kb_onboarded/
+         storedName/storedGender). לוחצים "בואו נתחיל" -> נפתח חלון "נעים
+         להכיר" (kb-onboarding-modal). משתמש חוזר לא רואה את זה בכלל. -->
+    <div id="kb-landing" class="kb-landing" hidden>
+        <div class="kb-landing-grid">
+            <div class="kb-landing-fan" aria-hidden="true">
+                <div class="kb-fan-card">
+                    <svg class="kb-logo" style="width:36px;height:31px;" viewBox="0 0 40 34" fill="#7D2E46" stroke="#F3E7EA" stroke-width="2" stroke-linejoin="round">
+                        <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"/>
+                        <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"/>
+                        <rect x="14" y="3" width="12" height="18" rx="2"/>
+                        <circle cx="20" cy="12" r="1.6" fill="#F3E7EA" stroke="none"/>
+                    </svg>
+                </div>
+                <div class="kb-fan-card">
+                    <svg class="kb-logo" style="width:36px;height:31px;" viewBox="0 0 40 34" fill="#7D2E46" stroke="#F3E7EA" stroke-width="2" stroke-linejoin="round">
+                        <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"/>
+                        <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"/>
+                        <rect x="14" y="3" width="12" height="18" rx="2"/>
+                        <circle cx="20" cy="12" r="1.6" fill="#F3E7EA" stroke="none"/>
+                    </svg>
+                </div>
+                <div class="kb-fan-card">
+                    <svg class="kb-logo" style="width:36px;height:31px;" viewBox="0 0 40 34" fill="#7D2E46" stroke="#F3E7EA" stroke-width="2" stroke-linejoin="round">
+                        <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"/>
+                        <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"/>
+                        <rect x="14" y="3" width="12" height="18" rx="2"/>
+                        <circle cx="20" cy="12" r="1.6" fill="#F3E7EA" stroke="none"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="kb-landing-copy">
+                <h1 class="kb-landing-title">שאלה אחת, תמונה אחת, והתשובה המפתיעה</h1>
+                <p class="kb-landing-text">הקורא בקלפים הוא מלווה חכם שעוזר לך לחשוב על מה שמעסיק אותך. תמונה שנשלפת באקראי פותחת שיחה, והאינטואיציה שלך עושה את השאר.</p>
+                <button type="button" class="btn-main kb-btn--large" id="kb-landing-start">בואו נתחיל</button>
+                <div class="kb-landing-hint">הזדמנות להתנסות בחינם</div>
+                <hr class="kb-landing-divider">
+                <h2 class="kb-landing-subtitle">איך זה עובד</h2>
+                <ol class="kb-landing-steps">
+                    <li><span class="kb-step-num">1</span><div><strong>כותבים שאלה.</strong> על משהו שמעסיק אותך עכשיו: עבודה, קשרים, החלטה, הרגל.</div></li>
+                    <li><span class="kb-step-num">2</span><div><strong>שולפים קלף.</strong> הקלפים מתערבבים, ואתם בוחרים קלף אקראי.</div></li>
+                    <li><span class="kb-step-num">3</span><div><strong>קבלת תשובה.</strong> הקורא בקלפים מכוון אתכם לתשובה המדויקת עבורכם.</div></li>
+                </ol>
+                <p class="kb-landing-footnote">הקורא בקלפים הוא כלי להשראה ולהתבוננות, ואינו תחליף לייעוץ פסיכולוגי, רפואי, משפטי או מקצועי. <a href="#">מדיניות פרטיות</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- שאר האפליקציה (כותרת, שאלה, קלפים, שיחה) - מוסתר עד שהמשתמש עבר
+         את דף הכניסה/"נעים להכיר" (ר' JS). משתמש חוזר רואה את זה מיד. -->
+    <div id="kb-main-content" style="display:none">
+
+    <!-- כותרת עליונה (סעיף 3.6) - הלוגו, שם המוצר, וכפתור ☰ שפותח את
+         התפריט (kb-menu-overlay, סעיף 5). -->
     <header class="kb-header">
         <div class="kb-header-brand">
             <svg class="kb-logo" viewBox="0 0 40 34" fill="#FBF8F6" stroke="#7D2E46" stroke-width="2"
@@ -632,12 +826,19 @@
             </svg>
             <span>הקורא בקלפים</span>
         </div>
-        <button type="button" class="kb-header-menu-btn" aria-label="תפריט">&#9776;</button>
+        <button type="button" class="kb-header-menu-btn" id="kb-header-menu-btn" aria-label="תפריט">&#9776;</button>
     </header>
+
+    <!-- מסך הבית (סעיף 6.3) - ברכה, כותרת ופסקה מעל תיבת השאלה הקיימת.
+         הטקסט הסופי (userName/userGender) מתעדכן ב-JS (ר' kbUpdateHomeTexts). -->
+    <div class="kb-home-greeting" id="kb-home-greeting"></div>
+    <h1 class="kb-home-title">מה מעסיק אותך היום?</h1>
+    <p class="kb-home-paragraph" id="kb-home-paragraph"></p>
 
     <!-- בלוק 1: תיבת טקסט לשאלה -->
     <div class="question-block" id="block-1">
-        <textarea id="user-question" placeholder="על מה תרצה לקבל הכוונה היום? כתוב את שאלתך כאן..."></textarea>
+        <label class="kb-field-label" for="user-question">השאלה שלך</label>
+        <textarea id="user-question" placeholder="למשל: איך לבנות לעצמי תוכנית אימונים שאוכל להתמיד בה?"></textarea>
         <button type="button" class="btn-mic" id="btn-mic" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
@@ -651,8 +852,8 @@
          בחירה בין שיחה אישית לקבלת מסר, מוצג מיד מתחת לתיבת השאלה, לפני
          שהקופה (block-2) בכלל נחשפת - ר' ה-JS. -->
     <div class="path-choice-block" id="block-path-choice">
-        <button class="btn-main" id="btn-path-chat">לשיחה מפתחת</button>
-        <button class="btn-outline" id="btn-path-message">לקבלת מסר אישי</button>
+        <button class="btn-main" id="btn-path-chat">דיאלוג מכוון<span class="kb-btn-sub">שיחה מעמיקה, צעד אחר צעד, עד שמגיעים לתובנה</span></button>
+        <button class="btn-outline" id="btn-path-message">קבלת מסר אישי<span class="kb-btn-sub">מסר אחד קצר על השאלה והתמונה</span></button>
     </div>
 
     <!-- בלוק 2: ערימת קלפים לאנימציה וכפתור פעולה -->
@@ -715,6 +916,111 @@
         <button class="btn-outline btn-end-session">סיום ויציאה</button>
         <button class="btn-outline btn-email-chat">שליחת השיחה במייל</button>
         <button class="btn-outline btn-new-question" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
+    </div>
+
+    </div> <!-- /kb-main-content -->
+
+    <!-- חלון "נעים להכיר" (סעיף 6.2) - מחליף את פופאפ האלמנטור 4723.
+         נפתח מ"בואו נתחיל" בדף הכניסה, וגם ישירות למשתמש חוזר-חלקית (יש
+         kb_onboarded אבל חסר שם/מגדר - לא אמור לקרות בפועל, הגנה בלבד).
+         אין Esc/סגירה ברקע - המידע הזה חובה לפני שממשיכים. -->
+    <div id="kb-onboarding-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-onboarding-title">
+            <div class="kb-modal-handle"></div>
+            <div class="kb-onboarding-icon">
+                <svg class="kb-logo" style="width:28px;height:24px;" viewBox="0 0 40 34" fill="#7D2E46" stroke="#7D2E46" stroke-width="2" stroke-linejoin="round">
+                    <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"/>
+                    <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"/>
+                    <rect x="14" y="3" width="12" height="18" rx="2"/>
+                    <circle cx="20" cy="12" r="1.6" fill="#F3E7EA" stroke="none"/>
+                </svg>
+            </div>
+            <h2 class="kb-modal-title" id="kb-onboarding-title" style="text-align:center;">נעים להכיר</h2>
+            <p class="kb-modal-text" style="text-align:center;">כדי שנוכל לפנות אליכם בצורה אישית, רשמו את שמכם וסמנו איך לפנות אליכם.</p>
+            <label class="kb-field-label" for="kb-onboarding-name">שם</label>
+            <textarea id="kb-onboarding-name" class="kb-field" rows="1" style="width:100%;padding:12px 14px;margin-bottom:16px;"></textarea>
+            <div class="kb-field-label">איך לפנות אליך?</div>
+            <div class="kb-radio-group" role="radiogroup" aria-label="לשון פנייה">
+                <button type="button" class="kb-radio-card" id="kb-gender-male" aria-pressed="false">בלשון זכר</button>
+                <button type="button" class="kb-radio-card" id="kb-gender-female" aria-pressed="false">בלשון נקבה</button>
+            </div>
+            <div id="kb-onboarding-error" style="display:none;color:#c0392b;font-size:13px;margin:-8px 0 16px;"></div>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-main kb-btn--large" id="kb-onboarding-submit">בואו נתחיל</button>
+            </div>
+            <p class="kb-modal-text" style="text-align:center;margin-top:16px;margin-bottom:0;">הפרטים נשמרים רק כדי להתאים את השיחה. <a href="#">מדיניות פרטיות</a></p>
+        </div>
+    </div>
+
+    <!-- תפריט ☰ (סעיף 5) -->
+    <div id="kb-menu-overlay" class="kb-menu-overlay" hidden>
+        <div class="kb-menu-panel" role="dialog" aria-modal="true" aria-label="תפריט">
+            <button type="button" class="kb-menu-close" id="kb-menu-close-btn" aria-label="סגירה">&times;</button>
+            <button type="button" class="kb-menu-item" id="kb-menu-how-it-works">איך זה עובד</button>
+            <button type="button" class="kb-menu-item" id="kb-menu-guidelines">טיפים לשאלה טובה</button>
+            <button type="button" class="kb-menu-item" id="kb-menu-about">אודות</button>
+            <!-- "כתבו לנו" - טרם מחובר ליעד אמיתי (הטופס הקיים חי רק בעורך
+                 אלמנטור, אין לו ID נגיש מכאן) - ר' הערה ב-kbOpenContact(). -->
+            <button type="button" class="kb-menu-item" id="kb-menu-contact">כתבו לנו</button>
+            <div class="kb-menu-footer">
+                <a href="#">מדיניות פרטיות</a>
+                <a href="#">תנאי שימוש</a>
+                <a href="#">הצהרת נגישות</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- חלון תוכן כללי (לשימוש "איך זה עובד" ו"אודות" מהתפריט) - תוכן
+         נטען דינמית ב-JS (kbOpenInfoModal). -->
+    <div id="kb-info-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-info-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-info-title"></h2>
+            <div id="kb-info-body"></div>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-outline" id="kb-info-close">סגירה</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- חלון "הנחיות" (סעיף 5, לשעבר פופאפ אלמנטור 4729) - תוכן הועתק
+         מהפופאפ הקיים, לפי צילום מסך שסופק. -->
+    <div id="kb-guidelines-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-guidelines-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-guidelines-title">הקורא בקלפים - הנחיות</h2>
+            <p class="kb-modal-text">הקורא בקלפים נועד לשמש ככלי להשראה, לתרגול ולהעמקה בחשיבה היצירתית. המערכת אינה מהווה תחליף לייעוץ פסיכולוגי, רפואי, משפטי או מקצועי מכל סוג שהוא.</p>
+
+            <div class="kb-guidelines-section">
+                <h3>איך לשאול נכון?</h3>
+                <ul>
+                    <li><strong>שאלות פתוחות:</strong> נסחו שאלות המזמינות התבוננות (למשל, "מה עלי להבין לגבי..."), ולא שאלות סגורות ("כן ולא").</li>
+                    <li><strong>הקלדה או הקלטה:</strong> אתם מוזמנים להקליד את השאלות והתשובות שלכם, או להשתמש בכפתור ההקלטה הקולית להשלמה נוחה ונגישה יותר.</li>
+                    <li><strong>התחלה חדשה:</strong> בכל פעם שתפתחו את הקורא בקלפים, הוא מתחיל עבורכם באופן נקי. הוא לא שומר את השיחות שלכם ולא "זוכר" שאלות קודמות.</li>
+                </ul>
+            </div>
+
+            <div class="kb-guidelines-section">
+                <h3>הקלפים ואפשרויות הקריאה</h3>
+                <ul>
+                    <li><strong>אקראיות מוחלטת:</strong> שליפת הקלפים היא אקראית לחלוטין.</li>
+                    <li><strong>שליפת קלפים נוספים:</strong> מתקשים עם תמונה מסוימת? מרגישים שדרוש חידוד נוסף? ניתן לבקש קלף נוסף (עד 3 קלפים לכל שאלה).</li>
+                    <li><strong>בחירת מסלול קריאה:</strong> לרשותכם שני כפתורים שמרכזים את ההתנהלות מול הקלף - "קבלת מסר ישיר" (מסר קצר וממוקד ביחס לשאלה שלכם) ו"שיחה מפתחת" (דיאלוג מעמיק ואיטי יותר, מומלץ כשרוצים להעמיק). טיפ: ניתן לשלב בין המסלולים - להתחיל בקבלת מסר ישיר, ולהמשיך את השיחה בהעמקה.</li>
+                </ul>
+            </div>
+
+            <div class="kb-guidelines-section">
+                <h3>ניהול השיחה, תיעוד ומשוב</h3>
+                <ul>
+                    <li><strong>שליחת השיחה במייל:</strong> בתחתית המסך תמצאו כפתור שמאפשר לשלוח את תיעוד השיחה שלכם למייל שלכם.</li>
+                    <li><strong>המשוב שלכם חשוב:</strong> לאורך השיחה יופיעו אייקוני לייק/דיסלייק למשוב מהיר על כל תגובה. אם תרצו לפרט ולהרחיב, אתם מוזמנים להקליד או להקליט משוב מלא בתיבה הייעודית בתחתית העמוד.</li>
+                </ul>
+            </div>
+
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-outline" id="kb-guidelines-close">סגירה</button>
+            </div>
+        </div>
     </div>
 
 </div>
@@ -861,6 +1167,10 @@
         // זה שנשמר כאן, כך שהבקשה הבאה מהמכשיר הזה תידחה (403) ב-/session/start.
         userId: 'dcard_userId',
         deviceToken: 'dcard_deviceToken',
+        // שלב 2 (עיצוב) - דגל "עבר את דף הכניסה/נעים להכיר" (סעיף 6.1),
+        // בנוסף ל-name/gender עצמם (שהם הסימן ההיסטורי ל"כבר ענה") - ר'
+        // kbIsFirstVisit למטה.
+        onboarded: 'kb_onboarded',
         // State recovery: הטקסט שהמשתמש כתב נשמר כאן ממש לפני פתיחת קיר
         // התשלום (403/credits_exhausted - ר' triggerPaymentWall), כדי
         // שאחרי חזרה מקארדקום (ניווט מלא, לא SPA - כל מצב ה-JS האחר,
@@ -1263,9 +1573,11 @@
                 if (data.userGender) userGender = data.userGender;
                 if (data.userName) userName = data.userName;
 
-                userQuestion.placeholder = ( 'female' === userGender )
-                    ? 'על מה תרצי לקבל הכוונה היום? כתבי את שאלתך כאן ולחצי Enter...'
-                    : 'על מה תרצה לקבל הכוונה היום? כתוב את שאלתך כאן ולחץ Enter...';
+                // תיקון (עיצוב, סעיף 6.3): ה-placeholder המדויק מה-design-spec
+                // אינו תלוי מגדר (דוגמת שאלה, לא הוראה בלשון פנייה) - נשאר
+                // כפי שכבר מוגדר ב-HTML. הברכה/כותרת/פסקה כן תלויות מגדר -
+                // ר' kbUpdateHomeTexts (מוגדרת למטה).
+                if (typeof kbUpdateHomeTexts === 'function') kbUpdateHomeTexts();
             } else if (res.status === 429) {
                 sessionInitError = 'יותר מדי בקשות מהדפדפן הזה בשעה האחרונה. אפשר לנסות שוב בעוד כמה דקות.';
                 sessionInitiated = false;
@@ -1314,24 +1626,185 @@
     // את הפופאפ מיד אחרי שהוא (אולי) נפתח לבד ע"י ה-trigger המובנה, במקום
     // לנסות למנוע ממנו להיפתח מלכתחילה.
     console.log('[DCard Popup] page load decision - storedName:', JSON.stringify(storedName), 'storedGender:', JSON.stringify(storedGender));
+
+    // שלב 2 (עיצוב, docs/design-spec.md סעיפים 6.1-6.2): פופאפ 4723 (שם+מגדר)
+    // ודף הכניסה הנפרד מוחלפים בחלון kb-onboarding-modal/kb-landing הנייטיבים
+    // שבתוך הקובץ הזה - ר' התוכנית שהוצגה ואושרה. 4723 עצמו *לא נמחק*
+    // באלמנטור (לפי בקשה מפורשת) - רק מוסתר תמיד, גם למשתמש חדש, כך
+    // שה-trigger "On Page Load" הפנימי שלו (שצריך להישאר דלוק כדי שאלמנטור
+    // בכלל "יכין" את הפופאפ - ר' ההערה המקורית למעלה) לעולם לא נראה בפועל.
+    var hideStyle4723 = document.createElement('style');
+    hideStyle4723.textContent = '#elementor-popup-modal-4723 { display: none !important; }';
+    document.head.appendChild(hideStyle4723);
+
+    const kbMainContent = document.getElementById('kb-main-content');
+    const kbLanding = document.getElementById('kb-landing');
+
     if (storedName && storedGender) {
-        // תיקון הבהוב: click()/force-hide (ר' keepOnboardingPopupClosed למטה)
-        // תמיד פועלים *אחרי* שהפופאפ כבר נראה לרגע על המסך, כי הם מגיבים
-        // לכך שהוא נפתח. במקום זה, מזריקים כלל CSS שמסתיר את הקונטיינר
-        // מיידית - לפני שהדפדפן בכלל מצייר את הפתיחה של ה-trigger המובנה,
-        // כך שלמשתמש חוזר (יש כבר storedName/storedGender) אין רגע נראות
-        // בכלל, לא רק סגירה מהירה.
-        var hideStyle = document.createElement('style');
-        hideStyle.textContent = '#elementor-popup-modal-4723 { display: none !important; }';
-        document.head.appendChild(hideStyle);
-        console.log('[DCard Popup] injected CSS to pre-hide popup immediately for returning visitor');
-        console.log('[DCard Popup] both already saved -> will keep CLOSING for a few seconds in case Elementor auto-opens it, and starting the session now');
-        keepOnboardingPopupClosed();
+        console.log('[DCard Popup] both already saved -> skipping landing page, starting the session now');
+        keepOnboardingPopupClosed(); // רשת ביטחון - ר' ההערה המקורית, עדיין לא מזיק להשאיר
+        kbMainContent.style.display = '';
         initSession();
     } else {
-        console.log('[DCard Popup] missing data -> will try to OPEN, session will start once the popup is submitted');
-        openOnboardingPopup();
+        console.log('[DCard Popup] missing data -> showing kb-landing, onboarding modal opens from there');
+        kbLanding.hidden = false;
     }
+
+    // ============================================================
+    // שלב 2 (עיצוב) - דף כניסה, "נעים להכיר", מסך הבית, תפריט ☰
+    // ============================================================
+    const kbLandingStartBtn = document.getElementById('kb-landing-start');
+    const kbOnboardingModal = document.getElementById('kb-onboarding-modal');
+    const kbOnboardingName = document.getElementById('kb-onboarding-name');
+    const kbGenderMaleBtn = document.getElementById('kb-gender-male');
+    const kbGenderFemaleBtn = document.getElementById('kb-gender-female');
+    const kbOnboardingSubmit = document.getElementById('kb-onboarding-submit');
+    const kbOnboardingError = document.getElementById('kb-onboarding-error');
+    const kbHomeGreeting = document.getElementById('kb-home-greeting');
+    const kbHomeParagraph = document.getElementById('kb-home-paragraph');
+    const kbHeaderMenuBtn = document.getElementById('kb-header-menu-btn');
+    const kbMenuOverlay = document.getElementById('kb-menu-overlay');
+    const kbMenuCloseBtn = document.getElementById('kb-menu-close-btn');
+    const kbMenuHowItWorks = document.getElementById('kb-menu-how-it-works');
+    const kbMenuGuidelines = document.getElementById('kb-menu-guidelines');
+    const kbMenuAbout = document.getElementById('kb-menu-about');
+    const kbMenuContact = document.getElementById('kb-menu-contact');
+    const kbInfoModal = document.getElementById('kb-info-modal');
+    const kbInfoTitle = document.getElementById('kb-info-title');
+    const kbInfoBody = document.getElementById('kb-info-body');
+    const kbInfoClose = document.getElementById('kb-info-close');
+    const kbGuidelinesModal = document.getElementById('kb-guidelines-modal');
+    const kbGuidelinesClose = document.getElementById('kb-guidelines-close');
+
+    // סעיף 6.3 - הברכה והפסקה תלויות מגדר/שם, מתעדכנות גם כאן (ברגע
+    // שהם ידועים, לפני/אחרי onboarding) וגם מתוך initSession() למעלה
+    // (אחרי שהשרת מחזיר את הערך הסופי, שעשוי לשקף override לבדיקות).
+    function kbUpdateHomeTexts() {
+        kbHomeGreeting.textContent = 'שלום ' + userName + ',';
+        kbHomeParagraph.textContent = ( 'female' === userGender )
+            ? 'שאלי שאלה על משהו בחייך, בחרי קלף אקראי, והקורא בקלפים יכוון אותך לתשובה המדויקת לך.'
+            : 'שאל שאלה על משהו בחייך, בחר קלף אקראי, והקורא בקלפים יכוון אותך לתשובה המדויקת לך.';
+    }
+    kbUpdateHomeTexts();
+
+    if (kbLandingStartBtn) {
+        kbLandingStartBtn.addEventListener('click', function () {
+            kbOnboardingModal.hidden = false;
+            kbOnboardingName.focus();
+        });
+    }
+
+    // בחירת לשון פנייה (סעיף 6.2) - "כרטיסי רדיו", ומשנה את טקסט כפתור
+    // השליחה בהתאם (לפני בחירה: "בואו נתחיל", אחרי: "בואי/בוא נתחיל").
+    let kbSelectedGender = null;
+    function kbSetGenderChoice(gender) {
+        kbSelectedGender = gender;
+        kbGenderMaleBtn.setAttribute('aria-pressed', String('male' === gender));
+        kbGenderFemaleBtn.setAttribute('aria-pressed', String('female' === gender));
+        kbOnboardingSubmit.textContent = ( 'female' === gender ) ? 'בואי נתחיל' : ( 'male' === gender ) ? 'בוא נתחיל' : 'בואו נתחיל';
+    }
+    kbGenderMaleBtn.addEventListener('click', function () { kbSetGenderChoice('male'); });
+    kbGenderFemaleBtn.addEventListener('click', function () { kbSetGenderChoice('female'); });
+
+    // אותה ולידציית שם כמו הטופס הישן (4723) - ר' DCARD_NAME_PATTERN למטה.
+    const DCARD_NAME_PATTERN = /^[A-Za-zא-ת\s\-‐‑‒–—־]+$/;
+    kbOnboardingSubmit.addEventListener('click', function () {
+        const name = kbOnboardingName.value.trim();
+        kbOnboardingError.style.display = 'none';
+        if (!name || !DCARD_NAME_PATTERN.test(name)) {
+            kbOnboardingError.textContent = 'השם יכול לכלול רק אותיות, רווחים ומקפים.';
+            kbOnboardingError.style.display = '';
+            kbOnboardingName.focus();
+            return;
+        }
+        if (!kbSelectedGender) {
+            kbOnboardingError.textContent = 'נא לבחור איך לפנות אליך.';
+            kbOnboardingError.style.display = '';
+            return;
+        }
+
+        dcardSetLS(DCARD_LS_KEYS.name, name);
+        dcardSetLS(DCARD_LS_KEYS.gender, kbSelectedGender);
+        dcardSetLS(DCARD_LS_KEYS.onboarded, '1');
+        userName = name;
+        userGender = kbSelectedGender;
+        kbUpdateHomeTexts();
+
+        kbOnboardingModal.hidden = true;
+        kbLanding.hidden = true;
+        kbMainContent.style.display = '';
+
+        if (!sessionInitiated) {
+            initSession();
+        }
+    });
+
+    // תפריט ☰ (סעיף 5) - "האזור שלי" לא מוצג בשלב הזה, לפי ההנחיה.
+    function kbOpenMenu() {
+        kbMenuOverlay.hidden = false;
+        kbMenuCloseBtn.focus();
+    }
+    function kbCloseMenu() {
+        kbMenuOverlay.hidden = true;
+        kbHeaderMenuBtn.focus();
+    }
+    kbHeaderMenuBtn.addEventListener('click', kbOpenMenu);
+    kbMenuCloseBtn.addEventListener('click', kbCloseMenu);
+    kbMenuOverlay.addEventListener('click', function (e) {
+        if (e.target === kbMenuOverlay) kbCloseMenu();
+    });
+
+    // חלון תוכן כללי - משותף ל"איך זה עובד" ו"אודות" (תוכן דינמי).
+    function kbOpenInfoModal(title, bodyHtml) {
+        kbInfoTitle.textContent = title;
+        kbInfoBody.innerHTML = bodyHtml;
+        kbCloseMenu();
+        kbInfoModal.hidden = false;
+    }
+    kbInfoClose.addEventListener('click', function () { kbInfoModal.hidden = true; });
+    kbInfoModal.addEventListener('click', function (e) {
+        if (e.target === kbInfoModal) kbInfoModal.hidden = true;
+    });
+
+    const KB_HOW_IT_WORKS_HTML = '<ol class="kb-landing-steps">' +
+        '<li><span class="kb-step-num">1</span><div><strong>כותבים שאלה.</strong> על משהו שמעסיק אותך עכשיו: עבודה, קשרים, החלטה, הרגל.</div></li>' +
+        '<li><span class="kb-step-num">2</span><div><strong>שולפים קלף.</strong> הקלפים מתערבבים, ואתם בוחרים קלף אקראי.</div></li>' +
+        '<li><span class="kb-step-num">3</span><div><strong>קבלת תשובה.</strong> הקורא בקלפים מכוון אתכם לתשובה המדויקת עבורכם.</div></li>' +
+        '</ol>';
+    kbMenuHowItWorks.addEventListener('click', function () {
+        kbOpenInfoModal('איך זה עובד', KB_HOW_IT_WORKS_HTML);
+    });
+
+    // *** טקסט "אודות" זמני/placeholder - לא הוגדר ב-design-spec, יש
+    // להחליף בטקסט הרשמי כשיהיה. ***
+    kbMenuAbout.addEventListener('click', function () {
+        kbOpenInfoModal('אודות', '<p class="kb-modal-text">הקורא בקלפים נוצר כדי לעזור לכם לעצור רגע, לשאול שאלה שמעסיקה אתכם, ולקבל זווית חדשה עליה בעזרת קלף אקראי ושיחה עם AI.</p>');
+    });
+
+    kbMenuGuidelines.addEventListener('click', function () {
+        kbCloseMenu();
+        kbGuidelinesModal.hidden = false;
+    });
+    kbGuidelinesClose.addEventListener('click', function () { kbGuidelinesModal.hidden = true; });
+    kbGuidelinesModal.addEventListener('click', function (e) {
+        if (e.target === kbGuidelinesModal) kbGuidelinesModal.hidden = true;
+    });
+
+    // *** "כתבו לנו" - טרם מחובר: הטופס הקיים חי רק בעורך אלמנטור (אין לו
+    // ID נגיש מכאן, ר' התוכנית שהוצגה למשתמש). להשלים כתובת/ID אמיתיים
+    // כאן כשיהיו - בינתיים רק לוג, בלי לפתוח שום דבר. ***
+    kbMenuContact.addEventListener('click', function () {
+        console.warn('[DCard Menu] "כתבו לנו" - not wired to a real destination yet.');
+        kbCloseMenu();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        if (!kbMenuOverlay.hidden) kbCloseMenu();
+        else if (!kbInfoModal.hidden) kbInfoModal.hidden = true;
+        else if (!kbGuidelinesModal.hidden) kbGuidelinesModal.hidden = true;
+        // kb-onboarding-modal לא נסגר ב-Esc בכוונה - המידע חובה לפני שממשיכים.
+    });
 
     // State recovery: שחזור שאלה שנקטעה ע"י קיר תשלום (403/credits_exhausted)
     // ממש לפני ניווט לקארדקום - ר' DCARD_LS_KEYS.pendingQuestion והשמירה
