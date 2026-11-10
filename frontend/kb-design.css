@@ -247,9 +247,28 @@
 .kb-radio-card[aria-pressed="true"] { border: 2px solid var(--bordeaux); background: var(--blush); }
 
 /* מסך הבית (סעיף 6.3) */
+#kb-main-content { display: flex; flex-direction: column; gap: 30px; }
+.kb-home-grid { display: flex; flex-direction: column; }
+.kb-home-cards { display: none; }
+@media (min-width: 1024px) {
+  .kb-home-grid { flex-direction: row-reverse; align-items: flex-start; gap: 48px; }
+  .kb-home-main { flex: 1; min-width: 0; }
+  .kb-home-cards {
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 360px; height: 320px; position: relative;
+  }
+  .kb-home-card {
+    width: 160px; height: 240px; background: var(--bordeaux); border: 3px solid #fff;
+    border-radius: 14px; box-shadow: var(--shadow-small);
+    display: flex; align-items: center; justify-content: center;
+    position: absolute;
+  }
+  .kb-home-card:nth-child(1) { transform: rotate(-7deg) translateX(-20px); z-index: 1; }
+  .kb-home-card:nth-child(2) { transform: rotate(5deg) translateX(20px); z-index: 2; }
+}
 .kb-home-greeting { font-size: 20px; color: var(--muted); margin: 0 0 4px; }
 .kb-home-title { font-size: 52px; font-weight: 500; line-height: 1.15; margin: 0 0 14px; }
-.kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 24px; }
+.kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 28px; max-width: 520px; }
 .kb-btn-sub { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 2px; }
 .btn-main .kb-btn-sub { color: #F3E7EA; }
 .path-choice-block .btn-main,
