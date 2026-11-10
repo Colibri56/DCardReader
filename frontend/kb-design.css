@@ -60,8 +60,10 @@
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 .kb-btn--primary   { background: var(--bordeaux); color: #fff; border: none; }
-.kb-btn--primary:hover { background: var(--bordeaux-hover); }
+.kb-btn--primary:hover { background: var(--bordeaux-hover); box-shadow: var(--shadow-small); }
 .kb-btn--secondary { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line-strong); }
+.kb-btn--secondary:hover { background: var(--bordeaux); border-color: var(--bordeaux); color: #fff; }
+.kb-btn--secondary:hover .kb-btn-sub { color: #F3E7EA; }
 .kb-btn--emphasis  { background: var(--surface); color: var(--bordeaux); border: 2px solid var(--bordeaux); } /* "שאלה חדשה" */
 .kb-btn--link      { background: none; border: none; color: var(--bordeaux); text-decoration: underline; text-underline-offset: 4px; padding: 0 6px; min-height: auto; } /* "לתת משוב" */
 .kb-btn:disabled   { background: var(--line); color: var(--muted); border: none; cursor: default; }
@@ -203,7 +205,7 @@
 .kb-landing-fan { display: flex; justify-content: center; align-items: center; height: 140px; position: relative; }
 .kb-fan-card {
   width: 92px; height: 138px; background: var(--bordeaux); border: 3px solid #fff;
-  border-radius: 13px; box-shadow: var(--shadow-small);
+  border-radius: 18px; box-shadow: var(--shadow-small);
   display: flex; align-items: center; justify-content: center;
   position: absolute;
 }
@@ -251,7 +253,7 @@
 .kb-home-grid { display: flex; flex-direction: column; }
 .kb-home-cards { display: none; }
 @media (min-width: 1024px) {
-  .kb-home-grid { flex-direction: row-reverse; align-items: flex-start; gap: 48px; }
+  .kb-home-grid { flex-direction: row; align-items: flex-start; gap: 48px; }
   .kb-home-main { flex: 1; min-width: 0; }
   .kb-home-cards {
     display: flex; align-items: center; justify-content: center;
@@ -259,7 +261,7 @@
   }
   .kb-home-card {
     width: 160px; height: 240px; background: var(--bordeaux); border: 3px solid #fff;
-    border-radius: 14px; box-shadow: var(--shadow-small);
+    border-radius: 20px; box-shadow: var(--shadow-small);
     display: flex; align-items: center; justify-content: center;
     position: absolute;
   }

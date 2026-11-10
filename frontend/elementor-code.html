@@ -102,6 +102,14 @@
         display: flex;
         flex-direction: column;
         gap: 30px;
+        box-sizing: border-box;
+    }
+    /* מרחיב את הרוחב המקסימלי רק מ-1024px ומעלה, בדיוק כשעמודת הקלפים
+       הדקורטיביים (360px) נכנסת לתמונה (סעיף 6.3) - כדי שבאמת יהיה מקום
+       גם לה וגם לשני כפתורי המסלול זה-לצד-זה, בלי שהם "יתפוצצו" לשורה
+       נפרדת מחוסר רוחב (900px - 360px - 48px gap נשאר צר מדי לשניהם). */
+    @media (min-width: 1024px) {
+        #card-reader-app { max-width: 1100px; }
     }
 
     /* בלוק 1: שאלה */
@@ -285,11 +293,12 @@
         font-weight: 500;
         border-radius: 999px;
         cursor: pointer;
-        transition: background-color 0.2s;
+        transition: background-color 0.2s, box-shadow 0.2s;
     }
 
     .btn-main:hover {
         background-color: var(--bordeaux-hover, #692539);
+        box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,0.16));
     }
 
     /* בלוק 3: תצוגת הקלפים (מותאם ל-3 קלפים גדולים) */
@@ -457,11 +466,18 @@
         cursor: pointer;
         font-weight: 500;
         font-size: 15px;
-        transition: border-color 0.2s, color 0.2s;
+        transition: background-color 0.2s, border-color 0.2s, color 0.2s;
     }
+    /* Hover - מתהפך למילוי בורדו מלא (לא רק מסגרת/טקסט), כדי שהטקסט
+       המשני בפנים (kb-btn-sub, למשל "מסר אחד קצר...") יוכל להיראות
+       בלבן על הרקע הכהה. */
     .btn-outline:hover {
+        background: var(--bordeaux, #7D2E46);
         border-color: var(--bordeaux, #7D2E46);
-        color: var(--bordeaux, #7D2E46);
+        color: #fff;
+    }
+    .btn-outline:hover .kb-btn-sub {
+        color: #F3E7EA;
     }
 
     /* משוב מיקרו (לייק/דיסלייק) - תיקון UI (התבקש: "להכניס את המיקרו משוב
@@ -681,7 +697,7 @@
     .kb-landing-fan { display: flex; justify-content: center; align-items: center; height: 140px; position: relative; }
     .kb-fan-card {
         width: 92px; height: 138px; background: var(--bordeaux); border: 3px solid #fff;
-        border-radius: 13px; box-shadow: var(--shadow-small);
+        border-radius: 18px; box-shadow: var(--shadow-small);
         display: flex; align-items: center; justify-content: center;
         position: absolute;
     }
@@ -726,7 +742,11 @@
     .kb-home-grid { display: flex; flex-direction: column; }
     .kb-home-cards { display: none; }
     @media (min-width: 1024px) {
-        .kb-home-grid { flex-direction: row-reverse; align-items: flex-start; gap: 48px; }
+        /* row, לא row-reverse: ב-DOM kb-home-main (הטקסט) מגיע לפני
+           kb-home-cards (הקלפים) - "row" ב-RTL כבר שם את הראשון מימין
+           ואת השני משמאל (בדיוק הפריסה הרצויה). row-reverse הפך את זה
+           ושלח את הקלפים ימינה בטעות - תוקן. */
+        .kb-home-grid { flex-direction: row; align-items: flex-start; gap: 48px; }
         .kb-home-main { flex: 1; min-width: 0; }
         .kb-home-cards {
             display: flex; align-items: center; justify-content: center;
@@ -734,7 +754,7 @@
         }
         .kb-home-card {
             width: 160px; height: 240px; background: var(--bordeaux); border: 3px solid #fff;
-            border-radius: 14px; box-shadow: var(--shadow-small);
+            border-radius: 20px; box-shadow: var(--shadow-small);
             display: flex; align-items: center; justify-content: center;
             position: absolute;
         }
