@@ -697,7 +697,7 @@
     .kb-landing-fan { display: flex; justify-content: center; align-items: center; height: 140px; position: relative; }
     .kb-fan-card {
         width: 92px; height: 138px; background: var(--bordeaux); border: 3px solid #fff;
-        border-radius: 18px; box-shadow: var(--shadow-small);
+        border-radius: 14px; box-shadow: var(--shadow-small);
         display: flex; align-items: center; justify-content: center;
         position: absolute;
     }
@@ -746,7 +746,10 @@
            kb-home-cards (הקלפים) - "row" ב-RTL כבר שם את הראשון מימין
            ואת השני משמאל (בדיוק הפריסה הרצויה). row-reverse הפך את זה
            ושלח את הקלפים ימינה בטעות - תוקן. */
-        .kb-home-grid { flex-direction: row; align-items: flex-start; gap: 48px; }
+        /* align-items: flex-end (לא flex-start) - כך שתחתית עמודת
+           הקלפים הדקורטיביים מיושרת עם קו הבסיס של כפתורי המסלול
+           (תחתית kb-home-main), והקלפים "נבנים" כלפי מעלה משם. */
+        .kb-home-grid { flex-direction: row; align-items: flex-end; gap: 48px; }
         .kb-home-main { flex: 1; min-width: 0; }
         .kb-home-cards {
             display: flex; align-items: center; justify-content: center;
@@ -754,7 +757,7 @@
         }
         .kb-home-card {
             width: 160px; height: 240px; background: var(--bordeaux); border: 3px solid #fff;
-            border-radius: 20px; box-shadow: var(--shadow-small);
+            border-radius: 16px; box-shadow: var(--shadow-small);
             display: flex; align-items: center; justify-content: center;
             position: absolute;
         }
@@ -766,6 +769,9 @@
     .kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 28px; max-width: 520px; }
     .kb-btn-sub { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 2px; }
     .btn-main .kb-btn-sub { color: #F3E7EA; }
+    /* שני כפתורי המסלול (סעיף 3.1 מעודכן): לא גלולה (999px) כמו רוב
+       הכפתורים - יש בהם שתי שורות טקסט, אז הם מלבנים עם פינות מעוגלות:
+       16px בטלפון, 18px במחשב. */
     .path-choice-block .btn-main,
     .path-choice-block .btn-outline {
         flex-direction: column;
@@ -774,6 +780,13 @@
         padding: 14px 24px;
         gap: 2px;
         flex: 1 1 260px;
+        border-radius: 16px;
+    }
+    @media (min-width: 768px) {
+        .path-choice-block .btn-main,
+        .path-choice-block .btn-outline {
+            border-radius: 18px;
+        }
     }
 
     .kb-menu-overlay { position: fixed; inset: 0; z-index: 1000; background: var(--paper); }

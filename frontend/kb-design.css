@@ -205,7 +205,7 @@
 .kb-landing-fan { display: flex; justify-content: center; align-items: center; height: 140px; position: relative; }
 .kb-fan-card {
   width: 92px; height: 138px; background: var(--bordeaux); border: 3px solid #fff;
-  border-radius: 18px; box-shadow: var(--shadow-small);
+  border-radius: 14px; box-shadow: var(--shadow-small);
   display: flex; align-items: center; justify-content: center;
   position: absolute;
 }
@@ -253,7 +253,7 @@
 .kb-home-grid { display: flex; flex-direction: column; }
 .kb-home-cards { display: none; }
 @media (min-width: 1024px) {
-  .kb-home-grid { flex-direction: row; align-items: flex-start; gap: 48px; }
+  .kb-home-grid { flex-direction: row; align-items: flex-end; gap: 48px; }
   .kb-home-main { flex: 1; min-width: 0; }
   .kb-home-cards {
     display: flex; align-items: center; justify-content: center;
@@ -261,7 +261,7 @@
   }
   .kb-home-card {
     width: 160px; height: 240px; background: var(--bordeaux); border: 3px solid #fff;
-    border-radius: 20px; box-shadow: var(--shadow-small);
+    border-radius: 16px; box-shadow: var(--shadow-small);
     display: flex; align-items: center; justify-content: center;
     position: absolute;
   }
@@ -281,6 +281,13 @@
   padding: 14px 24px;
   gap: 2px;
   flex: 1 1 260px;
+  border-radius: 16px;
+}
+@media (min-width: 768px) {
+  .path-choice-block .btn-main,
+  .path-choice-block .btn-outline {
+    border-radius: 18px;
+  }
 }
 
 /* תפריט ☰ (סעיף 5) */
