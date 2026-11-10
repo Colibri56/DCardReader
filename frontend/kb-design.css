@@ -1,0 +1,159 @@
+/* ============================================================
+   הקורא בקלפים — מערכת עיצוב חדשה (kb-)
+   מקור: docs/design-spec.md, סעיפים 0–4 (שלב 1: בסיס).
+   קובץ ייחוס עצמאי — התוכן הזה מוטמע כמו-שהוא בתוך בלוק ה-<style>
+   של frontend/elementor-code.html (הקובץ היחיד שמודבק בפועל
+   לווידג'ט ה-HTML של Elementor; אין טעינת קובץ CSS נפרד בדפדפן).
+   כל שינוי כאן חייב להיות משוכפל גם שם.
+   ============================================================ */
+
+/* טעינת הפונט (סעיף 2) — בקובץ הנפרס יש לוודא שה-<link> הבא קיים
+   ב-<head>/בראש הדף, לפני ה-<style> הזה:
+   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+*/
+
+/* ---------- 1. משתני צבע (סעיף 1) ---------- */
+.kb-app {
+  --paper:        #FBF8F6; /* רקע כללי */
+  --surface:      #FFFFFF; /* תיבות, כרטיסים, מסגרת קלף */
+  --ink:          #2A2326; /* טקסט ראשי */
+  --ink-soft:     #4A3F43; /* טקסט גוף משני */
+  --muted:        #6E6266; /* טקסט עזר, תוויות קטנות */
+  --line:         #E6DCDE; /* קווי הפרדה, מסגרות עדינות */
+  --line-strong:  #D9C9CD; /* מסגרת שדות קלט וכפתור משני */
+  --bordeaux:     #7D2E46; /* צבע מוביל: כפתור ראשי, לוגו, הדגשות */
+  --bordeaux-hover:#692539;
+  --blush:        #F3E7EA; /* רקע עדין: בועת משתמש, כפתור מיקרופון, אזור "רוצה להעמיק?" */
+  --dashed:       #C9AEB6; /* מסגרת מקווקוות של "קלף נוסף" */
+  --scrim:        rgba(42,35,38,0.45); /* רקע כהה מאחורי חלונות */
+  --shadow-card:  0 18px 40px rgba(42,35,38,0.16);
+  --shadow-small: 0 4px 10px rgba(42,35,38,0.16);
+
+  font-family: 'Rubik', sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+/* נגישות: פוקוס מקלדת גלוי (סעיף 0.6) על כל אלמנט בר-פוקוס במערכת */
+.kb-app button:focus-visible,
+.kb-app a:focus-visible,
+.kb-app input:focus-visible,
+.kb-app textarea:focus-visible,
+.kb-app [tabindex]:focus-visible {
+  outline: 3px solid var(--bordeaux);
+  outline-offset: 3px;
+}
+
+/* ---------- 3.1 כפתורים (ארבעה סוגים בלבד) ---------- */
+.kb-btn {
+  font-family: 'Rubik', sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 0 22px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.kb-btn--primary   { background: var(--bordeaux); color: #fff; border: none; }
+.kb-btn--primary:hover { background: var(--bordeaux-hover); }
+.kb-btn--secondary { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line-strong); }
+.kb-btn--emphasis  { background: var(--surface); color: var(--bordeaux); border: 2px solid var(--bordeaux); } /* "שאלה חדשה" */
+.kb-btn--link      { background: none; border: none; color: var(--bordeaux); text-decoration: underline; text-underline-offset: 4px; padding: 0 6px; min-height: auto; } /* "לתת משוב" */
+.kb-btn:disabled   { background: var(--line); color: var(--muted); border: none; cursor: default; }
+
+/* כפתור ראשי גדול (פעולה מרכזית במסך) */
+.kb-btn--large { min-height: 56px; font-size: 18px; padding: 0 28px; }
+
+/* ---------- 3.2 שדות קלט ותיבת טקסט עם מיקרופון ---------- */
+.kb-field {
+  background: var(--surface);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 16px;
+  font-family: 'Rubik', sans-serif;
+  font-size: 17px;
+  color: var(--ink);
+  resize: none;
+}
+.kb-field:focus {
+  border-color: var(--bordeaux);
+}
+.kb-field-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+
+/* כפתור מיקרופון בתוך שדה הטקסט (סעיף 3.2) */
+.kb-mic-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--blush);
+  color: var(--bordeaux);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* כפתור שליחה (מסך השיחה) — עיגול בורדו, חץ לבן */
+.kb-send-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bordeaux);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.kb-send-btn:hover { background: var(--bordeaux-hover); }
+
+/* ---------- 3.6 כותרת עליונה (header) ---------- */
+.kb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 4px;
+}
+.kb-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 21px;
+}
+.kb-header-menu-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+@media (max-width: 768px) {
+  .kb-header-brand { font-size: 18px; }
+}
+
+/* ---------- 4. לוגו: מניפה של שלושה קלפים ---------- */
+.kb-logo { display: inline-flex; width: 30px; height: 26px; }
+@media (max-width: 768px) {
+  .kb-logo { width: 26px; height: 22px; }
+}

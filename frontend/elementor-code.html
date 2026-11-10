@@ -1,19 +1,81 @@
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-    /* תיקון גרדיאנט: קודם הוחל ישירות על #card-reader-app, אבל האלמנט הזה
-       מקונן בתוך ה-wrapper/section של אלמנטור שיש לו רקע משלו (לרוב לבן
-       אחיד) - כך שהגרדיאנט נראה "חתוך"/לא נראה כלל מעבר לגבולות התיבה
-       הפנימית. הפתרון: מחילים את הגרדיאנט גלובלית על body ועל .elementor-page
-       (שני הסלקטורים מכוסים כי לא בטוח איזה מהם בפועל "התחתון ביותר" בעמוד
-       הזה), ומשאירים את #card-reader-app עצמו שקוף כדי שהגרדיאנט הגלובלי
-       יראה מבעד לו בלי הפרעה.
+    /* ============================================================
+       מערכת העיצוב החדשה (kb-) - שלב 1, ר' docs/design-spec.md
+       ומקור הייחוס frontend/kb-design.css (לשינויים, לעדכן שם גם).
+       ============================================================ */
+    .kb-app {
+        --paper:        #FBF8F6;
+        --surface:      #FFFFFF;
+        --ink:          #2A2326;
+        --ink-soft:     #4A3F43;
+        --muted:        #6E6266;
+        --line:         #E6DCDE;
+        --line-strong:  #D9C9CD;
+        --bordeaux:     #7D2E46;
+        --bordeaux-hover:#692539;
+        --blush:        #F3E7EA;
+        --dashed:       #C9AEB6;
+        --scrim:        rgba(42,35,38,0.45);
+        --shadow-card:  0 18px 40px rgba(42,35,38,0.16);
+        --shadow-small: 0 4px 10px rgba(42,35,38,0.16);
+    }
+    .kb-app button:focus-visible,
+    .kb-app a:focus-visible,
+    .kb-app input:focus-visible,
+    .kb-app textarea:focus-visible,
+    .kb-app [tabindex]:focus-visible {
+        outline: 3px solid var(--bordeaux);
+        outline-offset: 3px;
+    }
+    .kb-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 4px 24px;
+    }
+    .kb-header-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--ink);
+        font-weight: 500;
+        font-size: 21px;
+    }
+    .kb-header-menu-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--ink);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 20px;
+    }
+    @media (max-width: 768px) {
+        .kb-header-brand { font-size: 18px; }
+    }
+    .kb-logo { display: inline-flex; width: 30px; height: 26px; flex-shrink: 0; }
+    @media (max-width: 768px) {
+        .kb-logo { width: 26px; height: 22px; }
+    }
+
+    /* תיקון גרדיאנט - הוסר לפי העיצוב החדש ("בלי גרדיאנטים בכלל, הרקע אחיד
+       בצבע --paper"). קודם הוחל ישירות על #card-reader-app, אבל האלמנט הזה
+       מקונן בתוך ה-wrapper/section של אלמנטור שיש לו רקע משלו, לכן מוחל
+       גלובלית על body ועל .elementor-page (לא בטוח איזה מהם "התחתון ביותר"
+       בעמוד הזה).
     */
     body, .elementor-page {
-        background: radial-gradient(circle, #FFFFFF 0%, #F2E6E6 100%) !important;
+        background: var(--paper, #FBF8F6) !important;
     }
 
     /* עיצוב כללי לאפליקציה (הורחב כדי להכיל 3 קלפים גדולים) */
     #card-reader-app {
-        font-family: 'Heebo', sans-serif;
+        font-family: 'Rubik', sans-serif;
         max-width: 900px;
         margin: 0 auto;
         padding: 20px;
@@ -29,20 +91,24 @@
         width: 100%;
         min-height: 100px;
         padding: 15px;
-        border: 2px solid #e0e0e0;
-        border-radius: 10px;
-        font-family: inherit;
+        border: 1.5px solid var(--line-strong, #D9C9CD);
+        border-radius: 16px;
+        font-family: 'Rubik', sans-serif;
         font-size: 18px;
+        color: var(--ink, #2A2326);
         resize: vertical;
-        transition: all 0.4s ease;
-        background: white;
+        transition: border-color 0.2s;
+        background: var(--surface, #FFFFFF);
+    }
+    .question-block textarea:focus {
+        border-color: var(--bordeaux, #7D2E46);
     }
 
     .question-block textarea.locked {
         background-color: transparent;
         border-color: transparent;
-        color: #8B1E3F;
-        font-weight: bold;
+        color: var(--bordeaux, #7D2E46);
+        font-weight: 500;
         font-size: 24px;
         text-align: center;
         resize: none;
@@ -62,8 +128,8 @@
         flex-shrink: 0; /* בשורת הצ'אט (flex) - לא נלחץ כשהשדה מתמלא */
         border: none;
         border-radius: 50%;
-        background: #f1f1f1;
-        color: #8B1E3F;
+        background: var(--blush, #F3E7EA);
+        color: var(--bordeaux, #7D2E46);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -87,7 +153,7 @@
         left: 14px; /* RTL: תיבת הטקסט ב-RTL, הכפתור בפינה השמאלית התחתונה */
     }
     .btn-mic:hover {
-        background: #e6dade;
+        background: var(--line-strong, #D9C9CD);
     }
     .btn-mic.recording {
         background: #d1272e;
@@ -185,22 +251,23 @@
         z-index: 5 !important;
     }
 
-    /* כפתור מרכזי */
+    /* כפתור מרכזי - kb-btn--primary (סעיף 3.1) */
     .btn-main {
-        background-color: #8B1E3F;
+        font-family: 'Rubik', sans-serif;
+        background-color: var(--bordeaux, #7D2E46);
         color: white;
         border: none;
-        padding: 15px 40px;
-        font-size: 20px;
-        border-radius: 50px;
+        min-height: 56px;
+        padding: 0 28px;
+        font-size: 18px;
+        font-weight: 500;
+        border-radius: 999px;
         cursor: pointer;
-        transition: transform 0.2s, background-color 0.3s;
-        box-shadow: 0 4px 10px rgba(139, 30, 63, 0.3);
+        transition: background-color 0.2s;
     }
 
     .btn-main:hover {
-        background-color: #6a1630;
-        transform: scale(1.05);
+        background-color: var(--bordeaux-hover, #692539);
     }
 
     /* בלוק 3: תצוגת הקלפים (מותאם ל-3 קלפים גדולים) */
@@ -240,16 +307,17 @@
     /* כפתור "קלף נוסף" ליד התמונה - עיצוב משני/עדין בכוונה (לא כמו btn-main),
        כי זו עדיין לא פעולה מודגשת/מעודדת, רק זמינה למי שרוצה אותה. */
     .btn-extra-card {
+        font-family: 'Rubik', sans-serif;
         background: transparent;
-        color: #8B1E3F;
-        border: 1.5px solid #8B1E3F;
+        color: var(--bordeaux, #7D2E46);
+        border: 1.5px solid var(--bordeaux, #7D2E46);
         padding: 8px 20px;
         font-size: 14px;
-        border-radius: 50px;
+        border-radius: 999px;
         cursor: pointer;
     }
     .btn-extra-card:hover {
-        background: #8B1E3F;
+        background: var(--bordeaux, #7D2E46);
         color: white;
     }
     .btn-extra-card:disabled {
@@ -295,20 +363,30 @@
     .chat-input-area textarea {
         flex: 1;
         padding: 12px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        font-family: inherit;
-        font-size: 16px;
+        border: 1.5px solid var(--line-strong, #D9C9CD);
+        border-radius: 16px;
+        font-family: 'Rubik', sans-serif;
+        font-size: 17px;
+        color: var(--ink, #2A2326);
         resize: vertical; /* מותר להגדיל, לא מתחת ל-3 השורות שנקבעו ב-rows="3" */
     }
+    .chat-input-area textarea:focus {
+        border-color: var(--bordeaux, #7D2E46);
+    }
     .btn-send {
-        background-color: #333;
+        font-family: 'Rubik', sans-serif;
+        background-color: var(--bordeaux, #7D2E46);
         color: white;
         border: none;
+        min-height: 44px;
         padding: 0 20px;
-        border-radius: 8px;
+        border-radius: 999px;
         cursor: pointer;
         font-size: 16px;
+        font-weight: 500;
+    }
+    .btn-send:hover {
+        background-color: var(--bordeaux-hover, #692539);
     }
 
     /* תיקון QA מובייל (התבקש: "תיבת הטקסט תהיה לאורך כל רוחב המסך בדומה
@@ -345,19 +423,23 @@
         border-top: 2px solid #eee;
         padding-top: 20px;
     }
+    /* kb-btn--secondary (סעיף 3.1) - כפתור משני עם מסגרת */
     .btn-outline {
-        background: transparent;
-        border: 2px solid #555;
-        color: #555;
-        padding: 10px 20px;
-        border-radius: 30px;
+        font-family: 'Rubik', sans-serif;
+        background: var(--surface, #FFFFFF);
+        border: 1.5px solid var(--line-strong, #D9C9CD);
+        color: var(--ink, #2A2326);
+        min-height: 44px;
+        padding: 0 22px;
+        border-radius: 999px;
         cursor: pointer;
-        font-weight: bold;
-        transition: all 0.3s;
+        font-weight: 500;
+        font-size: 15px;
+        transition: border-color 0.2s, color 0.2s;
     }
     .btn-outline:hover {
-        background: #555;
-        color: white;
+        border-color: var(--bordeaux, #7D2E46);
+        color: var(--bordeaux, #7D2E46);
     }
 
     /* משוב מיקרו (לייק/דיסלייק) - תיקון UI (התבקש: "להכניס את המיקרו משוב
@@ -535,7 +617,23 @@
     }
 </style>
 
-<div id="card-reader-app">
+<div id="card-reader-app" class="kb-app">
+
+    <!-- כותרת עליונה חדשה (סעיף 3.6) - בשלב הזה הלוגו ושם המוצר בלבד;
+         כפתור ה-תפריט מעוצב אך לא פונקציונלי עדיין (התפריט המלא הוא שלב 2). -->
+    <header class="kb-header">
+        <div class="kb-header-brand">
+            <svg class="kb-logo" viewBox="0 0 40 34" fill="#FBF8F6" stroke="#7D2E46" stroke-width="2"
+                 stroke-linejoin="round" aria-hidden="true">
+                <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"/>
+                <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"/>
+                <rect x="14" y="3" width="12" height="18" rx="2"/>
+                <circle cx="20" cy="12" r="1.6" fill="#7D2E46" stroke="none"/>
+            </svg>
+            <span>הקורא בקלפים</span>
+        </div>
+        <button type="button" class="kb-header-menu-btn" aria-label="תפריט">&#9776;</button>
+    </header>
 
     <!-- בלוק 1: תיבת טקסט לשאלה -->
     <div class="question-block" id="block-1">
