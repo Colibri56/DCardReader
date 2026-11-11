@@ -438,15 +438,17 @@
     .chat-history {
         margin-bottom: 15px;
     }
-    .chat-input-area {
-        display: flex;
-        flex-wrap: wrap; /* מאפשר להודעת שגיאת מיקרופון/לתווית (flex-basis: 100%) לרדת לשורה משלהן */
-        gap: 10px;
-    }
-    .chat-input-area > .kb-field-label { flex-basis: 100%; }
+    /* סעיף 3.2: "כפתור המיקרופון... יושב בתוך התיבה, בפינה התחתונה בצד
+       שמאל" ו"כפתור שליחה: עיגול 44px, רקע בורדו וחץ לבן שמצביע שמאלה" -
+       שניהם position:absolute בתוך קונטיינר יחסי (kb-reply-box) שעוטף
+       את ה-textarea, בדיוק כמו btn-mic של תיבת השאלה (בלוק 1) - לא עוד
+       כפתור "שלח" מלבני בשורה נפרדת. */
+    .chat-input-area { display: block; }
+    .kb-reply-box { position: relative; }
     .chat-input-area textarea {
-        flex: 1;
-        padding: 12px;
+        width: 100%;
+        padding: 14px;
+        padding-bottom: 68px; /* משאיר מקום לשני העיגולים בפינה, גם כשיש כמה שורות טקסט */
         border: 1.5px solid var(--line-strong, #D9C9CD);
         border-radius: 16px;
         font-family: 'Rubik', sans-serif;
@@ -464,32 +466,31 @@
     .chat-input-area textarea:focus {
         border-color: var(--bordeaux, #7D2E46);
     }
+    .kb-reply-box .btn-mic {
+        position: absolute;
+        bottom: 14px;
+        left: 14px;
+    }
     .btn-send {
-        font-family: 'Rubik', sans-serif;
+        position: absolute;
+        bottom: 14px;
+        left: 66px; /* מיד משמאל למיקרופון (14px + 44px + 8px רווח) */
+        width: 44px;
+        height: 44px;
         background-color: var(--bordeaux, #7D2E46);
-        color: white;
         border: none;
-        min-height: 44px;
-        padding: 0 20px;
-        border-radius: 999px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
-        font-size: 16px;
-        font-weight: 500;
     }
     .btn-send:hover {
         background-color: var(--bordeaux-hover, #692539);
     }
-
-    /* תיקון QA מובייל (התבקש: "תיבת הטקסט תהיה לאורך כל רוחב המסך בדומה
-       לתיבת הטקסט למשוב, רק שגם תכיל יותר שורות") - flex-basis: 100% גורם
-       ל-textarea לרדת לשורה משלה (אותה טכניקה שכבר בשימוש להודעת שגיאת
-       המיקרופון, ר' ההערה ליד .chat-input-area), במקום להצטמצם לצד הכפתורים
-       כשהם לא משאירים לה מספיק מקום ברוחב צר. min-height מבטיח שתיראה
-       כמה שורות, לא רק שורה אחת שחוסמת תחושת "כאן אפשר לכתוב עוד". */
-    @media (max-width: 600px) {
-        .chat-input-area textarea {
-            flex-basis: 100%;
-        }
+    .btn-send:disabled {
+        background-color: var(--line, #E6DCDE);
+        cursor: default;
     }
 
     /* תיקון UX (התבקש: "לחייב את המשתמש דבר ראשון לבחור את הנתיב") - בחירת
@@ -546,6 +547,13 @@
        קיימים כ-.btn-main/.btn-outline (שמות ישנים, לא שונו כדי לא לשבור
        שימושים קיימים). emphasis/link חדשים לשורת הפעולות (6.5). */
     .kb-btn { font-family: 'Rubik', sans-serif; font-weight: 500; border-radius: 999px; min-height: 44px; padding: 0 22px; cursor: pointer; border: none; }
+    /* תיקון באג (דווח בפועל: "לכפתורים אין מסגרת וצבע הפונט שגוי") -
+       "שליחת השיחה במייל"/"סיום השיחה" משתמשים ב-class הזה ב-HTML, אבל
+       הוא מעולם לא הוגדר כאן - רק .btn-outline הישן (שלא בשימוש בכפתורים
+       האלה) הכיל את הסגנון. בלי ההגדרה הכפתורים נפלו לברירת המחדל של
+       הדפדפן (בלי מסגרת, טקסט שחור). */
+    .kb-btn--secondary { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line-strong); }
+    .kb-btn--secondary:hover { background: var(--bordeaux); border-color: var(--bordeaux); color: #fff; }
     .kb-btn--emphasis { background: var(--surface); color: var(--bordeaux); border: 2px solid var(--bordeaux); }
     .kb-btn--emphasis:hover { background: var(--blush); }
     .kb-btn--link {
@@ -553,34 +561,6 @@
         text-underline-offset: 4px; padding: 0 6px; min-height: auto; display: inline-flex;
         align-items: center; gap: 6px; font-size: 15px; font-weight: 400;
     }
-
-    /* משוב מיקרו (לייק/דיסלייק) - תיקון UI (התבקש: "להכניס את המיקרו משוב
-       לתוך תיבת התשובה של ה-AI") - עכשיו שורה בתוך הבועה עצמה (ר' JS,
-       appendMessage: feedbackRow מתווסף כילד של msgDiv, לא לצידו/מתחתיו
-       כאלמנט נפרד) - לכן גם באותו רוחב מסך זהה לבועה עצמה, בלי צורך
-       ב-media query נפרד (שהוסר - היה רלוונטי רק לפריסת ה-flex הישנה
-       בין הבועה לפיל, aiRow, שכבר לא קיימת). רקע בהיר למחצה כדי להתבלט
-       על רקע הבועה הכהה (#8B1E3F) בלי "קופסה" בולטת מדי. */
-    .dcard-feedback-pill {
-        /* display:flex (לא inline-flex) + width:fit-content + margin-
-           inline-start:auto, לא float - הבועה (msgDiv) היא display:inline-
-           block בלי overflow מוגדר, ו-float לא היה מתפתח לגובה שלה
-           (הפיל היה "בורח" מתחת לקצה התחתון של הבועה במקום לדחוף אותה
-           לגבוה יותר). flex רגיל בזרימה נשאר בתוך גובה הבועה כמו כל ילד
-           אחר. margin-inline-start:auto דוחף אותו לקצה השני (שמאל, כי
-           direction:rtl על #card-reader-app) בלי תלות בכיוון. */
-        display: flex;
-        width: fit-content;
-        gap: 4px;
-        background: rgba(255,255,255,0.15);
-        padding: 4px 10px;
-        border-radius: 20px;
-        align-items: center;
-        border: none;
-        margin-top: 8px;
-        margin-inline-start: auto;
-    }
-
 
     /* מסגרת "קבלת מסר אישי" בבורדו כמו שאר האתר, לא באפור כמו שאר כפתורי ה-outline */
     #btn-path-message {
@@ -1058,15 +1038,22 @@
         </div>
         <div class="chat-input-area">
             <label class="kb-field-label" for="ai-reply-input">התשובה שלך</label>
-            <textarea id="ai-reply-input" rows="4" placeholder="כתבו כאן את מה שעולה לכם בעקבות הקלף, או שאלו שאלת המשך..."></textarea>
-            <button type="button" class="btn-mic" id="btn-mic-chat" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
-                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                </svg>
-                <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            </button>
-            <button class="btn-send">שלח</button>
+            <!-- סעיף 3.2: מיקרופון וכפתור שליחה בתוך התיבה עצמה, לא בשורה
+                 נפרדת לצידה - kb-reply-box הוא הקונטיינר היחסי שמחזיק את
+                 שניהם ממוקמים absolute בפינה (ר' CSS). -->
+            <div class="kb-reply-box">
+                <textarea id="ai-reply-input" rows="4" placeholder="כתבו כאן את מה שעולה לכם בעקבות הקלף, או שאלו שאלת המשך..."></textarea>
+                <button type="button" class="btn-mic" id="btn-mic-chat" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                    <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                </button>
+                <button type="button" class="btn-send" aria-label="שליחה">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -2737,6 +2724,10 @@
                 }
 
                 inputEl.value = [baseText, finalText, interimText].filter(Boolean).join(' ');
+                // תיקון באג: הקלדה ישירה ל-value לא מפעילה 'input' - בלעדי
+                // זה תיבת התשובה בצ'אט לא גדלה (kbAutoGrowReply) וכפתור
+                // השליחה נשאר מושבת (kbUpdateSendButtonState) גם כשיש בה טקסט.
+                inputEl.dispatchEvent(new Event('input'));
 
                 console.log(`[DCard Voice] (${label}) onresult - final: "${finalText}", interim: "${interimText}"`);
             };
@@ -3863,6 +3854,7 @@
         appendMessage('user', text);
         chatInput.value = '';
         kbAutoGrowReply(); // מאפסת את הגובה בחזרה ל-4 שורות אחרי שליחה
+        kbUpdateSendButtonState(); // התיבה ריקה עכשיו - הכפתור חוזר למושבת
         showTyping();
         userQuestionCount++; // סופרים את השליחה בפועל, לפני התשובה - זו השאלה ה-userQuestionCount בדיוק
         // רשת ביטחון בלבד: אם הגענו למגבלת 15 (MAX_USER_QUESTIONS) בלי שהסוכן
@@ -4003,6 +3995,14 @@
         chatInput.style.height = chatInput.scrollHeight + 'px';
     }
     chatInput.addEventListener('input', kbAutoGrowReply);
+
+    // סעיף 3.5א: "תשובה ריקה בשיחה -> כפתור מושבת (אין הודעה)" - כפתור
+    // השליחה מושבת כל עוד התיבה ריקה, בלי שום הודעה.
+    function kbUpdateSendButtonState() {
+        btnSend.disabled = chatInput.value.trim() === '';
+    }
+    chatInput.addEventListener('input', kbUpdateSendButtonState);
+    kbUpdateSendButtonState();
 
     // אותה נוחות ב-Enter בתיבת השאלה הראשונית (בלוק 1) - מדמה לחיצה על
     // כפתור הקופה (btnDeckAction: "ערבב קלפים"/"בחר קלף", לפי appState).

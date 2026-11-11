@@ -424,7 +424,7 @@
   padding: 0; flex-shrink: 0;
 }
 
-/* סעיף 3.1: emphasis/link - primary/secondary כבר ממופים ל-.btn-main/.btn-outline */
+/* סעיף 3.1: emphasis/link - primary/secondary כבר מוגדרים למעלה (שורה 65) */
 .kb-btn { font-family: 'Rubik', sans-serif; font-weight: 500; border-radius: 999px; min-height: 44px; padding: 0 22px; cursor: pointer; border: none; }
 .kb-btn--emphasis { background: var(--surface); color: var(--bordeaux); border: 2px solid var(--bordeaux); }
 .kb-btn--emphasis:hover { background: var(--blush); }
