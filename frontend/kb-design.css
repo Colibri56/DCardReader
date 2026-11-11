@@ -241,12 +241,17 @@
   display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
 }
 .kb-radio-group { display: flex; gap: 10px; margin-bottom: 18px; }
+/* color !important - דווח בפועל: טקסט לבן/בלתי קריא, כנראה נבלע ע"י סגנון
+   גלובלי של התבנית/אלמנטור על <button>. */
 .kb-radio-card {
   flex: 1; min-height: 52px; border-radius: 14px; border: 1.5px solid var(--line-strong);
-  background: var(--surface); color: var(--ink); font-family: 'Rubik', sans-serif; font-size: 15px;
+  background: var(--surface); color: var(--ink) !important; font-family: 'Rubik', sans-serif; font-size: 15px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
-.kb-radio-card[aria-pressed="true"] { border: 2px solid var(--bordeaux); background: var(--blush); }
+.kb-radio-card:hover { color: var(--ink) !important; }
+.kb-radio-card[aria-pressed="true"] {
+  border: 2px solid var(--bordeaux); background: var(--blush); color: var(--ink) !important;
+}
 
 /* מסך הבית (סעיף 6.3) */
 #kb-main-content { display: flex; flex-direction: column; gap: 30px; }
@@ -342,6 +347,13 @@
   transform-style: preserve-3d;
   will-change: transform;
   cursor: pointer;
+}
+/* דווח בפועל: "כמעט בלתי אפשרי לבחור קלף עם העכבר" - שטח הקשה/לחיצה מורחב
+   מעבר לקלף הנראה, בלי לשנות את גודלו החזותי. */
+.kb-deck-card::after {
+  content: '';
+  position: absolute;
+  inset: -14px;
 }
 .kb-face {
   position: absolute;

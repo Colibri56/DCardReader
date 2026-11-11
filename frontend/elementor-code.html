@@ -267,6 +267,14 @@
         will-change: transform;
         cursor: pointer;
     }
+    /* דווח בפועל: "כמעט בלתי אפשרי לבחור קלף עם העכבר" - שטח ההקשה/לחיצה
+       האמיתי מורחב מעבר לגבולות הקלף הנראה (בלי לשנות את הגודל החזותי),
+       כדי שלא יידרש לכוון בדיוק לקלף (שגם קטן וגם בתנועה בשלב flow). */
+    .kb-deck-card::after {
+        content: '';
+        position: absolute;
+        inset: -14px;
+    }
     .kb-face {
         position: absolute;
         inset: 0;
@@ -759,12 +767,18 @@
         display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
     }
     .kb-radio-group { display: flex; gap: 10px; margin-bottom: 18px; }
+    /* color: var(--ink) !important - דווח בפועל: הטקסט הופיע לבן/בלתי
+       קריא; כנראה נבלע ע"י סגנון גלובלי של התבנית/אלמנטור על <button>
+       (אותה תופעה שכבר טופלה ב-!important במקומות אחרים בקובץ הזה). */
     .kb-radio-card {
         flex: 1; min-height: 52px; border-radius: 14px; border: 1.5px solid var(--line-strong);
-        background: var(--surface); color: var(--ink); font-family: 'Rubik', sans-serif; font-size: 15px;
+        background: var(--surface); color: var(--ink) !important; font-family: 'Rubik', sans-serif; font-size: 15px;
         cursor: pointer; display: flex; align-items: center; justify-content: center;
     }
-    .kb-radio-card[aria-pressed="true"] { border: 2px solid var(--bordeaux); background: var(--blush); }
+    .kb-radio-card:hover { color: var(--ink) !important; }
+    .kb-radio-card[aria-pressed="true"] {
+        border: 2px solid var(--bordeaux); background: var(--blush); color: var(--ink) !important;
+    }
 
     #kb-main-content { display: flex; flex-direction: column; gap: 30px; }
     .kb-home-grid { display: flex; flex-direction: column; }
@@ -1043,11 +1057,11 @@
         <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-onboarding-title">
             <div class="kb-modal-handle"></div>
             <div class="kb-onboarding-icon">
-                <svg class="kb-logo" style="width:28px;height:24px;" viewBox="0 0 40 34" fill="#7D2E46" stroke="#7D2E46" stroke-width="2" stroke-linejoin="round">
+                <svg class="kb-logo" style="width:28px;height:24px;" viewBox="0 0 40 34" fill="#F3E7EA" stroke="#7D2E46" stroke-width="2" stroke-linejoin="round">
                     <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"/>
                     <rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"/>
                     <rect x="14" y="3" width="12" height="18" rx="2"/>
-                    <circle cx="20" cy="12" r="1.6" fill="#F3E7EA" stroke="none"/>
+                    <circle cx="20" cy="12" r="1.6" fill="#7D2E46" stroke="none"/>
                 </svg>
             </div>
             <h2 class="kb-modal-title" id="kb-onboarding-title" style="text-align:center;">נעים להכיר</h2>
@@ -2919,8 +2933,8 @@
         // למעלה" + "לצמצם את הרווח מתחת לקלפים") - הקלפים יושבים גבוה יותר
         // בתוך הבמה, והבמה עצמה נמוכה יותר. PX/PUSH/CW נשארו כמו שהיו.
         const P = opts.mobile
-            ? { N: 12, CW: 86,  CH: 129, PX: 112, BT: 90,  STAGE_H: 260, PY: -80,  S: 1.55, SL: 1.5, PUSH: 30, PUSHY: 30, FLOW: 170 }
-            : { N: 12, CW: 130, CH: 195, PX: 190, BT: 130, STAGE_H: 380, PY: -110, S: 1.7,  SL: 1.5, PUSH: 40, PUSHY: 60, FLOW: 170 };
+            ? { N: 12, CW: 86,  CH: 129, PX: 112, BT: 90,  STAGE_H: 220, PY: -80,  S: 1.55, SL: 1.5, PUSH: 30, PUSHY: 30, FLOW: 170 }
+            : { N: 12, CW: 130, CH: 195, PX: 190, BT: 130, STAGE_H: 320, PY: -110, S: 1.7,  SL: 1.5, PUSH: 40, PUSHY: 60, FLOW: 170 };
         const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
         const cards = [], timers = [];
         let order = [...Array(P.N).keys()], A = [], B = [], dir = 'AB', phase = 'stack';
@@ -2985,7 +2999,10 @@
             opts.onBusyChange(true); render();
             setCardsTabIndex(-1);
             setT(id, { x: 0, y: P.PY, r: -1, s: reduce ? 1 : P.S, dur: reduce ? 0 : 750, zi: 9999 }); // lift
-            const minLift = new Promise(r => setTimeout(r, reduce ? 0 : 700));
+            // תיקון תזמון (דווח בפועל: "הקלף עומד קפוא זמן רב") - חצי שניה
+            // של עמידה (היה 700), התהפכות בכ-שניה (950, היה 750), וחצי שניה
+            // בין ההתהפכות לנחיתה (היה 800) - ר' גם ההערה המלאה למטה.
+            const minLift = new Promise(r => setTimeout(r, reduce ? 0 : 500));
             try {
                 const card = await opts.fetchCard();
                 const img = cards[id].querySelector('.kb-front-inner img');
@@ -3002,10 +3019,10 @@
                     opts.onHint('revealed');
                     opts.onReveal(card);
                 } else {
-                    setT(id, { x: 0, y: P.PY, r: -1, ry: 180, s: P.S, dur: 750, zi: 9999 }); // flip (עומד)
-                    later(800, () => {
+                    setT(id, { x: 0, y: P.PY, r: -1, ry: 180, s: P.S, dur: 950, zi: 9999 }); // flip (עומד)
+                    later(500, () => {
                         setT(id, { x: 0, y: P.PY, r: 90, ry: 180, s: P.SL, dur: 750, zi: 9999 }); // land (לרוחב)
-                        later(800, () => { opts.onHint('revealed'); opts.onReveal(card); });
+                        later(650, () => { opts.onHint('revealed'); opts.onReveal(card); });
                     });
                 }
             } catch (e) {
