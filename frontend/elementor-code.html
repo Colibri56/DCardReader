@@ -301,13 +301,23 @@
     .kb-front-inner { flex: 1; position: relative; overflow: hidden; border-radius: 7px; }
     /* התמונה (לרוחב) מסובבת -90° בתוך הקלף העומד - כשהקלף כולו מסתובב
        +90° (שלב land, סעיף 7.4), היא נראית ישרה וממלאת אותו. */
+    /* !important על width/height/object-fit - דווח בפועל: התמונה הופיעה
+       קטנה עם שוליים לבנים סביבה, במקום למלא את הקלף. כנראה סגנון גלובלי
+       של התבנית/אלמנטור (למשל img{max-width:100%;height:auto}) דרס את
+       הגובה המחושב פה ל-auto, ששבר את כל חישוב ה-cover+סיבוב (אותה תופעה
+       שכבר טופלה ב-!important במקומות אחרים בקובץ הזה). */
     .kb-front-inner img {
-        position: absolute; object-fit: cover;
-        width: calc(var(--ch, 129px) - 16px); height: calc(var(--cw, 86px) - 16px);
+        position: absolute; object-fit: cover !important;
+        width: calc(var(--ch, 129px) - 16px) !important; height: calc(var(--cw, 86px) - 16px) !important;
+        max-width: none !important; max-height: none !important;
         left: calc((var(--cw, 86px) - var(--ch, 129px)) / 2);
         top: calc((var(--ch, 129px) - var(--cw, 86px)) / 2);
         transform: rotate(-90deg);
     }
+    /* דווח בפועל: "קצוות אדומים לקלף" - טבעת ה-focus של הדפדפן על
+       ה-<button> אחרי לחיצה (צבעה var(--bordeaux), אדמדם-יין) - ר'
+       blur() ב-pick()/kbShuffle שמונע אותה כש-קלף נבחר. עדיין רצוי כש
+       עוברים בין קלפים במקלדת (Tab) בשלב flow. */
     .kb-deck-card:focus-visible { outline: 3px solid var(--bordeaux); outline-offset: 4px; }
     .kb-stage-status {
         min-height: 22px;
@@ -3021,6 +3031,10 @@
             A = A.filter(x => x !== id); B = B.filter(x => x !== id);
             opts.onBusyChange(true); render();
             setCardsTabIndex(-1);
+            // דווח בפועל: "קצוות אדומים לקלף" - טבעת ה-focus של הדפדפן
+            // (var(--bordeaux)) נשארת על כפתור הקלף אחרי הלחיצה/ההקשה -
+            // לא רלוונטי יותר ברגע שהוא נבחר (אין Tab-ing אליו יותר).
+            cards[id].blur();
             // דווח בפועל: "לדלג על שלב הצגת קלף קטן ואז מגדיל - זה מיותר
             // ולא אסתטי" - אין יותר שלב נפרד של גדילה לגודל מלא *לפני*
             // ההיפוך (שהיה מראה קלף-גב ענק עומד). כאן רק מרכזים אותו

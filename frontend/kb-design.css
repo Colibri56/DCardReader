@@ -381,9 +381,12 @@
 .kb-front-inner { flex: 1; position: relative; overflow: hidden; border-radius: 7px; }
 /* התמונה (לרוחב) מסובבת -90° בתוך הקלף העומד - כשהקלף כולו מסתובב +90°
    (שלב land, סעיף 7.4), היא נראית ישרה וממלאת אותו. */
+/* !important - דווח בפועל: תמונה קטנה עם שוליים לבנים, כנראה סגנון גלובלי
+   (img{height:auto}) שדרס את הגובה - ר' ההערה המלאה במקור (elementor-code.html). */
 .kb-front-inner img {
-  position: absolute; object-fit: cover;
-  width: calc(var(--ch, 129px) - 16px); height: calc(var(--cw, 86px) - 16px);
+  position: absolute; object-fit: cover !important;
+  width: calc(var(--ch, 129px) - 16px) !important; height: calc(var(--cw, 86px) - 16px) !important;
+  max-width: none !important; max-height: none !important;
   left: calc((var(--cw, 86px) - var(--ch, 129px)) / 2);
   top: calc((var(--ch, 129px) - var(--cw, 86px)) / 2);
   transform: rotate(-90deg);
