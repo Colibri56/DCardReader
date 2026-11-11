@@ -431,7 +431,7 @@
 .kb-btn--link {
   background: none; border: none; color: var(--bordeaux); text-decoration: underline;
   text-underline-offset: 4px; padding: 0 6px; min-height: auto; display: inline-flex;
-  align-items: center; gap: 6px; font-size: 15px;
+  align-items: center; gap: 6px; font-size: 15px; font-weight: 400;
 }
 
 /* סעיף 3.5: הודעת משתמש - בועה blush. הודעת AI - בלי בועה. */
@@ -482,7 +482,7 @@
     display: flex; grid-template-columns: none; overflow-x: auto; flex-wrap: nowrap;
     scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 4px;
   }
-  .kb-card-row .card-item, .kb-card-row .btn-extra-card { flex: 0 0 290px; scroll-snap-align: center; }
+  .kb-card-row .card-item { flex: 0 0 290px; scroll-snap-align: center; }
 }
 .kb-card-dots { display: none; justify-content: center; gap: 6px; margin-top: 10px; }
 @media (max-width: 767px) {
@@ -491,16 +491,14 @@
 .kb-card-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong, #D9C9CD); }
 .kb-card-dots span.kb-dot-active { width: 22px; height: 8px; border-radius: 4px; background: var(--bordeaux, #7D2E46); }
 
-/* "קלף נוסף" (סעיף 6.5) - תא בשורת הקלפים, מסגרת מקווקוות */
-.btn-extra-card {
-  font-family: 'Rubik', sans-serif; background: transparent; color: var(--bordeaux, #7D2E46);
-  border: 1.5px dashed var(--dashed, #C9AEB6); border-radius: 12px; aspect-ratio: 4 / 3; width: 100%;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  font-size: 15px; cursor: pointer;
+/* "קלף נוסף" (סעיף 6.5) - מוצנע בכוונה: קישור טקסט קטן, בלי מסגרת/קופסה/
+   מקום שמור בשורת הקלפים. */
+.kb-link-extra-card {
+  display: block; margin: 14px auto 0; background: none; border: none;
+  font-family: 'Rubik', sans-serif; font-size: 14px; color: var(--muted, #6E6266);
+  text-decoration: underline; text-underline-offset: 4px; cursor: pointer;
 }
-.btn-extra-card::before { content: '+'; font-size: 28px; line-height: 1; }
-.btn-extra-card:hover { background: var(--blush, #F3E7EA); }
-.btn-extra-card:disabled { opacity: 0.5; cursor: default; }
+.kb-link-extra-card:disabled { opacity: 0.5; cursor: default; }
 
 /* שורת הפעולות (סעיף 6.5) */
 .actions-block {
