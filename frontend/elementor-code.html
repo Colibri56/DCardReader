@@ -21,14 +21,25 @@
         --shadow-small: 0 4px 10px rgba(42,35,38,0.16);
         --error:        #A3262A; /* סעיף 3.5א */
     }
+    /* תיקון QA (סעיף 3.2: "פוקוס בשדות טקסט - מסגרת אחת בלבד") - input/
+       textarea הוסרו מהכלל הגלובלי הזה: היו מקבלים *גם* את הטבעת הזו
+       (3px, offset 3px) *וגם* את שינוי המסגרת/ההילה הייעודי לשדות טקסט
+       (ר' .kb-field:focus וכו' למטה) - שתי מסגרות בבת אחת. כפתורים,
+       קישורים ואלמנטים עם tabindex (קלפים) ממשיכים לקבל את הטבעת הזו,
+       שהיא הפוקוס הנכון להם. */
     .kb-app button:focus-visible,
     .kb-app a:focus-visible,
-    .kb-app input:focus-visible,
-    .kb-app textarea:focus-visible,
     .kb-app [tabindex]:focus-visible {
         outline: 3px solid var(--bordeaux);
         outline-offset: 3px;
     }
+    /* סעיף 3.2א: כל אייקון הוא SVG מוטמע עם width/height גם כמאפיינים
+       וגם ב-CSS, עם עדיפות גבוהה (!important) - כדי שכללי התבנית/
+       אלמנטור (כמו svg{max-width:100%} או button svg{width:1em}) לא
+       יוכלו להקטין/למתוח אותו. */
+    .kb-app .kb-icon { width: 20px !important; height: 20px !important; min-width: 20px; flex: none; display: block; }
+    .kb-app .kb-icon--sm { width: 18px !important; height: 18px !important; min-width: 18px; }
+    .kb-app .kb-icon-btn { width: 44px; height: 44px; min-width: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 0; line-height: 0; }
     .kb-header {
         display: flex;
         align-items: center;
@@ -80,7 +91,18 @@
         resize: none;
         box-sizing: border-box;
     }
-    .kb-field:focus { border-color: var(--bordeaux); }
+    /* סעיף 3.2: פוקוס בשדות טקסט - מסגרת אחת בלבד, אותו מראה בכל מקום
+       (מסגרת 2px בורדו + הילה רכה), בלי outline נוסף (ר' התיקון למעלה
+       שהוציא input/textarea מהכלל הגלובלי). מאוחד לכל שדות הטקסט:
+       .kb-field (מודאלים - נעים להכיר/מייל/משוב), תיבת השאלה ותיבת
+       התשובה בצ'אט. */
+    .kb-field:focus,
+    .question-block textarea:focus,
+    .chat-input-area textarea:focus {
+        outline: none;
+        border: 2px solid var(--bordeaux, #7D2E46);
+        box-shadow: 0 0 0 3px rgba(125,46,70,.12);
+    }
 
     /* תיקון גרדיאנט - הוסר לפי העיצוב החדש ("בלי גרדיאנטים בכלל, הרקע אחיד
        בצבע --paper"). קודם הוחל ישירות על #card-reader-app, אבל האלמנט הזה
@@ -137,9 +159,6 @@
     }
     /* רווח של 28px בין תיבת השאלה לכפתורי המסלול שמתחתיה (עודכן, design-spec 6.3) */
     .question-block { margin-bottom: 28px; }
-    .question-block textarea:focus {
-        border-color: var(--bordeaux, #7D2E46);
-    }
     /* סעיף 3.5א: שגיאת שדה / שורת התראה - משותף לכל הטופס (לא רק השאלה) */
     #user-question[aria-invalid="true"] { border: 2px solid var(--error); }
     .kb-field-error {
@@ -198,11 +217,9 @@
     }
     /* אייקון SVG עם fill="currentColor" - כך שהוא יורש את צבע הכפתור (בורדו,
        ולבן כשמוקלטים) במקום אימוג'י שהצבע שלו קבוע ולא תמיד ברור/עקבי בין
-       דפדפנים ומערכות הפעלה. הגודל הוגדל ב-~36% (22px->30px) יחסית לכפתור
-       (44px) בלי לשנות את גודל הכפתור עצמו - רק האייקון הפנימי גדל. */
+       דפדפנים ומערכות הפעלה. הגודל (20px בעיגול 44px) נקבע ע"י המחלקה
+       הייעודית kb-icon (סעיף 3.2א) שעל ה-svg עצמו ב-HTML - לא כאן. */
     .btn-mic svg {
-        width: 30px !important;
-        height: 30px !important;
         flex-shrink: 0;
     }
     /* בתיבת השאלה (בלוק 1) הכפתור יושב בפינה בתוך ה-textarea, לא בשורה נפרדת */
@@ -428,22 +445,38 @@
     }
 
     /* בלוק 4: צ'אט AI - סעיף 6.5: "אין קופסה סביב השיחה": בלי מסגרת, בלי
-       רקע לבן ובלי גלילה פנימית. השיחה זורמת בעמוד עצמו, בעמודה ממורכזת
-       ברוחב מקסימלי 720px (ר' max-width כאן). */
+       רקע לבן. השאלה והקלפים קבועים (kb-reading-side), ורק השיחה עצמה
+       נגללת, בעמודה ממורכזת ברוחב קריאה מקסימלי 720px - chat-block הוא
+       עמודת flex גובה-מלא: chat-history (flex:1, נגלל) ואז chat-input-area
+       (קבוע בתחתית, לא חלק מהגלילה). ה-class kb-visible (לא inline style)
+       הוא מה ש-JS מוסיף/מסיר כדי להציג/להסתיר (ר' kbOnCardRevealed). */
     .chat-block {
         display: none;
         max-width: 720px;
+        width: 100%;
         margin: 0 auto;
+        flex-direction: column;
+        min-height: 0;
     }
+    .chat-block.kb-visible { display: flex; flex: 1; }
     .chat-history {
-        margin-bottom: 15px;
+        flex: 1;
+        overflow-y: auto;
+        margin-bottom: 0;
+        padding: 20px 4px 15px;
     }
     /* סעיף 3.2: "כפתור המיקרופון... יושב בתוך התיבה, בפינה התחתונה בצד
        שמאל" ו"כפתור שליחה: עיגול 44px, רקע בורדו וחץ לבן שמצביע שמאלה" -
        שניהם position:absolute בתוך קונטיינר יחסי (kb-reply-box) שעוטף
        את ה-textarea, בדיוק כמו btn-mic של תיבת השאלה (בלוק 1) - לא עוד
        כפתור "שלח" מלבני בשורה נפרדת. */
-    .chat-input-area { display: block; }
+    /* קבועה בתחתית עמודת השיחה (סעיף 6.5) - flex-shrink:0 כילד אחרון של
+       chat-block (עמודת flex), עם kb-visible: לא חלק מהגלילה של chat-history. */
+    .chat-input-area {
+        display: block; flex-shrink: 0;
+        border-top: 1px solid var(--line, #E6DCDE);
+        padding-top: 14px; background: var(--paper, #FBF8F6);
+    }
     .kb-reply-box { position: relative; }
     .chat-input-area textarea {
         width: 100%;
@@ -462,9 +495,6 @@
         max-height: 330px;
         overflow-y: auto;
         box-sizing: border-box;
-    }
-    .chat-input-area textarea:focus {
-        border-color: var(--bordeaux, #7D2E46);
     }
     .kb-reply-box .btn-mic {
         position: absolute;
@@ -485,10 +515,6 @@
         justify-content: center;
         cursor: pointer;
     }
-    /* החץ היה נראה זעיר (דווח בפועל) - הוגדל מ-20px ל-24px (יחס גדול יותר
-       מול עיגול הכפתור, כמו בהדמיה). stroke-width גדל בהתאם כדי שהקו לא
-       ייראה דק מדי בגודל החדש. */
-    .btn-send svg { width: 24px; height: 24px; }
     .btn-send:hover {
         background-color: var(--bordeaux-hover, #692539);
     }
@@ -627,9 +653,9 @@
         display: flex; align-items: center; justify-content: center; cursor: pointer;
         color: var(--muted, #6E6266); transition: color 0.2s;
     }
-    /* הוגדל מ-20px (דווח בפועל: "האגודלים זעירים לעומת התכנון") - 26px
-       ממלא בהרבה יותר טוב את עיגול הכפתור (40px). */
-    .dcard-feedback-btn svg { width: 26px; height: 26px; }
+    /* הגודל (18px באזור לחיצה 38-40px, סעיף 3.2א) נקבע ע"י kb-icon--sm
+       שעל ה-svg עצמו ב-HTML (ר' KB_THUMB_UP_SVG/KB_THUMB_DOWN_SVG ב-JS) -
+       לא כאן, כדי לעמוד בפני כללי התבנית שמקטינים/מותחים SVG. */
     .dcard-feedback-btn.kb-feedback-active { color: var(--bordeaux, #7D2E46); }
 
     /* סעיף 6.6: אזור "רוצה להעמיק?" */
@@ -640,25 +666,33 @@
     .kb-deepen-box h4 { font-size: 19px; margin: 0 0 8px; font-weight: 500; }
     .kb-deepen-box p { font-size: 15px; color: var(--ink-soft, #4A3F43); margin: 0 0 16px; line-height: 1.5; }
 
-    /* סעיף 6.5: שורת הקלפים */
+    /* סעיף 6.5: שורת הקלפים - במחשב, בעמודת הצד (380px): הקלפים זה מתחת
+       לזה, לרוחב (4:3), באותו גודל. */
     .kb-card-row {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 260px)); gap: 28px;
-        justify-content: center; width: 100%;
+        display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%;
     }
     .kb-card-row .card-item { width: 100%; }
     .kb-card-row .card-display {
         width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
         border: 10px solid #fff; box-shadow: var(--shadow-card, 0 18px 40px rgba(42,35,38,.16));
     }
-    @media (max-width: 767px) {
+    /* בטלפון/טאבלט (<1024px): רצועה קבועה עם תמונות ממוזערות (76x57,
+       מסגרת לבנה 3px) - הקשה פותחת לייטבוקס (ר' JS kbOpenLightbox).
+       לא עוד קלפים גדולים בגלילת-scroll-snap. */
+    @media (max-width: 1023px) {
         .kb-card-row {
             display: flex; grid-template-columns: none; overflow-x: auto; flex-wrap: nowrap;
-            scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 4px;
+            justify-content: flex-start; gap: 10px; padding-bottom: 2px;
         }
-        .kb-card-row .card-item { flex: 0 0 290px; scroll-snap-align: center; }
+        .kb-card-row .card-item { flex: 0 0 76px; width: 76px; }
+        .kb-card-row .card-display {
+            width: 76px; height: 57px; aspect-ratio: auto;
+            border: 3px solid #fff; box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
+            cursor: pointer;
+        }
     }
     .kb-card-dots { display: none; justify-content: center; gap: 6px; margin-top: 10px; }
-    @media (max-width: 767px) {
+    @media (max-width: 1023px) {
         .kb-card-dots { display: flex; }
     }
     .kb-card-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong, #D9C9CD); }
@@ -807,6 +841,71 @@
     }
 
     #kb-main-content { display: flex; flex-direction: column; gap: 30px; }
+
+    /* ============================================================
+       שלב 4 (עדכון): מסך הקריאה כמסך-צ'אט קבוע (סעיף 6.5) - JS מוסיף
+       kb-reading-active ל-kb-main-content ברגע שהשאלה ננעלת
+       (lockQuestionAndStartShuffling). עד אז kb-reading-screen ריק
+       ומוסתר, ולא משפיע על מסך הבית/דף הכניסה.
+       ============================================================ */
+    #kb-main-content.kb-reading-active {
+        height: 100dvh;
+        overflow: hidden;
+        gap: 0;
+        padding-bottom: 0;
+    }
+    #kb-main-content.kb-reading-active .kb-header { flex-shrink: 0; }
+    #kb-reading-screen { display: none; flex-direction: column; min-height: 0; }
+    #kb-main-content.kb-reading-active #kb-reading-screen {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        margin-top: 20px;
+    }
+    #kb-reading-side {
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--line, #E6DCDE);
+        box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
+        padding-bottom: 14px;
+        margin-bottom: 10px;
+    }
+    #kb-reading-main {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    @media (min-width: 1024px) {
+        #kb-main-content.kb-reading-active #kb-reading-screen { flex-direction: row; }
+        #kb-reading-side {
+            width: 380px; flex-shrink: 0;
+            border-bottom: none; box-shadow: none;
+            border-inline-start: 1px solid var(--line, #E6DCDE);
+            padding: 0 0 0 24px; margin-bottom: 0;
+            overflow-y: auto;
+            display: flex; flex-direction: column;
+        }
+        #kb-reading-main { padding-inline-end: 24px; }
+    }
+    /* עמודת הצד: השאלה (block-1, שעובר לכאן ב-JS, כבר .locked), הקלפים
+       (block-3) ושורת הפעולות (block-5, קבועה בתחתית במחשב - ר' flex
+       המשותף מעלה שדוחף אותה לסוף העמודה). */
+    #kb-reading-side-question .question-block { margin-bottom: 20px; }
+    #kb-reading-side .actions-block { margin-top: auto; }
+
+    /* לייטבוקס (סעיף 6.5, בטלפון/טאבלט): תמונת קלף ממוזערת שנפתחת בגדול */
+    #kb-card-lightbox {
+        position: fixed; inset: 0; background: var(--scrim);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 1200; padding: 20px; box-sizing: border-box;
+    }
+    #kb-card-lightbox[hidden] { display: none; }
+    #kb-card-lightbox img { max-width: 100%; max-height: 100%; border-radius: 14px; box-shadow: var(--shadow-card); }
+    .kb-lightbox-close {
+        position: absolute; top: 16px; left: 16px; width: 44px; height: 44px;
+        border-radius: 50%; border: none; background: var(--surface); color: var(--ink);
+        font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
     .kb-home-grid { display: flex; flex-direction: column; }
     .kb-home-cards { display: none; }
     @media (min-width: 1024px) {
@@ -980,7 +1079,7 @@
                 <label class="kb-field-label" for="user-question">השאלה שלך</label>
                 <textarea id="user-question" placeholder="למשל: איך לבנות לעצמי תוכנית אימונים שאוכל להתמיד בה?" aria-describedby="question-field-error"></textarea>
                 <button type="button" class="btn-mic" id="btn-mic" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
+                    <svg class="kb-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
                         <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
                     </svg>
@@ -1023,62 +1122,85 @@
         </div>
     </div>
 
-    <!-- בלוק 2: ערבוב ושליפה (סעיף 7 ב-docs/design-spec.md).
-         .kb-deck-card-ים (N=12) נוצרים ב-JS (kbBuildStage) - ר' הערה שם
-         למה לא כתובים כאן 12 פעמים ידנית. -->
-    <div class="deck-block" id="block-2">
-        <div class="kb-stage" id="kb-stage" aria-label="חפיסת הקלפים"></div>
-        <div id="kb-stage-status" class="kb-stage-status" aria-live="polite"></div>
-        <button class="btn-main" id="btn-deck-action" disabled>ערבוב קלפים</button>
-    </div>
+    <!-- סעיף 6.5: מסך הקריאה הוא מסך נפרד במבנה "אפליקציית צ'אט" -
+         height:100dvh, השאלה והקלפים קבועים (kb-reading-side), ורק
+         השיחה נגללת (kb-reading-main > chat-history), עם תיבת התשובה
+         קבועה בתחתית. ההפעלה/כיבוי של הפריסה הזו (class kb-reading-active
+         על kb-main-content) נעשה ב-JS, ב-lockQuestionAndStartShuffling -
+         עד אז ה-div הזה ריק/מוסתר ולא משפיע על מסך הבית. -->
+    <div id="kb-reading-screen">
+        <div id="kb-reading-side">
+            <!-- #block-1 (תיבת השאלה, כבר .locked בשלב הזה) עובר לכאן ב-JS -->
+            <div id="kb-reading-side-question"></div>
 
-    <!-- בלוק 3: אזור הצגת הקלפים שנשלפו (סעיף 6.5: שורת קלפים, עד 3, 4:3) -->
-    <div class="cards-block" id="block-3">
-        <div id="cards-container" class="kb-card-row"></div>
-        <div id="cards-dots" class="kb-card-dots" aria-hidden="true"></div>
-        <!-- סעיף 6.5: "קלף נוסף" מוצנע בכוונה - קישור טקסט קטן בלבד, בלי
-             מסגרת/קופסה/מקום שמור בשורת הקלפים עצמה. מוצג רק אחרי תשובה
-             ראשונה בשיחה (chatModeActive) ונעלם לגמרי אחרי הקלף השלישי - ר' JS. -->
-        <button type="button" class="kb-link-extra-card" id="btn-extra-card" style="display:none;">צריך עוד קלף?</button>
-    </div>
+            <!-- בלוק 3: אזור הצגת הקלפים שנשלפו (סעיף 6.5: עד 3 קלפים, 4:3,
+                 זה מתחת לזה בעמודת הצד; בטלפון תמונות ממוזערות עם לייטבוקס). -->
+            <div class="cards-block" id="block-3">
+                <div id="cards-container" class="kb-card-row"></div>
+                <div id="cards-dots" class="kb-card-dots" aria-hidden="true"></div>
+                <!-- סעיף 6.5: "קלף נוסף" מוצנע בכוונה - קישור טקסט קטן בלבד, בלי
+                     מסגרת/קופסה/מקום שמור בשורת הקלפים עצמה. מוצג רק אחרי תשובה
+                     ראשונה בשיחה (chatModeActive) ונעלם לגמרי אחרי הקלף השלישי - ר' JS. -->
+                <button type="button" class="kb-link-extra-card" id="btn-extra-card" style="display:none;">צריך עוד קלף?</button>
+            </div>
 
-    <!-- בלוק 4: דיאלוג עם ה-AI -->
-    <div class="chat-block" id="block-4">
-        <div class="chat-history" id="chat-history">
+            <!-- בלוק 5: שורת הפעולות (סעיף 6.5/6.6) - קבועה בתחתית עמודת הצד
+                 במחשב; עוברת לסוף השיחה הנגללת בטלפון (kbPlaceActionsBlock, JS). -->
+            <div class="actions-block" id="block-5">
+                <div class="kb-actions-group">
+                    <button type="button" class="kb-btn kb-btn--emphasis btn-new-question" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
+                    <button type="button" class="kb-btn kb-btn--secondary btn-email-chat">שליחת השיחה במייל</button>
+                    <button type="button" class="kb-btn kb-btn--secondary btn-end-session">סיום השיחה</button>
+                </div>
+                <button type="button" class="kb-btn kb-btn--link" id="btn-open-feedback">
+                    <svg class="kb-icon kb-icon--sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
+                    לתת משוב
+                </button>
+            </div>
         </div>
-        <div class="chat-input-area">
-            <label class="kb-field-label" for="ai-reply-input">התשובה שלך</label>
-            <!-- סעיף 3.2: מיקרופון וכפתור שליחה בתוך התיבה עצמה, לא בשורה
-                 נפרדת לצידה - kb-reply-box הוא הקונטיינר היחסי שמחזיק את
-                 שניהם ממוקמים absolute בפינה (ר' CSS). -->
-            <div class="kb-reply-box">
-                <textarea id="ai-reply-input" rows="4" placeholder="כתבו כאן את מה שעולה לכם בעקבות הקלף, או שאלו שאלת המשך..."></textarea>
-                <button type="button" class="btn-mic" id="btn-mic-chat" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
-                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                    </svg>
-                    <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-                </button>
-                <button type="button" class="btn-send" aria-label="שליחה">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-                </button>
+
+        <div id="kb-reading-main">
+            <!-- בלוק 2: ערבוב ושליפה (סעיף 7 ב-docs/design-spec.md).
+                 .kb-deck-card-ים (N=12) נוצרים ב-JS (kbBuildStage) - ר' הערה שם
+                 למה לא כתובים כאן 12 פעמים ידנית. -->
+            <div class="deck-block" id="block-2">
+                <div class="kb-stage" id="kb-stage" aria-label="חפיסת הקלפים"></div>
+                <div id="kb-stage-status" class="kb-stage-status" aria-live="polite"></div>
+                <button class="btn-main" id="btn-deck-action" disabled>ערבוב קלפים</button>
+            </div>
+
+            <!-- בלוק 4: דיאלוג עם ה-AI -->
+            <div class="chat-block" id="block-4">
+                <div class="chat-history" id="chat-history">
+                </div>
+                <div class="chat-input-area">
+                    <label class="kb-field-label" for="ai-reply-input">התשובה שלך</label>
+                    <!-- סעיף 3.2: מיקרופון וכפתור שליחה בתוך התיבה עצמה, לא בשורה
+                         נפרדת לצידה - kb-reply-box הוא הקונטיינר היחסי שמחזיק את
+                         שניהם ממוקמים absolute בפינה (ר' CSS). -->
+                    <div class="kb-reply-box">
+                        <textarea id="ai-reply-input" rows="4" placeholder="כתבו כאן את מה שעולה לכם בעקבות הקלף, או שאלו שאלת המשך..."></textarea>
+                        <button type="button" class="btn-mic" id="btn-mic-chat" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
+                            <svg class="kb-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                            </svg>
+                            <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                        </button>
+                        <button type="button" class="btn-send" aria-label="שליחה">
+                            <svg class="kb-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- בלוק 5: שורת הפעולות (סעיף 6.5/6.6) - קו הפרדה + הכפתורים, ו"לתת
-         משוב" בקצה השני (נפתח רק מכאן - סעיף 6.8). -->
-    <div class="actions-block" id="block-5">
-        <div class="kb-actions-group">
-            <button type="button" class="kb-btn kb-btn--emphasis btn-new-question" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
-            <button type="button" class="kb-btn kb-btn--secondary btn-email-chat">שליחת השיחה במייל</button>
-            <button type="button" class="kb-btn kb-btn--secondary btn-end-session">סיום השיחה</button>
-        </div>
-        <button type="button" class="kb-btn kb-btn--link" id="btn-open-feedback">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
-            לתת משוב
-        </button>
+    <!-- לייטבוקס לתמונה הממוזערת של קלף בטלפון (סעיף 6.5: "הקשה על תמונה
+         ממוזערת פותחת את הקלף בגדול... סגירה בהקשה או ב-×"). -->
+    <div id="kb-card-lightbox" hidden>
+        <button type="button" class="kb-lightbox-close" id="kb-lightbox-close" aria-label="סגירה">&times;</button>
+        <img id="kb-lightbox-img" alt="קלף בגדול" />
     </div>
 
     </div> <!-- /kb-main-content -->
@@ -1210,7 +1332,7 @@
             <div style="position:relative;">
                 <textarea id="kb-feedback-text" class="kb-field" rows="3" style="width:100%;box-sizing:border-box;padding:12px 14px;" placeholder="מה עזר לך, ומה היה חסר. אפשר גם להקליט"></textarea>
                 <button type="button" class="btn-mic" id="btn-mic-feedback-modal" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;position:absolute;bottom:14px;left:14px;">
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
+                    <svg class="kb-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
                         <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
                     </svg>
@@ -1707,6 +1829,11 @@
     const btnEmailChat = document.querySelector('#block-5 .btn-email-chat');
     const btnOpenFeedback = document.getElementById('btn-open-feedback');
     const pathChoiceBlock = document.getElementById('block-path-choice');
+    // סעיף 6.5: תיבת השאלה (block-1) עוברת ב-JS מתוך kb-home-main לעמודת
+    // הצד הקבועה של מסך הקריאה (kb-reading-side-question), ברגע שהשאלה
+    // ננעלת - ר' lockQuestionAndStartShuffling. אותו אלמנט DOM, אותם
+    // listeners - רק הורה אחר.
+    const block1Question = document.getElementById('block-1');
     const kbHomeIntro = document.getElementById('kb-home-intro');
     const kbHomeCards = document.getElementById('kb-home-cards');
     const btnPathChat = document.getElementById('btn-path-chat');
@@ -2803,8 +2930,10 @@
         + '<rect x="14" y="3" width="12" height="18" rx="2"/>'
         + '<circle cx="20" cy="12" r="1.6" fill="#F3E7EA" stroke="none"/>'
         + '</svg>';
-    const KB_THUMB_UP_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm0 0 4-7a2 2 0 0 1 2 2v3h5.5a1.5 1.5 0 0 1 1.46 1.84l-1.5 7A2 2 0 0 1 16.52 20H9a2 2 0 0 1-2-2v-7z"/></svg>';
-    const KB_THUMB_DOWN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 13V4H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h3zm0 0-4 7a2 2 0 0 0 2-2v-3h5.5a1.5 1.5 0 0 0 1.46-1.84l-1.5-7A2 2 0 0 0 16.52 4H9a2 2 0 0 0-2 2v7z"/></svg>';
+    // סעיף 3.2א: width/height גם כמאפיינים וגם ב-CSS (kb-icon--sm, 18px
+    // !important) - כדי שהאייקון לא יתכווץ/יימתח מכללי CSS של התבנית.
+    const KB_THUMB_UP_SVG = '<svg class="kb-icon kb-icon--sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm0 0 4-7a2 2 0 0 1 2 2v3h5.5a1.5 1.5 0 0 1 1.46 1.84l-1.5 7A2 2 0 0 1 16.52 20H9a2 2 0 0 1-2-2v-7z"/></svg>';
+    const KB_THUMB_DOWN_SVG = '<svg class="kb-icon kb-icon--sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 13V4H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h3zm0 0-4 7a2 2 0 0 0 2-2v-3h5.5a1.5 1.5 0 0 0 1.46-1.84l-1.5-7A2 2 0 0 0 16.52 4H9a2 2 0 0 0-2 2v7z"/></svg>';
 
     // text הוא קלט לא-בטוח (גם מה שהמשתמש הקליד, גם מה שה-AI מחזיר) - בונה
     // פסקאות אמיתיות (שורה ריקה = פסקה חדשה), כל טקסט כ-text node בלבד,
@@ -2941,6 +3070,11 @@
         } else {
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
+
+        // סעיף 6.5 (בטלפון/טאבלט): כפתורי הפעולות נגללים בסוף השיחה - אחרי
+        // כל הודעה חדשה הם זזים מחדש לסוף (kbPlaceActionsBlock מוגדר למטה,
+        // ור' קוד הייחוס שלה - לא עושה כלום אם block-5 עדיין מוסתר).
+        if ('function' === typeof kbPlaceActionsBlock) kbPlaceActionsBlock();
 
         // מחזיר את ה-bubble עצמו (לא ה-wrapper) - נדרש כדי שקוד אחר (מעבר
         // חלק למצב "שיחה פתוחה" אחרי הודעת "קבלת מסר", ר' runCardAI למטה)
@@ -3327,8 +3461,15 @@
         kbStageStatus.textContent = '';
     }
     function kbHideStage() {
+        // תיקון QA (סעיף 6.5: "אין תווית 'זה הקלף שנבחר'") - onHint('revealed')
+        // (למטה) כותב את הטקסט הזה ל-kb-stage-status *לפני* שה-reveal קורא
+        // לפונקציה הזו (ר' קוד הייחוס ב-kb-shuffle, 7.6: pick()); בלי לנקות
+        // אותו כאן, הוא נשאר דבוק מתחת לבמה המוסתרת, על מסך הקריאה. מסתירים
+        // גם את כל block-2 (לא רק kb-stage/הכפתור) כדי שלא יישאר מרחב ריק.
+        block2Deck.style.display = 'none';
         kbStage.style.display = 'none';
         btnDeckAction.style.display = 'none';
+        kbStageStatus.textContent = '';
     }
     function kbOnHint(key) {
         const texts = {
@@ -3419,6 +3560,47 @@
         }
     }
 
+    // סעיף 6.5: לייטבוקס לתמונה הממוזערת של קלף בטלפון/טאבלט (<1024px) -
+    // "הקשה על תמונה ממוזערת פותחת את הקלף בגדול... סגירה בהקשה או ב-×".
+    const kbCardLightbox = document.getElementById('kb-card-lightbox');
+    const kbLightboxImg = document.getElementById('kb-lightbox-img');
+    const kbLightboxClose = document.getElementById('kb-lightbox-close');
+    function kbOpenLightbox(src) {
+        kbLightboxImg.src = src;
+        kbCardLightbox.hidden = false;
+    }
+    function kbCloseLightbox() {
+        kbCardLightbox.hidden = true;
+        kbLightboxImg.src = '';
+    }
+    kbLightboxClose.addEventListener('click', kbCloseLightbox);
+    kbCardLightbox.addEventListener('click', function (e) {
+        if (e.target === kbCardLightbox) kbCloseLightbox(); // רק לחיצה על הרקע, לא על התמונה
+    });
+    document.addEventListener('keydown', function (e) {
+        if ('Escape' === e.key && !kbCardLightbox.hidden) kbCloseLightbox();
+    });
+
+    // סעיף 6.5: בטלפון/טאבלט (<1024px) כפתורי הפעולות (block-5) מופיעים
+    // בסוף השיחה הנגללת, לא קבועים ברצועה העליונה; במחשב הם קבועים
+    // בתחתית עמודת הצד (kb-reading-side, המיקום הסטטי שלהם ב-HTML).
+    // נקרא בכל חשיפת קלף (כש-block-5 נהיה גלוי לראשונה) ובכל שינוי רוחב.
+    function kbPlaceActionsBlock() {
+        if (block5Actions.style.display === 'none') return; // עוד לא נחשף קלף ראשון
+        const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+        const kbReadingSide = document.getElementById('kb-reading-side');
+        if (isDesktop) {
+            if (block5Actions.parentElement !== kbReadingSide) kbReadingSide.appendChild(block5Actions);
+        } else if (block5Actions.parentElement !== chatHistory || block5Actions.nextSibling) {
+            chatHistory.appendChild(block5Actions); // תמיד כילד אחרון - בסוף השיחה
+        }
+    }
+    let kbPlaceActionsResizeTimer = null;
+    window.addEventListener('resize', function () {
+        clearTimeout(kbPlaceActionsResizeTimer);
+        kbPlaceActionsResizeTimer = setTimeout(kbPlaceActionsBlock, 150);
+    });
+
     function kbOnCardRevealed(card) {
         const cardWrapper = document.createElement('div');
         cardWrapper.className = 'card-item';
@@ -3428,6 +3610,12 @@
             imgElement.classList.add('card-fade-in');
         });
         imgElement.src = card.image_url;
+        imgElement.alt = 'קלף שנשלף';
+        // סעיף 6.5: בטלפון/טאבלט (<1024px) התמונה היא ממוזערת - הקשה עליה
+        // פותחת אותה בגדול בלייטבוקס. במחשב התמונה כבר גדולה, אין צורך.
+        imgElement.addEventListener('click', function () {
+            if (window.matchMedia('(max-width: 1023px)').matches) kbOpenLightbox(card.image_url);
+        });
         cardWrapper.appendChild(imgElement);
 
         cardsContainer.appendChild(cardWrapper);
@@ -3445,8 +3633,9 @@
         }
 
         block3Cards.style.display = 'block';
-        block4Chat.style.display = 'block';
+        block4Chat.classList.add('kb-visible');
         block5Actions.style.display = 'flex';
+        kbPlaceActionsBlock();
 
         if (drawnCards.length < MAX_CARDS) {
             appState = 'drawn';
@@ -3677,15 +3866,17 @@
 
         // סעיף 6.5: "מסך הקריאה הוא מסך נפרד" - ברגע שהשאלה נשלחה, כל חלק
         // מסך הבית (ברכה/כותרת/פסקה/כפתורי מסלול/קלפים דקורטיביים) נעלם
-        // לגמרי, ונשארת גלויה רק תיבת השאלה (כבר .locked, נראית כטקסט בלבד).
+        // לגמרי, ונשארת גלויה רק תיבת השאלה (כבר .locked, נראית כטקסט בלבד) -
+        // שעוברת ב-JS לעמודת הצד הקבועה של מסך הקריאה (kb-reading-side).
+        // אין יותר בועת "שאלת: ..." ואין תווית "זה הקלף שנבחר" (ר' קוד
+        // קודם; הוסרו במפורש, סעיף 6.5) - השאלה כבר מוצגת למעלה, פעם אחת.
         if (kbHomeIntro) kbHomeIntro.style.display = 'none';
         if (pathChoiceBlock) pathChoiceBlock.style.display = 'none';
         if (kbHomeCards) kbHomeCards.style.display = 'none';
 
-        // שינוי UX (#1): בועת השאלה מוזרקת מיד ברגע שהמשתמש נועל
-        // את השאלה שלו ומתחיל את התהליך - לא מחכה לתשובת ה-AI
-        // הראשונה כמו קודם. הפורמט קבוע: שאלת: "...".
-        appendMessage('user', `שאלת: "${userQuestion.value.trim()}"`);
+        const kbReadingSideQuestion = document.getElementById('kb-reading-side-question');
+        if (kbReadingSideQuestion) kbReadingSideQuestion.appendChild(block1Question);
+        kbMainContent.classList.add('kb-reading-active');
 
         kbShowStage();
         appState = 'shuffling';
@@ -3765,18 +3956,10 @@
         deepenBtn.addEventListener('click', function () {
             deepenWrapper.remove(); // לחיצה חד-פעמית - לא רלוונטי יותר אחרי המעבר לשיחה
 
-            // תיקון (דווח בפועל: "השאלה 'מה תרצי לשאול?' צריכה להופיע בבועה
-            // חדשה אחרת לא שמים לב אליה כאילו היא חלק מהמסר") - בעבר זו
-            // הייתה שורה נוספת *לתוך* בועת המסר הקיימת (ר' ההיסטוריה למעלה
-            // על "כאילו הסוכן כתב אותה כחלק מהתשובה"); עכשיו בועת AI נפרדת,
-            // דרך appendMessage הרגילה, כדי שתתבלט כפנייה חדשה ולא תיטמע
-            // בתוך משפט הסיום הקבוע של המסר.
-            const followUpText = ( 'female' === userGender ) ? 'מה תרצי לשאול?' : 'מה תרצה לשאול?';
-            // showFeedback=false: אותו עיקרון כמו שאר התבניות הקבועות (ר'
-            // runCardAI) - זו שורת מעבר קבועה, לא תוכן שה-AI ניסח, אין על
-            // מה לתת משוב (דווח בפועל: הפיל עדיין הופיע כאן, לא נבדק מספיק).
-            appendMessage('ai', followUpText, false);
-
+            // תיקון QA (סעיף 6.6: "ההודעה 'מה תרצה לשאול?' לא אמורה להופיע") -
+            // הוסרה. תיבת התשובה עצמה (שנחשפת ממש כאן, display='' למטה)
+            // והפלייסהולדר שבה ("כתבו מה עולה לכם...") כבר מזמינים להמשיך,
+            // בלי בועת AI נוספת ומיותרת.
             chatModeActive = true; // מכאן ואילך - כמו אחרי btnPathChat - גם בקלפים נוספים
             // תיקון: אותו חשיפה רטרואקטיבית של כפתור "קלף נוסף" כמו ב-
             // btnPathChat - גם כאן (העמקה ממסר לשיחה) יכול להיות קלף כבר

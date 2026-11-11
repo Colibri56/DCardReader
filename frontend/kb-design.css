@@ -35,15 +35,22 @@
   background: var(--paper);
 }
 
-/* נגישות: פוקוס מקלדת גלוי (סעיף 0.6) על כל אלמנט בר-פוקוס במערכת */
+/* נגישות: פוקוס מקלדת גלוי (סעיף 0.6) על כפתורים/קישורים/אלמנטים עם
+   tabindex. input/textarea לא כלולים כאן (סעיף 3.2: "מסגרת אחת בלבד") -
+   יש להם סגנון פוקוס ייעודי (.kb-field:focus וכו' למטה), כדי שלא תהיה
+   להם גם הטבעת הזו וגם שינוי המסגרת/הילה בבת אחת. */
 .kb-app button:focus-visible,
 .kb-app a:focus-visible,
-.kb-app input:focus-visible,
-.kb-app textarea:focus-visible,
 .kb-app [tabindex]:focus-visible {
   outline: 3px solid var(--bordeaux);
   outline-offset: 3px;
 }
+
+/* סעיף 3.2א: אייקונים - גודל קבוע עם עדיפות גבוהה, כדי שכללי התבנית לא
+   יקטינו/ימתחו SVG-ים (ר' גם width/height כמאפיינים על ה-svg עצמו). */
+.kb-app .kb-icon { width: 20px !important; height: 20px !important; min-width: 20px; flex: none; display: block; }
+.kb-app .kb-icon--sm { width: 18px !important; height: 18px !important; min-width: 18px; }
+.kb-app .kb-icon-btn { width: 44px; height: 44px; min-width: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 0; line-height: 0; }
 
 /* ---------- 3.1 כפתורים (ארבעה סוגים בלבד) ---------- */
 .kb-btn {
@@ -82,8 +89,12 @@
   color: var(--ink);
   resize: none;
 }
+/* פוקוס: מסגרת 2px בורדו + הילה רכה, בלי outline נוסף - אותו מראה בכל
+   שדות הטקסט (מודאלים/שאלה/תשובה בצ'אט), ר' ההערה למעלה. */
 .kb-field:focus {
-  border-color: var(--bordeaux);
+  outline: none;
+  border: 2px solid var(--bordeaux);
+  box-shadow: 0 0 0 3px rgba(125,46,70,.12);
 }
 .kb-field-label {
   display: block;
@@ -456,7 +467,8 @@
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   color: var(--muted, #6E6266); transition: color 0.2s;
 }
-.dcard-feedback-btn svg { width: 26px; height: 26px; }
+/* הגודל (18px באזור לחיצה 38-40px, סעיף 3.2א) נקבע ע"י kb-icon--sm
+   שעל ה-svg עצמו ב-HTML - לא כאן. */
 .dcard-feedback-btn.kb-feedback-active { color: var(--bordeaux, #7D2E46); }
 
 /* סעיף 6.6: אזור "רוצה להעמיק?" */
@@ -467,29 +479,81 @@
 .kb-deepen-box h4 { font-size: 19px; margin: 0 0 8px; font-weight: 500; }
 .kb-deepen-box p { font-size: 15px; color: var(--ink-soft, #4A3F43); margin: 0 0 16px; line-height: 1.5; }
 
-/* סעיף 6.5: שורת הקלפים */
+/* סעיף 6.5: שורת הקלפים - במחשב, בעמודת הצד (380px): זה מתחת לזה, 4:3. */
 .kb-card-row {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 260px)); gap: 28px;
-  justify-content: center; width: 100%;
+  display: grid; grid-template-columns: 1fr; gap: 20px; width: 100%;
 }
 .kb-card-row .card-item { width: 100%; }
 .kb-card-row .card-display {
   width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
   border: 10px solid #fff; box-shadow: var(--shadow-card, 0 18px 40px rgba(42,35,38,.16));
 }
-@media (max-width: 767px) {
+/* בטלפון/טאבלט (<1024px): תמונות ממוזערות (76x57, מסגרת לבנה 3px) -
+   הקשה פותחת לייטבוקס. */
+@media (max-width: 1023px) {
   .kb-card-row {
     display: flex; grid-template-columns: none; overflow-x: auto; flex-wrap: nowrap;
-    scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 4px;
+    justify-content: flex-start; gap: 10px; padding-bottom: 2px;
   }
-  .kb-card-row .card-item { flex: 0 0 290px; scroll-snap-align: center; }
+  .kb-card-row .card-item { flex: 0 0 76px; width: 76px; }
+  .kb-card-row .card-display {
+    width: 76px; height: 57px; aspect-ratio: auto;
+    border: 3px solid #fff; box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
+    cursor: pointer;
+  }
 }
 .kb-card-dots { display: none; justify-content: center; gap: 6px; margin-top: 10px; }
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
   .kb-card-dots { display: flex; }
 }
 .kb-card-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong, #D9C9CD); }
 .kb-card-dots span.kb-dot-active { width: 22px; height: 8px; border-radius: 4px; background: var(--bordeaux, #7D2E46); }
+
+/* ============================================================
+   מסך הקריאה כמסך-צ'אט קבוע (סעיף 6.5) - ר' ההערה המלאה ב-
+   frontend/elementor-code.html (#kb-main-content.kb-reading-active).
+   ============================================================ */
+#kb-main-content.kb-reading-active {
+  height: 100dvh; overflow: hidden; gap: 0; padding-bottom: 0;
+}
+#kb-main-content.kb-reading-active .kb-header { flex-shrink: 0; }
+#kb-reading-screen { display: none; flex-direction: column; min-height: 0; }
+#kb-main-content.kb-reading-active #kb-reading-screen {
+  display: flex; flex: 1; min-height: 0; margin-top: 20px;
+}
+#kb-reading-side {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line, #E6DCDE);
+  box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
+  padding-bottom: 14px; margin-bottom: 10px;
+}
+#kb-reading-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+@media (min-width: 1024px) {
+  #kb-main-content.kb-reading-active #kb-reading-screen { flex-direction: row; }
+  #kb-reading-side {
+    width: 380px; flex-shrink: 0; border-bottom: none; box-shadow: none;
+    border-inline-start: 1px solid var(--line, #E6DCDE);
+    padding: 0 0 0 24px; margin-bottom: 0; overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  #kb-reading-main { padding-inline-end: 24px; }
+}
+#kb-reading-side-question .question-block { margin-bottom: 20px; }
+#kb-reading-side .actions-block { margin-top: auto; }
+
+/* לייטבוקס (סעיף 6.5, בטלפון/טאבלט): תמונת קלף ממוזערת שנפתחת בגדול */
+#kb-card-lightbox {
+  position: fixed; inset: 0; background: var(--scrim);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1200; padding: 20px; box-sizing: border-box;
+}
+#kb-card-lightbox[hidden] { display: none; }
+#kb-card-lightbox img { max-width: 100%; max-height: 100%; border-radius: 14px; box-shadow: var(--shadow-card); }
+.kb-lightbox-close {
+  position: absolute; top: 16px; left: 16px; width: 44px; height: 44px;
+  border-radius: 50%; border: none; background: var(--surface); color: var(--ink);
+  font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
 
 /* "קלף נוסף" (סעיף 6.5) - מוצנע בכוונה: קישור טקסט קטן, בלי מסגרת/קופסה/
    מקום שמור בשורת הקלפים. */
