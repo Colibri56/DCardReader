@@ -171,7 +171,16 @@ class DCard_REST_Controller {
 			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
 			'args'                => array(
 				'session_token' => array( 'required' => true ),
-				'card_id'       => array( 'required' => true ),
+				// Design-spec §7.2: the card itself is chosen in PHP
+				// (random_int, below), never trusted from the client - so
+				// card_id is no longer a client-supplied param.
+				// Optional: ids the client already knows are "taken" (this
+				// session's own drawn cards are excluded server-side
+				// regardless; this covers the client's separate same-day
+				// recent-history exclusion, kept client-side since it is
+				// per-device, not per-session - see recentCardExclusionSet()
+				// in elementor-code.html).
+				'exclude_ids'   => array( 'required' => false ),
 				// Optional: the user's original question, sent on the FIRST
 				// card of a session so this single call can ground the AI's
 				// reflection in it. See the comment on session_card_selected_inner().
@@ -461,15 +470,21 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'error' => 'יותר מדי בקשות. נסו שוב בעוד קצת.' ), 429 );
 		}
 
-		$session_token = sanitize_text_field( (string) $request->get_param( 'session_token' ) );
-		$card_id       = absint( $request->get_param( 'card_id' ) );
-		$question      = sanitize_textarea_field( (string) $request->get_param( 'question' ) );
-		$mode          = sanitize_text_field( (string) $request->get_param( 'mode' ) );
-		$mode          = in_array( $mode, array( 'chat', 'message' ), true ) ? $mode : 'chat';
+		$session_token    = sanitize_text_field( (string) $request->get_param( 'session_token' ) );
+		$question         = sanitize_textarea_field( (string) $request->get_param( 'question' ) );
+		$mode             = sanitize_text_field( (string) $request->get_param( 'mode' ) );
+		$mode             = in_array( $mode, array( 'chat', 'message' ), true ) ? $mode : 'chat';
+		$raw_exclude_ids  = $request->get_param( 'exclude_ids' );
+		$raw_exclude_ids  = is_array( $raw_exclude_ids ) ? $raw_exclude_ids : array();
+		$client_exclude_ids = array_map( 'absint', $raw_exclude_ids );
 
 		$session = DCard_DB::get_session( $session_token );
 		if ( ! $session || 'active' !== $session['status'] ) {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
+		}
+
+		if ( count( $session['drawn_cards'] ) >= 3 ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'הגעת למקסימום 3 קלפים לשאלה' ), 409 );
 		}
 
 		// Freemium PLG, אכיפת קרדיטים - תיקון יחידת המדידה: קרדיט אחד =
@@ -516,23 +531,20 @@ class DCard_REST_Controller {
 			), 403 );
 		}
 
-		// Testing mode: the first card of a session is always the forced one,
-		// whatever the client sent, so the AI is guaranteed to see that card.
+		// Testing mode: the first card of a session is always the forced one -
+		// decided server-side, never by the client, so the AI is guaranteed
+		// to see that card.
 		$forced_card_id = DCard_Settings::get_forced_card_id();
-		if ( $forced_card_id && empty( $session['drawn_cards'] ) ) {
+		if ( $forced_card_id && empty( $session['drawn_cards'] ) && DCard_Cards::exists( $forced_card_id ) ) {
 			$card_id = $forced_card_id;
-		}
-
-		if ( $card_id < 1 || $card_id > 72 || ! DCard_Cards::exists( $card_id ) ) {
-			return new WP_REST_Response( array( 'success' => false, 'error' => 'card_id לא תקין' ), 400 );
-		}
-
-		if ( in_array( $card_id, $session['drawn_cards'], true ) ) {
-			return new WP_REST_Response( array( 'success' => false, 'error' => 'הקלף הזה כבר נבחר בסשן הזה' ), 409 );
-		}
-
-		if ( count( $session['drawn_cards'] ) >= 3 ) {
-			return new WP_REST_Response( array( 'success' => false, 'error' => 'הגעת למקסימום 3 קלפים לשאלה' ), 409 );
+		} else {
+			// Design-spec §7.2 (חובה): the draw itself - which of the 72
+			// cards comes up - is decided here, with random_int(), never on
+			// the client. $excluded keeps the session from repeating a card
+			// it already drew, plus whatever same-day recent-history ids
+			// the client asked to avoid (see the exclude_ids param above).
+			$excluded = array_unique( array_merge( $session['drawn_cards'], $client_exclude_ids ) );
+			$card_id  = $this->pick_random_card_id( $excluded );
 		}
 
 		// The frontend flow here skips a separate clarifying chat turn - the
@@ -834,6 +846,10 @@ class DCard_REST_Controller {
 		return new WP_REST_Response( array(
 			'success'     => true,
 			'cardId'      => $card_id,
+			// §7.2: the image the client preloads before it reveals the
+			// card - never derived client-side from cardId.
+			'imageUrl'    => $this->card_image_url( $card_id ),
+			'cardAlt'     => 'קלף מספר ' . $card_id,
 			'aiReply'     => $data['speak'],
 			'nextAction'  => $data['next_action'],
 			'endSession'  => (bool) $data['end_session'],
@@ -1860,5 +1876,40 @@ class DCard_REST_Controller {
 		}
 
 		return $stage;
+	}
+
+	/**
+	 * Design-spec §7.2: picks the drawn card itself, server-side. $excluded
+	 * holds ids that must not come up (this session's own cards, plus the
+	 * client's same-day recent-history hint - see session_card_selected_inner()).
+	 * Falls back to ignoring the exclusion list only if it somehow covers
+	 * every existing card (never happens in practice: at most ~3 session ids
+	 * + ~15 recent-history ids against 72 cards), so a draw can never dead-end.
+	 */
+	private function pick_random_card_id( array $excluded ) {
+		$available = array();
+		for ( $i = 1; $i <= 72; $i++ ) {
+			if ( DCard_Cards::exists( $i ) && ! in_array( $i, $excluded, true ) ) {
+				$available[] = $i;
+			}
+		}
+		if ( empty( $available ) ) {
+			for ( $i = 1; $i <= 72; $i++ ) {
+				if ( DCard_Cards::exists( $i ) ) {
+					$available[] = $i;
+				}
+			}
+		}
+		return $available[ random_int( 0, count( $available ) - 1 ) ];
+	}
+
+	/**
+	 * The frontend never builds this path itself (design-spec §7.2: it only
+	 * ever receives { id, image_url, alt } from the server) - same filename
+	 * convention the old client-side draw used (im_01.jpg..im_72.jpg),
+	 * just built here now that the id is picked here.
+	 */
+	private function card_image_url( $card_id ) {
+		return home_url( '/wp-content/uploads/im_' . str_pad( (string) $card_id, 2, '0', STR_PAD_LEFT ) . '.jpg' );
 	}
 }

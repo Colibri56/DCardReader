@@ -234,51 +234,73 @@
         align-items: center;
     }
 
-    .deck {
+    /* ערבוב ושליפה (סעיף 7.5) - --cw/--ch/--bt/--stage-h נקבעים ב-JS
+       (kbShuffle, לפי מחשב/טלפון - סעיף 7.3). */
+    .kb-stage {
         position: relative;
-        width: 150px;
-        height: 220px;
-        margin-bottom: 30px;
-    }
-
-    .card-back {
-        position: absolute;
         width: 100%;
-        height: 100%;
-        background: #800020;
+        max-width: 480px;
+        height: var(--stage-h, 400px);
+        perspective: 1400px;
+        margin: 0 auto 12px;
+        /* בטיחות לרוחב טלפון צר (360px, סעיף 7.9): PUSH+PX של שלב 'drawn'
+           יכולים לקרב את קצה הערימה לשוליים - מונע גלילה אופקית בעמוד
+           גם אם קצה קלף בודד נחתך חלקית ברגע המעבר. */
+        overflow: hidden;
+    }
+    .kb-deck-card {
+        position: absolute;
+        left: calc(50% - var(--cw, 86px) / 2);
+        top: var(--bt, 150px);
+        width: var(--cw, 86px);
+        height: var(--ch, 129px);
+        padding: 0;
+        border: 0;
+        background: none;
+        transform-style: preserve-3d;
+        will-change: transform;
+        cursor: pointer;
+    }
+    .kb-face {
+        position: absolute;
+        inset: 0;
         border-radius: 12px;
-        border: 2px solid #fff;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-        transition: transform 0.4s ease-in-out, z-index 0s 0.2s;
+        box-sizing: border-box;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
     }
-
-    /* פיזור התחלתי קל כדי ליצור תחושה של ערימה */
-    .card-1 { transform: rotate(-2deg) translate(2px, 2px); z-index: 1; }
-    .card-2 { transform: rotate(1deg) translate(-2px, -1px); z-index: 2; }
-    .card-3 { transform: rotate(-1deg) translate(0, 0); z-index: 3; }
-
-    /* מחלקות האנימציה שמופעלות בעת הערבוב - מצב "גלגול" אופקי (היה קיים) */
-    .card-back.shuffle-left {
-        transform: translateX(-120px) rotate(-15deg);
-        z-index: 5 !important;
+    .kb-face--back {
+        background: var(--bordeaux);
+        border: 3px solid #fff;
+        box-shadow: var(--shadow-small);
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
-
-    .card-back.shuffle-right {
-        transform: translateX(120px) rotate(15deg);
-        z-index: 5 !important;
+    .kb-face--front {
+        transform: rotateY(180deg);
+        background: #fff;
+        padding: 8px;
+        display: flex;
+        box-shadow: 0 18px 40px rgba(42,35,38,.22);
     }
-
-    /* תיקון: "הדינמיקה לא בולטת מספיק" - מצב שני, "קפיצה" אנכית, שמתחלף
-       עם המצב האופקי כל 2 עירבובים (ר' shuffleStepCount ב-JS, לא לפי זמן) -
-       נותן תחושת תנועה שונה לגמרי, לא רק את אותה החלקה אופקית כל הזמן. */
-    .card-back.shuffle-bounce-up {
-        transform: translateY(-70px) scale(1.05);
-        z-index: 5 !important;
+    .kb-front-inner { flex: 1; position: relative; overflow: hidden; border-radius: 7px; }
+    /* התמונה (לרוחב) מסובבת -90° בתוך הקלף העומד - כשהקלף כולו מסתובב
+       +90° (שלב land, סעיף 7.4), היא נראית ישרה וממלאת אותו. */
+    .kb-front-inner img {
+        position: absolute; object-fit: cover;
+        width: calc(var(--ch, 129px) - 16px); height: calc(var(--cw, 86px) - 16px);
+        left: calc((var(--cw, 86px) - var(--ch, 129px)) / 2);
+        top: calc((var(--ch, 129px) - var(--cw, 86px)) / 2);
+        transform: rotate(-90deg);
     }
-
-    .card-back.shuffle-bounce-down {
-        transform: translateY(10px) scale(0.97);
-        z-index: 5 !important;
+    .kb-deck-card:focus-visible { outline: 3px solid var(--bordeaux); outline-offset: 4px; }
+    .kb-stage-status {
+        min-height: 22px;
+        text-align: center;
+        font-size: 15px;
+        color: var(--ink-soft, #6b5c61);
+        margin: 0 0 16px;
     }
 
     /* כפתור מרכזי - kb-btn--primary (סעיף 3.1) */
@@ -766,7 +788,10 @@
     }
     .kb-home-greeting { font-size: 20px; color: var(--muted); margin: 0 0 4px; }
     .kb-home-title { font-size: 52px; font-weight: 500; line-height: 1.15; margin: 0 0 14px; }
-    .kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 28px; max-width: 520px; }
+    /* !important: ר' תיקון מקביל על .kb-app{background} למעלה - לתבנית/
+       לתוסף הנגישות של האתר יש כללי p{margin...} גלובליים חזקים יותר
+       מסלקטור class בודד, שבלעו את ה-28px בלי זה. */
+    .kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 28px !important; max-width: 520px; }
     .kb-btn-sub { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 2px; }
     .btn-main .kb-btn-sub { color: #F3E7EA; }
     /* שני כפתורי המסלול (סעיף 3.1 מעודכן): לא גלולה (999px) כמו רוב
@@ -941,14 +966,13 @@
         </div>
     </div>
 
-    <!-- בלוק 2: ערימת קלפים לאנימציה וכפתור פעולה -->
+    <!-- בלוק 2: ערבוב ושליפה (סעיף 7 ב-docs/design-spec.md).
+         .kb-deck-card-ים (N=12) נוצרים ב-JS (kbBuildStage) - ר' הערה שם
+         למה לא כתובים כאן 12 פעמים ידנית. -->
     <div class="deck-block" id="block-2">
-        <div class="deck" id="card-deck">
-            <div class="card-back card-1"></div>
-            <div class="card-back card-2"></div>
-            <div class="card-back card-3"></div>
-        </div>
-        <button class="btn-main" id="btn-deck-action">ערבוב קלפים</button>
+        <div class="kb-stage" id="kb-stage" aria-label="חפיסת הקלפים"></div>
+        <div id="kb-stage-status" class="kb-stage-status" aria-live="polite"></div>
+        <button class="btn-main" id="btn-deck-action" disabled>ערבוב קלפים</button>
     </div>
 
     <!-- בלוק 3: אזור הצגת הקלפים שנשלפו -->
@@ -1521,18 +1545,7 @@
     const TOTAL_CARDS = 72;
     const MAX_CARDS = 3;
     let drawnCards = [];
-    let forceCardId = null; // מצב בדיקה: מגיע מהשרת (Settings > DCard AI), null = הגרלה רגילה
     let appState = 'start';
-    let shuffleInterval;
-    // תיקון "דינמיקה לא בולטת" - מצב האנימציה הנוכחי, מתחלף כל 2 עירבובים
-    // (לא לפי זמן - ר' performShuffleStep) בין 'horizontal' (הקיים - החלקה
-    // שמאלה/ימינה) ל-'bounce' (חדש - קפיצה אנכית).
-    let shuffleMode = 'horizontal';
-    let shuffleStepCount = 0;
-    // תיקון (התבקש: "במצב עירבוב קלפים, אם לא נבחר קלף תוך 8 שניות,
-    // שהאפליקציה תבחר אקראית") - נקבע ב-beginShuffling(), מבוטל ברגע
-    // שהקלף נבחר בפועל (ידנית או אוטומטית) - ר' שני המקומות למטה.
-    let shuffleAutoPickTimer = null;
 
     // אלמנטים מה-DOM
     const userQuestion = document.getElementById('user-question');
@@ -1543,8 +1556,8 @@
     const btnMic = document.getElementById('btn-mic');
     const block2Deck = document.getElementById('block-2');
     const btnDeckAction = document.getElementById('btn-deck-action');
-    const visualDeck = document.getElementById('card-deck');
-    const animationCards = document.querySelectorAll('.card-back');
+    const kbStage = document.getElementById('kb-stage');
+    const kbStageStatus = document.getElementById('kb-stage-status');
     const cardReaderApp = document.getElementById('card-reader-app');
     const block3Cards = document.getElementById('block-3');
     const cardsContainer = document.getElementById('cards-container');
@@ -1650,7 +1663,8 @@
             if (data.session_token) {
                 sessionToken = data.session_token;
                 currentSessionCounted = false; // סשן חדש - עדיין לא "מחויב" לשום נתיב, ר' countSessionIfNeeded
-                forceCardId = data.forceCardId ? Number(data.forceCardId) : null;
+                // forceCardId (מצב בדיקה) כבר לא נשלט מהלקוח - נאכף במלואו
+                // בשרת, ר' session_card_selected_inner (סעיף 7.2: הקלף נבחר בשרת).
                 chatHistory.innerHTML = ''; // ניקוי אזור הצ'אט לאחר שהחיבור הצליח
 
                 // הערך שחוזר מהשרת הוא הקובע, לא מה שנשלח - כי הוא עשוי לשקף
@@ -2825,17 +2839,6 @@
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
-    // בחירה אקראית של קלף באמצעות crypto.getRandomValues, עם rejection
-    // sampling כדי למנוע הטיית modulo (0x100000000 לא מתחלק ב-72).
-    function secureRandomCardId() {
-        const limit = Math.floor(0x100000000 / TOTAL_CARDS) * TOTAL_CARDS;
-        const buf = new Uint32Array(1);
-        do {
-            crypto.getRandomValues(buf);
-        } while (buf[0] >= limit);
-        return (buf[0] % TOTAL_CARDS) + 1;
-    }
-
     // תאריך מקומי (לא UTC) בפורמט YYYY-MM-DD - "היום" מוגדר לפי שעון
     // המשתמש, כמו שהבקשה המקורית ("עד 5 סשנים עוקבים באותו היום") מתכוונת.
     function dcardTodayKey() {
@@ -2892,56 +2895,341 @@
         return ids;
     }
 
+    // ערבוב ושליפה (סעיף 7 ב-docs/design-spec.md) - מנוע האנימציה עצמו,
+    // ר' קוד הייחוס בסעיף 7.6. שינויים מול קוד הייחוס, במכוון:
+    //   1. stage-h נוסף כמשתנה CSS (חסר בקוד הייחוס המקורי).
+    //   2. chosen/last מתאפסים בתחילת start() - בקוד הייחוס המקורי נשארים
+    //      "תפוסים" לצמיתות אחרי קלף ראשון, כך ששליפה שנייה/שלישית (יש לנו
+    //      עד MAX_CARDS=3 בסשן אחד, לא קלף יחיד לעמוד) לא הייתה עובדת.
+    //   3. tabindex על .kb-deck-card מתחלף 0/-1 לפי שלב (סעיף 7.7: Tab
+    //      עובר בין הקלפים רק בשלב flow).
+    //   4. אין Promise.race עם timeout על fetchCard: ה-endpoint הקיים
+    //      (session/card-selected) משלב בחירת קלף + קריאת AI מלאה (לפעמים
+    //      עם retry) באותה בקשה - ר' ההערה המלאה ליד kbFetchCard למטה.
+    //      הוחלט (במפורש, לא בכוונה לסטות משקט מסעיף 7.2) לחייב בחירה
+    //      ידנית (הקשה על קלף/לחיצה על הכפתור) בלי טיימר אוטומטי.
+    function kbShuffle(stage, opts) {
+        const P = opts.mobile
+            ? { N: 12, CW: 86,  CH: 129, PX: 112, BT: 150, STAGE_H: 400, PY: -80,  S: 1.55, SL: 1.5, PUSH: 30, PUSHY: 30, FLOW: 170 }
+            : { N: 12, CW: 130, CH: 195, PX: 190, BT: 200, STAGE_H: 560, PY: -110, S: 1.7,  SL: 1.5, PUSH: 40, PUSHY: 60, FLOW: 170 };
+        const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const cards = [], timers = [];
+        let order = [...Array(P.N).keys()], A = [], B = [], dir = 'AB', phase = 'stack';
+        let z = {}, zc = P.N, last = null, chosen = null, flowTimer = null;
+        const jit = (id, k) => (((id * 73 + k * 31) % 11) - 5) / 5;
+        const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+
+        stage.style.setProperty('--cw', P.CW + 'px'); stage.style.setProperty('--ch', P.CH + 'px');
+        stage.style.setProperty('--bt', P.BT + 'px'); stage.style.setProperty('--stage-h', P.STAGE_H + 'px');
+        for (let id = 0; id < P.N; id++) {
+            const el = stage.querySelector(`[data-card="${id}"]`);
+            el.addEventListener('click', () => pick(id));
+            cards.push(el);
+        }
+
+        function setCardsTabIndex(v) {
+            cards.forEach((el, id) => { if (id !== chosen) el.tabIndex = v; });
+        }
+        function setT(id, { x = 0, y = 0, r = 0, ry = 0, s = 1, dur = 420, delay = 0, zi }) {
+            const el = cards[id];
+            el.style.transition = reduce ? 'none' : `transform ${dur}ms cubic-bezier(.2,.7,.2,1) ${delay}ms`;
+            el.style.transform = `translate(${x}px,${y}px) rotate(${r}deg) rotateY(${ry}deg) scale(${s})`;
+            if (zi !== undefined) el.style.zIndex = zi;
+        }
+        function render() {
+            for (let id = 0; id < P.N; id++) {
+                if (id === chosen) continue;
+                const p = order.indexOf(id);
+                if (phase === 'stack')  setT(id, { y: -p * 1.2, r: jit(id, 4) * 1.5, delay: p * 25, zi: p });
+                if (phase === 'split') { const L = p < P.N / 2;
+                    setT(id, { x: L ? -P.PX : P.PX, y: -(L ? p : p - P.N / 2) * 1.5, r: L ? -6 : 6, delay: (p % 4) * 30, zi: p }); }
+                if (phase === 'riffle') setT(id, { y: -p * 1.2, r: jit(id, 4) * 1.5, dur: 340, delay: p * 60, zi: p });
+                if (phase === 'flow' || phase === 'drawn') {
+                    const ia = A.indexOf(id), ib = B.indexOf(id);
+                    const push = phase === 'drawn' ? P.PUSH : 0, dy = phase === 'drawn' ? P.PUSHY : 0;
+                    let x = ia >= 0 ? P.PX + push : -P.PX - push, y = -(ia >= 0 ? ia : ib) * 1.2 + dy;
+                    let r = jit(id, 5) * 3; if (id === last && phase === 'flow') r += dir === 'AB' ? -4 : 4;
+                    setT(id, { x, y, r, dur: phase === 'drawn' ? 600 : 300, zi: z[id] ?? p });
+                }
+            }
+        }
+        function riffle(o) {
+            const cut = Math.floor(o.length / 2) + (Math.random() < .5 ? -1 : 1);
+            const a = o.slice(0, cut), b = o.slice(cut), out = [];
+            while (a.length || b.length) out.push((a.length && (!b.length || Math.random() < .5)) ? a.shift() : b.shift());
+            return out;
+        }
+        function step() {
+            const src = dir === 'AB' ? A : B, dst = dir === 'AB' ? B : A;
+            const id = src.pop(); dst.push(id); z[id] = ++zc; last = id;
+            if (!src.length) dir = dir === 'AB' ? 'BA' : 'AB';
+            render();
+        }
+        async function pick(id) {
+            if (phase !== 'flow' || chosen !== null) return;
+            clearInterval(flowTimer); phase = 'drawn'; chosen = id;
+            A = A.filter(x => x !== id); B = B.filter(x => x !== id);
+            opts.onBusyChange(true); render();
+            setCardsTabIndex(-1);
+            setT(id, { x: 0, y: P.PY, r: -1, s: reduce ? 1 : P.S, dur: reduce ? 0 : 750, zi: 9999 }); // lift
+            const minLift = new Promise(r => setTimeout(r, reduce ? 0 : 700));
+            try {
+                const card = await opts.fetchCard();
+                const img = cards[id].querySelector('.kb-front-inner img');
+                await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = card.image_url; img.alt = card.alt; });
+                await minLift;
+                if (reduce) {
+                    // סעיף 7.8: בלי אנימציה - מצב סופי ישר, רק opacity 0->1 ב-200ms.
+                    cards[id].style.opacity = '0';
+                    setT(id, { x: 0, y: P.PY, r: 90, ry: 180, s: P.SL, dur: 0, zi: 9999 });
+                    requestAnimationFrame(() => {
+                        cards[id].style.transition = 'opacity 200ms';
+                        cards[id].style.opacity = '1';
+                    });
+                    opts.onHint('revealed');
+                    opts.onReveal(card);
+                } else {
+                    setT(id, { x: 0, y: P.PY, r: -1, ry: 180, s: P.S, dur: 750, zi: 9999 }); // flip (עומד)
+                    later(800, () => {
+                        setT(id, { x: 0, y: P.PY, r: 90, ry: 180, s: P.SL, dur: 750, zi: 9999 }); // land (לרוחב)
+                        later(800, () => { opts.onHint('revealed'); opts.onReveal(card); });
+                    });
+                }
+            } catch (e) {
+                chosen = null; phase = 'flow'; A.push(id); render();
+                setCardsTabIndex(0);
+                opts.onHint('error'); opts.onBusyChange(false);
+                if (!reduce) flowTimer = setInterval(step, P.FLOW);
+            }
+        }
+        function start({ skipRiffle = false } = {}) {
+            chosen = null; last = null;
+            opts.onBusyChange(true); opts.onHint('shuffling'); render();
+            let t = 400;
+            if (!skipRiffle && !reduce) for (let k = 0; k < 2; k++) {
+                later(t, () => { phase = 'split'; render(); }); t += 650;
+                later(t, () => { phase = 'riffle'; order = riffle(order); render(); }); t += 1000;
+                later(t, () => { phase = 'stack'; render(); }); t += 300;
+            }
+            later(t, () => {
+                phase = 'flow';
+                A = reduce ? order.slice(0, P.N / 2) : order.slice();
+                B = reduce ? order.slice(P.N / 2) : [];
+                render();
+                setCardsTabIndex(0);
+                opts.onHint('flowing');
+                opts.onBusyChange(false);
+            });
+            if (!reduce) later(t + 650, () => { flowTimer = setInterval(step, P.FLOW); });
+        }
+        return {
+            start,
+            drawNow: () => pick(last ?? A[A.length - 1]),
+            destroy: () => { timers.forEach(clearTimeout); clearInterval(flowTimer); }
+        };
+    }
+
+    // בונה את 12 כפתורי .kb-deck-card בתוך הבמה (סעיף 7.5) - לא כתובים 12
+    // פעמים ידנית ב-HTML כדי לא לשכפל את אותו ה-SVG פעמים רבות בקובץ ענק
+    // כבר כך; kbShuffle לעיל מצפה שהם כבר קיימים לפני שהוא רץ (querySelector
+    // על data-card), בדיוק כמו בהערת ה-HTML בסעיף 7.5.
+    function kbBuildStage(stage, n) {
+        let html = '';
+        const backLogo = '<svg class="kb-logo" style="width:24px;height:20px;" viewBox="0 0 40 34" '
+            + 'fill="#7D2E46" stroke="#F3E7EA" stroke-width="2" stroke-linejoin="round" aria-hidden="true">'
+            + '<rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"/>'
+            + '<rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"/>'
+            + '<rect x="14" y="3" width="12" height="18" rx="2"/>'
+            + '<circle cx="20" cy="12" r="1.6" fill="#F3E7EA" stroke="none"/>'
+            + '</svg>';
+        for (let i = 0; i < n; i++) {
+            html += `<button type="button" class="kb-deck-card" data-card="${i}" aria-label="קלף" tabindex="-1">`
+                + `<span class="kb-face kb-face--back">${backLogo}</span>`
+                + `<span class="kb-face kb-face--front"><span class="kb-front-inner"><img alt=""></span></span>`
+                + `</button>`;
+        }
+        stage.innerHTML = html;
+    }
+
+    kbBuildStage(kbStage, 12);
+    let lastCardResponse = null; // { data, mode } - ר' kbFetchCard/kbOnCardRevealed
+    const kbShuffleController = kbShuffle(kbStage, {
+        mobile: window.matchMedia('(max-width: 767px)').matches,
+        fetchCard: kbFetchCard,
+        onReveal: kbOnCardRevealed,
+        onBusyChange: function (busy) { btnDeckAction.disabled = busy; },
+        onHint: kbOnHint
+    });
+
+    function kbShowStage() {
+        block2Deck.style.display = 'flex';
+        kbStage.style.display = '';
+        btnDeckAction.style.display = '';
+        kbStageStatus.textContent = '';
+    }
+    function kbHideStage() {
+        kbStage.style.display = 'none';
+        btnDeckAction.style.display = 'none';
+    }
+    function kbOnHint(key) {
+        const texts = {
+            shuffling: 'מערבבים את הקלפים...',
+            flowing: ( 'female' === userGender ) ? 'געי בקלף או לחצי על הכפתור לבחירה' : 'גע בקלף או לחץ על הכפתור לבחירה',
+            error: 'החיבור נכשל - אפשר לנסות שוב',
+            revealed: 'זה הקלף שנבחר'
+        };
+        kbStageStatus.textContent = texts[key] || '';
+    }
+
+    // קריאת השרת שבוחרת את הקלף בפועל (סעיף 7.2: האקראיות בצד השרת, חובה) -
+    // ה-fetchCard של kbShuffle. אותו endpoint קיים (session/card-selected)
+    // ממשיך לשלב בבקשה אחת גם את בחירת הקלף וגם קריאת AI מלאה (לפעמים עם
+    // retry) - בדיוק כמו ב-runCardAI הישן (ר' ההערה שהייתה שם על מניעת
+    // timeout) - ולכן, במפורש, אין כאן טיימר/טיימאאוט על הבקשה עצמה; המשתמש
+    // בוחר קלף ביד (הקשה/כפתור) ומחכה לתשובה. 403/404 (קרדיטים/מגבלה
+    // יומית/סשן שפג) מטפלים בעצמם ב-UI (קיר תשלום/נעילת צ'אט) ואז זורקים,
+    // כדי ש-kbShuffle יחזיר את הקלף לזרימה במקום "לתקוע" את הבמה.
+    function kbFetchCard() {
+        const mode = chatModeActive ? 'chat' : 'message';
+        showTyping();
+        return (async () => {
+            try {
+                const excludeIds = Array.from(recentCardExclusionSet());
+                const cardRes = await fetch(`${API_BASE}/card-selected`, {
+                    method: 'POST',
+                    headers: dcardHeaders(),
+                    body: JSON.stringify({
+                        session_token: sessionToken,
+                        exclude_ids: excludeIds,
+                        question: drawnCards.length === 0 ? userQuestion.value.trim() : undefined,
+                        mode: mode
+                    })
+                });
+                const cardData = await cardRes.json();
+
+                if (403 === cardRes.status && 'credits_exhausted' === cardData.code) {
+                    stopTyping();
+                    if (userQuestion && userQuestion.value && userQuestion.value.trim()) {
+                        dcardSetLS(DCARD_LS_KEYS.pendingQuestion, userQuestion.value.trim());
+                    }
+                    triggerPaymentWall();
+                    throw new Error('kb_handled');
+                }
+                if (403 === cardRes.status && 'daily_limit_reached' === cardData.code) {
+                    stopTyping();
+                    lockChatInput(cardData.error || 'הגעת להיום למספר הפניות המרבי. נשמח לפגוש אותך שוב מחר.');
+                    throw new Error('kb_handled');
+                }
+                if (404 === cardRes.status) {
+                    stopTyping();
+                    appendMessage('ai', 'חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
+                    lockChatInput();
+                    throw new Error('kb_handled');
+                }
+                if (!cardData.aiReply || !cardData.imageUrl || !cardData.cardId) {
+                    appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר להמתין מעט ולנסות שוב. במידה ולא מסתדר, אפשר ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+                    throw new Error('kb_handled');
+                }
+
+                drawnCards.push(cardData.cardId);
+                recordCardInHistory(cardData.cardId);
+                lastCardResponse = { data: cardData, mode: mode };
+                return { id: cardData.cardId, image_url: cardData.imageUrl, alt: cardData.cardAlt };
+            } catch (e) {
+                if (!(e instanceof Error) || 'kb_handled' !== e.message) {
+                    appendMessage('ai', 'אירעה שגיאה בחיבור למערכת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+                    console.error(e);
+                }
+                throw e;
+            }
+        })();
+    }
+
+    // מה שקורה ברגע שהקלף "נוחת" (סוף שלב land, סעיף 7.4 #8) - בדיוק מה
+    // שה-handler הישן של btnDeckAction עשה מיד אחרי runCardAI, רק שעכשיו
+    // זה רץ אחרי שהאנימציה עצמה כבר הציגה את התמונה האמיתית על הקלף הפיזי
+    // בבמה. אין כפתור "להמשך הקריאה" נפרד (סעיף 7.4 #8) - ממשיכים ישר
+    // לתצוגת הקלף/הצ'אט, כמו שכל שאר האפליקציה כבר עובדת (אין בכך סטייה
+    // מרשימת הבדיקות ב-7.9, שלא דורשת כפתור כזה).
+    function kbOnCardRevealed(card) {
+        const cardData = lastCardResponse.data;
+        const mode = lastCardResponse.mode;
+
+        const cardWrapper = document.createElement('div');
+        cardWrapper.className = 'card-item';
+        const imgElement = document.createElement('img');
+        imgElement.className = 'card-display';
+        imgElement.addEventListener('load', function () {
+            imgElement.classList.add('card-fade-in');
+        });
+        imgElement.src = cardData.imageUrl;
+        cardWrapper.appendChild(imgElement);
+
+        if (drawnCards.length < MAX_CARDS) {
+            const extraCardBtn = document.createElement('button');
+            extraCardBtn.type = 'button';
+            extraCardBtn.className = 'btn-extra-card';
+            if (!chatModeActive) {
+                extraCardBtn.style.display = 'none';
+            }
+            extraCardBtn.innerText = 'קלף נוסף';
+            extraCardBtn.addEventListener('click', function () {
+                extraCardBtn.disabled = true;
+                maybeOfferAnotherCard('request_card_draw', true);
+            });
+            cardWrapper.appendChild(extraCardBtn);
+        }
+
+        cardsContainer.appendChild(cardWrapper);
+        block3Cards.style.display = 'block';
+        block4Chat.style.display = 'block';
+        block5Actions.style.display = 'flex';
+
+        if (drawnCards.length < MAX_CARDS) {
+            appState = 'drawn';
+            btnDeckAction.innerText = ( 'female' === userGender ) ? "שלפי קלף נוסף" : "שלוף קלף נוסף";
+        } else {
+            appState = 'max';
+        }
+        kbHideStage();
+
+        const aiBubble = appendMessage('ai', cardData.aiReply, 'chat' !== mode);
+        if (mode === 'chat') {
+            maybeOfferAnotherCard(cardData.nextAction);
+        } else {
+            countSessionIfNeeded(DCARD_LS_KEYS.anonMsgCount);
+            offerDeepenIntoChat(aiBubble);
+        }
+    }
+
     // מציג שוב את הקופה והכפתור רק אם הסוכן הציע קלף נוסף ועוד לא הגענו למקסימום.
     //
     // תיקון (דווח בפועל, שני דיווחים סותרים לכאורה): "זה עצר את זרימת
     // הדיאלוג והתחיל לערבב קלפים, זה היה מפתיע ולא הייתה בקשה לכך" - מול
     // "ביקשתי קלף נוסף והוא לא עירבב את הקלפים, זה לא תקין". שניהם נכונים,
     // כי לפונקציה הזו יש שני סוגי קוראים שונים לגמרי: (1) לחיצה מפורשת על
-    // כפתור "קלף נוסף" ליד קלף קיים (ר' extraCardBtn.addEventListener למטה) -
-    // בקשה אמיתית של המשתמש, צריכה להתחיל לערבב מיד. (2) בדיקה אוטומטית
-    // אחרי *כל* תשובת AI בשיחה (ר' runCardAI/handler של /session/turn),
+    // כפתור "קלף נוסף" ליד קלף קיים (ר' extraCardBtn.addEventListener למעלה) -
+    // בקשה אמיתית של המשתמש, צריכה להתחיל לזרום מיד. (2) בדיקה אוטומטית
+    // אחרי *כל* תשובת AI בשיחה (ר' kbOnCardRevealed/handler של /session/turn),
     // שסומכת על next_action של המודל בלי שום פעולה מצד המשתמש - אם המודל
     // כתב את זה בטעות/מוקדם מדי, המשתמש נחטף מהשיחה בלי שביקש. autoShuffle
     // מבדיל ביניהם: true רק מהקריאה המפורשת (1), false (ברירת מחדל) מהקריאות
     // האוטומטיות (2) - שם רק *מציגים* את הקופה (גלויה, עם גלילה אליה),
-    // לא מתחילים לערבב - המשתמש עצמו לוחץ כשהוא מוכן.
+    // לא מתחילים לזרום - המשתמש עצמו לוחץ/נוגע כשהוא מוכן.
+    // skipRiffle:true בשני המקרים - סעיף 7.6: "ל'קלף נוסף'" מדלגים על רצף
+    // הערבוב המלא וקופצים ישר לשלב flow.
     function maybeOfferAnotherCard(nextAction, autoShuffle) {
         // 'request_card_draw' מתקבל גם הוא: הסוכן משתמש בו לפעמים כשהוא מסכים לבקשת המשתמש לקלף נוסף.
         const offered = nextAction === 'offer_another_card' || nextAction === 'request_card_draw';
         if (offered && appState === 'drawn' && drawnCards.length < MAX_CARDS) {
-            visualDeck.style.display = '';
-            btnDeckAction.style.display = '';
-            // הקופה נמצאת בראש העמוד והמשתמש מסתכל על הצ'אט, אז מגלגלים אליה.
-            visualDeck.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            kbShowStage();
+            kbStage.scrollIntoView({ behavior: 'smooth', block: 'center' });
             if (autoShuffle) {
-                beginShuffling();
+                appState = 'shuffling';
+                btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
+                kbShuffleController.start({ skipRiffle: true });
             }
         }
-    }
-
-    // מתחיל את אנימציית הערבוב ומעביר את appState ל-'shuffling'. משותף לשני
-    // המקומות שמתחילים שליפת קלף: הלחיצה הראשונה על הכפתור (קלף ראשון/הצעה
-    // ידנית לקלף נוסף), וההצעה האוטומטית של קלף נוסף מ-maybeOfferAnotherCard.
-    function beginShuffling() {
-        appState = 'shuffling';
-        btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
-        shuffleMode = 'horizontal'; // תמיד מתחילים מאותו מצב, לעקביות
-        shuffleStepCount = 0;
-        performShuffleStep();
-        shuffleInterval = setInterval(performShuffleStep, 900);
-
-        // תיקון (התבקש: "אם לא נבחר קלף תוך 8 שניות, שהאפליקציה תבחר
-        // אקראית") - אם המשתמש עדיין לא לחץ "בחר קלף" עד אז, מדמים לחיצה
-        // בעצמנו. clearTimeout מראש (ליתר ביטחון, לא אמור לקרות בפועל -
-        // beginShuffling לא נקרא פעמיים ברצף בלי שהקודם נפתר) כדי שלעולם
-        // לא ירוצו שני טיימרים במקביל.
-        clearTimeout(shuffleAutoPickTimer);
-        shuffleAutoPickTimer = setTimeout(function () {
-            if ('shuffling' === appState) {
-                btnDeckAction.click();
-            }
-        }, 8000);
     }
 
     // נועל את תיבת הכתיבה ומציג הודעת סיום במקומה. נקרא משני מקומות שונים
@@ -2974,32 +3262,6 @@
         limitMsg.style.padding = '10px';
         limitMsg.innerText = message;
         chatInputArea.insertAdjacentElement('afterend', limitMsg);
-    }
-
-    // תיקון "דינמיקה לא בולטת מספיק" (ולאחר מכן: "כל 2 עירבובים, לא לפי
-    // זמן"): shuffleMode מתחלף כאן, לפי ספירת הטיקים של האנימציה עצמה
-    // (shuffleStepCount) - לא setInterval נפרד. 'horizontal' מפעיל את
-    // ההחלקה שמאלה/ימינה המקורית, 'bounce' מפעיל קפיצה אנכית (מחלקות CSS
-    // חדשות). אותה אסטרטגיה בדיוק (index % 2 לפיצול בין שתי התנועות בכל
-    // טיק), רק זוג מחלקות שונה לפי המצב.
-    function performShuffleStep() {
-        shuffleStepCount++;
-        if (0 === shuffleStepCount % 2) {
-            shuffleMode = ('horizontal' === shuffleMode) ? 'bounce' : 'horizontal';
-        }
-        const classA = ('bounce' === shuffleMode) ? 'shuffle-bounce-up' : 'shuffle-left';
-        const classB = ('bounce' === shuffleMode) ? 'shuffle-bounce-down' : 'shuffle-right';
-        animationCards.forEach((card, index) => {
-            setTimeout(() => {
-                card.classList.add(index % 2 === 0 ? classA : classB);
-            }, index * 100);
-        });
-        setTimeout(() => {
-            animationCards.forEach(card => {
-                card.classList.remove('shuffle-left', 'shuffle-right', 'shuffle-bounce-up', 'shuffle-bounce-down');
-                card.style.zIndex = Math.floor(Math.random() * 10);
-            });
-        }, 400);
     }
 
     // תיקון "נתקע על מבצע התחברות": אם initSession() עדיין לא רצה בכלל, או
@@ -3039,129 +3301,36 @@
         // הראשונה כמו קודם. הפורמט קבוע: שאלת: "...".
         appendMessage('user', `שאלת: "${userQuestion.value.trim()}"`);
 
-        block2Deck.style.display = 'flex';
-        beginShuffling();
-        visualDeck.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        kbShowStage();
+        appState = 'shuffling';
+        btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
+        kbShuffleController.start();
+        kbStage.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return true;
     }
 
-    // תיקון UX (התבקש: "לאפשר להפסיק את העירבוב ושליפת הקלף גם על ידי
-    // לחיצה על הקלף") - מדמה לחיצה על btnDeckAction (אותו דפוס בדיוק כמו
-    // shuffleAutoPickTimer למעלה), כדי לא לשכפל את לוגיקת השליפה עצמה.
-    visualDeck.addEventListener('click', function () {
-        if ('shuffling' === appState) {
-            btnDeckAction.click();
-        }
-    });
-
-    // 3. ניהול שליפת הקלפים והפנייה הראשונית למודל
+    // 3. ניהול שליפת הקלפים - נגיעה בקלף בודד (הקשה ישירה, רק בשלב flow)
+    // כבר מטופלת בתוך kbShuffle עצמו (ר' ה-listener שנרשם על כל קלף
+    // ב-kbBuildStage/kbShuffle למעלה); הכפתור כאן הוא רק הדרך השנייה
+    // (העיקרית, סעיף 7.7) לשלוף - "הקלף האחרון שזז" (kbShuffleController.drawNow).
     btnDeckAction.addEventListener('click', async function() {
         if (!(await ensureSessionReady())) return;
 
         if (appState === 'drawn') {
-            // קלף נוסף (לא הראשון) - השאלה כבר ננעלה מזמן, רק ממשיכים לעירבוב.
-            beginShuffling();
+            // קלף נוסף (לא הראשון) - השאלה כבר ננעלה מזמן. סעיף 7.6:
+            // skipRiffle ל"קלף נוסף" - ישר לשלב flow, בלי רצף הערבוב המלא.
+            kbShowStage();
+            appState = 'shuffling';
+            btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
+            kbShuffleController.start({ skipRiffle: true });
             return;
         }
 
         if (appState === 'shuffling') {
-            clearInterval(shuffleInterval);
-            clearTimeout(shuffleAutoPickTimer); // נבחר קלף (ידנית או שהטיימר עצמו הגיע) - אין עוד למה לחכות
-
-            let randomCardId;
-            if (forceCardId && !drawnCards.includes(forceCardId)) {
-                // מצב בדיקה (A/B): הקלף הראשון קבוע. קלפים נוספים חוזרים להגרלה רגילה.
-                randomCardId = forceCardId;
-            } else {
-                // אמון פסיכולוגי: לא חוזרים על קלף מהסשן הנוכחי *או* מעד 5
-                // הסשנים הקודמים היום (ר' recentCardExclusionSet למעלה).
-                // attempts מוגבל רק כהגנה תיאורטית - עם TOTAL_CARDS=72
-                // וחסימה מעשית של לכל היותר כ-18 קלפים (3 בסשן * עד 6
-                // סשנים), הלולאה תמיד תמצא קלף פנוי תוך ניסיונות בודדים.
-                const excluded = recentCardExclusionSet();
-                let attempts = 0;
-                do {
-                    randomCardId = secureRandomCardId();
-                    attempts++;
-                } while (excluded.has(randomCardId) && attempts < 200);
-            }
-
-            drawnCards.push(randomCardId);
-            recordCardInHistory(randomCardId);
-            let formattedCardId = String(randomCardId).padStart(2, '0');
-
-            // תצוגת הקלף
-            let cardWrapper = document.createElement('div');
-            cardWrapper.className = 'card-item';
-            let imgElement = document.createElement('img');
-            imgElement.className = 'card-display';
-            // מאזין load נקבע *לפני* src, כדי שגם אם התמונה כבר בקאש הדפדפן
-            // ונטענת כמעט מידית, המאזין כבר רשום ולא נפספס.
-            imgElement.addEventListener('load', function () {
-                imgElement.classList.add('card-fade-in');
-            });
-            imgElement.src = `/wp-content/uploads/im_${formattedCardId}.jpg`;
-        //    let idLabel = document.createElement('span');
-        //    idLabel.className = 'card-id-label';
-        //    idLabel.innerText = `(קלף מס' ${formattedCardId})`;
-            cardWrapper.appendChild(imgElement);
-         //   cardWrapper.appendChild(idLabel);
-
-            // תיקון: כפתור "קלף נוסף" ליד התמונה עצמה - יוזמה של המשתמש,
-            // לא רק כש-AI מציע (ר' maybeOfferAnotherCard, שנשאר כפי שהיה -
-            // שני המסלולים מובילים לאותה פונקציה). מוצג רק אם עוד לא הגענו
-            // למגבלה (MAX_CARDS) - בלי תלות ב-nextAction של הסוכן.
-            //
-            // הכפתור תמיד נוצר (כש-drawnCards.length < MAX_CARDS), אבל מוסתר
-            // ב-CSS אם המסלול עדיין לא שיחה. מאז שבחירת המסלול הועלתה
-            // לפני השליפה הראשונה (ר' btnPathChat/btnPathMessage למטה),
-            // chatModeActive כבר נכון גם על הקלף הראשון - השימוש היחיד
-            // שעוד נשאר ב"חשיפה רטרואקטיבית" הוא offerDeepenIntoChat
-            // (העמקה מ"קבלת מסר" ל"שיחה", ר' שם), לא יותר כאן.
-            if (drawnCards.length < MAX_CARDS) {
-                const extraCardBtn = document.createElement('button');
-                extraCardBtn.type = 'button';
-                extraCardBtn.className = 'btn-extra-card';
-                if (!chatModeActive) {
-                    extraCardBtn.style.display = 'none';
-                }
-                extraCardBtn.innerText = 'קלף נוסף';
-                extraCardBtn.addEventListener('click', function () {
-                    extraCardBtn.disabled = true; // חד-פעמי - מונע כמה קליקים בזמן שהערבוב כבר מתחיל
-                    // autoShuffle=true: זו לחיצה מפורשת של המשתמש, לא הצעה
-                    // אוטומטית מה-AI (ר' ההערה המלאה ליד maybeOfferAnotherCard).
-                    maybeOfferAnotherCard('request_card_draw', true);
-                });
-                cardWrapper.appendChild(extraCardBtn);
-            }
-
-            cardsContainer.appendChild(cardWrapper);
-
-            block3Cards.style.display = 'block';
-            block4Chat.style.display = 'block';
-            block5Actions.style.display = 'flex';
-
-            if (drawnCards.length < MAX_CARDS) {
-                // הקופה/הכפתור המקוריים (btnDeckAction) נשארים מוסתרים - לא
-                // מעודדים קלף נוסף באופן בולט; כפתור "קלף נוסף" החדש ליד
-                // התמונה (למעלה) הוא הדרך היחידה כעת ליזום את זה ידנית.
-                appState = 'drawn';
-                btnDeckAction.innerText = ( 'female' === userGender ) ? "שלפי קלף נוסף" : "שלוף קלף נוסף";
-                visualDeck.style.display = 'none';
-                btnDeckAction.style.display = 'none';
-            } else {
-                appState = 'max';
-                visualDeck.style.display = 'none';
-                btnDeckAction.style.display = 'none';
-            }
-
-            // תיקון UX (התבקש: "לחייב את המשתמש דבר ראשון לבחור את הנתיב") -
-            // בחירת המסלול (btnPathChat/btnPathMessage) עברה להיות הצעד
-            // הראשון, מיד אחרי כתיבת השאלה - לפני שהוקופה בכלל מופיעה (ר'
-            // שם). עד שהקלף הראשון נשלף, המסלול כבר תמיד ידוע - אין יותר
-            // "בלוק ביניים" אחרי השליפה; chatModeActive (שנקבע כבר בבחירה)
-            // הוא הדגל היחיד שמכריע כאן, גם על הקלף הראשון וגם על נוספים.
-            runCardAI(randomCardId, chatModeActive ? 'chat' : 'message');
+            // §7.4: "שליפת קלף" לוקחת את הקלף האחרון שזז - kbShuffleController
+            // (drawNow) כבר מממש בדיוק את זה; בחירת הקלף עצמו (1..72),
+            // התמונה וה-AI מגיעים מ-kbFetchCard/kbOnCardRevealed למעלה.
+            kbShuffleController.drawNow();
         }
     });
 
@@ -3225,107 +3394,6 @@
             chatInput.focus();
             chatHistory.scrollTop = chatHistory.scrollHeight;
         });
-    }
-
-    // קריאה בפועל ל-AI עבור הקלף שנשלף, לפי המסלול שנבחר.
-    async function runCardAI(cardId, mode) {
-        showTyping();
-        try {
-            // תיקון ביצועים: בעבר, עבור הקלף הראשון, הקוד היה שולח שתי
-            // בקשות ברצף - card-selected ואז turn נוסף - כלומר שתי
-            // קריאות AI מלאות אחת אחרי השנייה לפני שהמשתמש רואה תשובה.
-            // זה בדיוק מה שדחף את זמן ההמתנה הכולל מעבר לטיימאאוט של
-            // השרת ("תקוע 30 שניות ואז שגיאה"). עכשיו השאלה (רק בקלף
-            // הראשון, כשעוד אין state.original_question בסשן) נשלחת
-            // כפרמטר בתוך אותה בקשה יחידה ל-card-selected, וה-backend
-            // מזין אותה למודל באותה קריאה - AI call אחד בלבד לכל קלף.
-            const cardRes = await fetch(`${API_BASE}/card-selected`, {
-                method: 'POST',
-                headers: dcardHeaders(),
-                body: JSON.stringify({
-                    session_token: sessionToken,
-                    card_id: String(cardId),
-                    question: drawnCards.length === 1 ? userQuestion.value.trim() : undefined,
-                    mode: mode
-                })
-            });
-            const cardData = await cardRes.json();
-
-            // תיקון: פתיחת קיר התשלום (4753) כשהשרת מחזיר 403/code=
-            // credits_exhausted - למשתמש רשום שסיים את הקרדיטים שלו (ר'
-            // הסרת הבדיקה המקומית ב-btnPathMessage/btnSend למעלה: עכשיו
-            // השרת הוא שמחליט, לא localStorage, אז חייבים להגיב לתשובה שלו).
-            if (403 === cardRes.status && 'credits_exhausted' === cardData.code) {
-                stopTyping(); // אין appendMessage בענף הזה - חיווט ה"מקליד" לא יתנקה לבד
-                // State recovery: שומרים את השאלה המקורית (תיבה 1) כדי
-                // שלא תאבד אחרי ניווט מלא לקארדקום וחזרה - ר' DCARD_LS_KEYS.
-                // pendingQuestion למעלה ו"שחזור שאלה תקועה" בתחילת הסקריפט.
-                if (userQuestion && userQuestion.value && userQuestion.value.trim()) {
-                    dcardSetLS(DCARD_LS_KEYS.pendingQuestion, userQuestion.value.trim());
-                }
-                triggerPaymentWall();
-                return;
-            }
-
-            // תיקון (התבקש: "לקוח שמתמיד... לעצור אותו בהודעה מנומסת שמזמינה
-            // להמשיך מחר") - בכוונה *לא* triggerPaymentWall: זו לא מגבלת
-            // קרדיטים, רק קצב שימוש יומי - המשתמש כבר רשום/שילם, לא מציגים
-            // לו הצעת שדרוג. סתם נועלים עם הודעה מנומסת, כמו מגבלת 15 השאלות.
-            if (403 === cardRes.status && 'daily_limit_reached' === cardData.code) {
-                stopTyping();
-                lockChatInput(cardData.error || 'הגעת להיום למספר הפניות המרבי. נשמח לפגוש אותך שוב מחר.');
-                return;
-            }
-
-            if (cardData.aiReply) {
-                // תיקון (התבקש: "כששולפים קלף ועולה השאלה 'מה אתה רואה בקלף',
-                // לא להציג מיקרו משוב - זה לא נותן שום דבר ומבלבל") - במצב
-                // 'chat' התשובה כאן היא *תמיד* התבנית הקבועה ("מה עולה בך
-                // כשאתה מסתכל על הקלף?") ולא תוכן שה-AI באמת ניסח (ר' ה-fast-
-                // path ב-session_card_selected_inner - chat תמיד מדלג על
-                // קריאת AI אמיתית, בכל שליפת קלף). אין על מה לתת משוב כשאין
-                // תוכן אמיתי שנוצר. showFeedback=false רק כאן; במצב 'message'
-                // (ברירת המחדל true) יש תוכן אמיתי שה-AI כתב, שם המשוב רלוונטי.
-                const aiBubble = appendMessage('ai', cardData.aiReply, 'chat' !== mode);
-                if (mode === 'chat') {
-                    // רק במסלול שיחה אישית יש המשך אפשרי - כולל הצעת קלף נוסף.
-                    maybeOfferAnotherCard(cardData.nextAction);
-                } else {
-                    // תיקון יחידת מדידה: סופרים *סשן* אחד, לא קלף/הודעה -
-                    // countSessionIfNeeded לא עושה כלום אם הסשן הזה כבר
-                    // נספר (לא רלוונטי כאן בפועל, כי "קבלת מסר" הוא קלף
-                    // יחיד לסשן, אבל אותו מנגנון בדיוק כמו בצ'אט, לא הכפלה
-                    // מיוחדת). לא בלחיצה על הכפתור (ר' btnPathMessage, שם
-                    // נבדקת המגבלה *לפני* הקריאה) - רק אחרי הצלחה בפועל.
-                    countSessionIfNeeded(DCARD_LS_KEYS.anonMsgCount);
-                    // מסלול "קבלת מסר": אפשרות מעבר חלק לשיחה פתוחה (לא
-                    // reload/ניווט) - כפתור מתחת להודעה עצמה, לא בתוכה.
-                    offerDeepenIntoChat(aiBubble);
-                }
-            } else if (404 === cardRes.status) {
-                // תיקון (התבקש: "אולי שעתיים בין 2 הפעולות, האם יכול להיות
-                // שיש timeout?") - כן: DCard_DB::cleanup_old_sessions() מוחק
-                // סשנים 'active' אחרי 2 שעות חוסר פעילות (wp-cron יומי), אז
-                // session_card_selected_inner מחזיר כאן 404 אמיתי ("סשן לא
-                // נמצא או שאינו פעיל"). במקרה הזה "נסה שוב" מטעה לגמרי -
-                // הסשן באמת נעלם לצמיתות, אין מה לנסות שוב בשבילו. הודעה
-                // ייעודית חמה במקום הודעת השגיאה הגנרית, ונעילת התיבה (כמו
-                // מגבלת שאלות) כדי לא לעודד ניסיון חוזר חסר תוחלת.
-                appendMessage('ai', 'חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
-                lockChatInput();
-            } else {
-                // תיקון: cardData.error הוא טקסט טכני מיועד ללוגים (למשל "המודל
-                // לא החזיר JSON תקין גם אחרי ניסיון חוזר") - לא מיועד למשתמש,
-                // ולא תואם בכלל את הטון החם שכל ה-prompt בנוי סביבו. תמיד
-                // מציגים הודעה ידידותית קבועה, לא את הטקסט הגולמי מהשרת.
-                // תיקון נוסף: "נסה שוב" לבדו מטעה אם הכשל חוזר על עצמו בכל
-                // ניסיון (לא בעיה חד-פעמית) - עכשיו גם מכוון למוצא בפועל.
-                appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר להמתין מעט ולנסות שוב. במידה ולא מסתדר, אפשר ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
-            }
-        } catch (e) {
-            appendMessage('ai', 'אירעה שגיאה בחיבור למערכת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
-            console.error(e);
-        }
     }
 
     // תיקון UX (התבקש: "לחייב את המשתמש דבר ראשון לבחור את הנתיב") - שני

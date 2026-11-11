@@ -270,7 +270,7 @@
 }
 .kb-home-greeting { font-size: 20px; color: var(--muted); margin: 0 0 4px; }
 .kb-home-title { font-size: 52px; font-weight: 500; line-height: 1.15; margin: 0 0 14px; }
-.kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 28px; max-width: 520px; }
+.kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 28px !important; max-width: 520px; }
 .kb-btn-sub { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 2px; }
 .btn-main .kb-btn-sub { color: #F3E7EA; }
 .path-choice-block .btn-main,
@@ -317,3 +317,71 @@
 .kb-guidelines-section ul { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 8px; }
 .kb-guidelines-section li { font-size: 15px; line-height: 1.5; color: var(--ink-soft); }
 .kb-guidelines-section li strong { color: var(--ink); }
+
+/* ערבוב ושליפה (סעיף 7) - --cw/--ch/--bt/--stage-h נקבעים ב-JS (kbShuffle,
+   לפי מחשב/טלפון - סעיף 7.3). */
+.kb-stage {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  height: var(--stage-h, 400px);
+  perspective: 1400px;
+  margin: 0 auto 12px;
+  /* בטיחות לרוחב טלפון צר (360px, סעיף 7.9) - ר' ההערה המלאה במקור
+     (frontend/elementor-code.html). */
+  overflow: hidden;
+}
+.kb-deck-card {
+  position: absolute;
+  left: calc(50% - var(--cw, 86px) / 2);
+  top: var(--bt, 150px);
+  width: var(--cw, 86px);
+  height: var(--ch, 129px);
+  padding: 0;
+  border: 0;
+  background: none;
+  transform-style: preserve-3d;
+  will-change: transform;
+  cursor: pointer;
+}
+.kb-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  box-sizing: border-box;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.kb-face--back {
+  background: var(--bordeaux);
+  border: 3px solid #fff;
+  box-shadow: var(--shadow-small);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kb-face--front {
+  transform: rotateY(180deg);
+  background: #fff;
+  padding: 8px;
+  display: flex;
+  box-shadow: 0 18px 40px rgba(42,35,38,.22);
+}
+.kb-front-inner { flex: 1; position: relative; overflow: hidden; border-radius: 7px; }
+/* התמונה (לרוחב) מסובבת -90° בתוך הקלף העומד - כשהקלף כולו מסתובב +90°
+   (שלב land, סעיף 7.4), היא נראית ישרה וממלאת אותו. */
+.kb-front-inner img {
+  position: absolute; object-fit: cover;
+  width: calc(var(--ch, 129px) - 16px); height: calc(var(--cw, 86px) - 16px);
+  left: calc((var(--cw, 86px) - var(--ch, 129px)) / 2);
+  top: calc((var(--ch, 129px) - var(--cw, 86px)) / 2);
+  transform: rotate(-90deg);
+}
+.kb-deck-card:focus-visible { outline: 3px solid var(--bordeaux); outline-offset: 4px; }
+.kb-stage-status {
+  min-height: 22px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--ink-soft, #6b5c61);
+  margin: 0 0 16px;
+}
