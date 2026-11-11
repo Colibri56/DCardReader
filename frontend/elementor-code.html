@@ -19,6 +19,7 @@
         --scrim:        rgba(42,35,38,0.45);
         --shadow-card:  0 18px 40px rgba(42,35,38,0.16);
         --shadow-small: 0 4px 10px rgba(42,35,38,0.16);
+        --error:        #A3262A; /* סעיף 3.5א */
     }
     .kb-app button:focus-visible,
     .kb-app a:focus-visible,
@@ -138,6 +139,28 @@
     .question-block { margin-bottom: 28px; }
     .question-block textarea:focus {
         border-color: var(--bordeaux, #7D2E46);
+    }
+    /* סעיף 3.5א: שגיאת שדה / שורת התראה - משותף לכל הטופס (לא רק השאלה) */
+    #user-question[aria-invalid="true"] { border: 2px solid var(--error); }
+    .kb-field-error {
+        display: flex; align-items: center; gap: 6px; margin-top: 6px;
+        font-size: 14px; color: var(--error, #A3262A); font-family: 'Rubik', sans-serif;
+    }
+    .kb-field-error::before {
+        content: '!'; flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%;
+        border: 1.5px solid var(--error, #A3262A); font-size: 11px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; line-height: 1;
+    }
+    .kb-alert-banner {
+        background: var(--blush, #F3E7EA); color: var(--ink, #2A2326);
+        border-radius: 14px; padding: 12px 16px; font-size: 15px; margin-top: 10px;
+        font-family: 'Rubik', sans-serif; display: flex; align-items: center;
+        justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    }
+    .kb-alert-banner button {
+        background: none; border: none; color: var(--bordeaux, #7D2E46); font-weight: 500;
+        font-family: 'Rubik', sans-serif; font-size: 15px; cursor: pointer; text-decoration: underline;
+        padding: 0; flex-shrink: 0;
     }
 
     .question-block textarea.locked {
@@ -955,7 +978,7 @@
             <!-- בלוק 1: תיבת טקסט לשאלה -->
             <div class="question-block" id="block-1">
                 <label class="kb-field-label" for="user-question">השאלה שלך</label>
-                <textarea id="user-question" placeholder="למשל: איך לבנות לעצמי תוכנית אימונים שאוכל להתמיד בה?"></textarea>
+                <textarea id="user-question" placeholder="למשל: איך לבנות לעצמי תוכנית אימונים שאוכל להתמיד בה?" aria-describedby="question-field-error"></textarea>
                 <button type="button" class="btn-mic" id="btn-mic" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
                         <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
@@ -963,6 +986,9 @@
                     </svg>
                     <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
                 </button>
+                <!-- סעיף 3.5א: שגיאת שדה (שאלה ריקה) - שורת ההתראה של המיקרופון
+                     (אם צריך) נוצרת דינמית מתחת לבלוק הזה, ר' attachVoiceButton. -->
+                <div class="kb-field-error" id="question-field-error" style="display:none;" role="alert"></div>
             </div>
 
             <!-- תיקון UX (התבקש: "לחייב את המשתמש דבר ראשון לבחור את הנתיב") -
@@ -1118,6 +1144,20 @@
             <div id="kb-info-body"></div>
             <div class="kb-modal-actions">
                 <button type="button" class="btn-outline" id="kb-info-close">סגירה</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- חלון אישור סיום סשן (סעיף 3.5א: בלי confirm() של הדפדפן) -
+         סגירה ב-Esc/רקע/"ביטול", לפי כללי 3.4. -->
+    <div id="kb-end-session-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-end-session-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-end-session-title" style="text-align:center;">סיום השיחה</h2>
+            <p class="kb-modal-text" style="text-align:center;">האם אתם בטוחים שברצונכם לסיים את הסשן?</p>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-main" id="kb-end-session-confirm">כן, לסיים</button>
+                <button type="button" class="btn-outline" id="kb-end-session-cancel">ביטול</button>
             </div>
         </div>
     </div>
@@ -1579,6 +1619,7 @@
 
     // אלמנטים מה-DOM
     const userQuestion = document.getElementById('user-question');
+    const questionFieldError = document.getElementById('question-field-error');
     // Placeholder מותאם מגדר - נקבע סופית ב-initSession(), אחרי שהשרת מחזיר
     // את ה-userGender שנפתר בפועל (יכול להיות שונה ממה שנשלח, אם מוגדר
     // override ב-Settings > DCard AI > Test User Gender לבדיקות). עד אז,
@@ -1669,10 +1710,20 @@
     // ל-429) ו-sessionInitiated מתאפס בחזרה ל-false בכשל, כדי שלחיצה על
     // כפתור הקופה (ר' btnDeckAction למטה) תוכל לנסות שוב, לא רק להתריע.
     let sessionInitError = null;
+    // נחשף כדי שקריאה מקבילה ל-ensureSessionReady() (למשל קריאה אוטומטית
+    // בטעינת העמוד שעדיין רצה) תוכל להמתין לאותה בקשה בדיוק, במקום לבדוק
+    // רק sessionInitiated ולהמשיך הלאה בלי לחכות בכלל (סעיף 3.5א: "כפתור
+    // מושבת" - לא מוסיפים עוד alert, אז חייבים לחכות נכון לתוצאה האמיתית).
+    let sessionInitPromise = null;
 
     async function initSession() {
         sessionInitiated = true; // נקבע מיד (לא רק בהצלחה) - מונע מרוץ של קריאה כפולה
         sessionInitError = null;
+        sessionInitPromise = initSessionInner();
+        await sessionInitPromise;
+    }
+
+    async function initSessionInner() {
         try {
             // Anti account-sharing (שלב 3): userId נשלח רק אם יש אחד שמור
             // (משתמש שנרשם בעבר) - אנונימי שולח undefined, ו-JSON.stringify
@@ -1932,6 +1983,7 @@
         if (!kbMenuOverlay.hidden) kbCloseMenu();
         else if (!kbInfoModal.hidden) kbInfoModal.hidden = true;
         else if (!kbGuidelinesModal.hidden) kbGuidelinesModal.hidden = true;
+        else if (!kbEndSessionModal.hidden) kbEndSessionModal.hidden = true;
         // kb-onboarding-modal לא נסגר ב-Esc בכוונה - המידע חובה לפני שממשיכים.
     });
 
@@ -2507,24 +2559,16 @@
     }
 
     // 1ב. הכתבה קולית (Web Speech API) - כפתורי מיקרופון בתיבת השאלה ובצ'אט.
-    // כל שגיאה מוצגת עם alert() חוסם (לא הודעה שקטה שאפשר לפספס) ונרשמת
-    // ל-console עם prefix [DCard Voice] כדי שקל יהיה לסנן ב-DevTools.
+    // סעיף 3.5א: כל שגיאה מוצגת כ"שורת התראה" מתחת לשדה (לא alert), עם
+    // הטקסט היחיד שהטבלה מגדירה - "אין גישה למיקרופון..." - גם כש-הקוד
+    // הטכני המדויק (audio-capture/no-speech/network/אחר) שונה; הטבלה
+    // מכוונת לשלושה סוגי הודעות בלבד, לא לפרט כל קוד שגיאה בנפרד. נרשם
+    // תמיד ל-console עם prefix [DCard Voice] עם הקוד המקורי, לאבחון.
     function micErrorMessage(errorCode) {
-        switch (errorCode) {
-            case 'not-allowed':
-            case 'permission-denied':
-                return 'אנא אשר גישה למיקרופון בהגדרות הדפדפן';
-            case 'audio-capture':
-                return 'לא נמצא מיקרופון פעיל במחשב. יש לוודא שמיקרופון מחובר ונבחר בהגדרות המערכת.';
-            case 'no-speech':
-                return 'לא זוהה דיבור. נסה שוב ודבר בסמוך למיקרופון.';
-            case 'network':
-                return 'בעיית רשת בזיהוי הדיבור. נסה שוב.';
-            case 'aborted':
-                return null; // עצירה יזומה על ידי המשתמש עצמו (לחיצה חוזרת) - לא שגיאה, לא מציגים alert.
-            default:
-                return 'לא הצלחנו להפעיל הכתבה קולית. נסה שוב.';
+        if ('aborted' === errorCode) {
+            return null; // עצירה יזומה על ידי המשתמש עצמו (לחיצה חוזרת) - לא שגיאה, אין הודעה.
         }
+        return 'אין גישה למיקרופון. אפשר לאשר גישה בהגדרות הדפדפן, או פשוט להקליד.';
     }
 
     // מוקצה בפועל בתוך setupVoiceInput() למטה - נשאר null אם הדפדפן לא תומך
@@ -2535,11 +2579,11 @@
     (function setupVoiceInput() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-        // הדפדפן לא תומך בכלל - שני הכפתורים נשארים מוסתרים (display:none
-        // מה-HTML) כדי לא לבלבל, ומציגים alert חד-פעמי שמסביר את זה.
+        // סעיף 3.5א ("הדפדפן לא תומך בהקלטה" - "לא מציגים את כפתור המיקרופון
+        // בכלל"): שני הכפתורים כבר מוסתרים כברירת מחדל (display:none ב-HTML)
+        // ונשארים כך - בלי שום הודעה (לא alert, גם לא שורת התראה).
         if (!SpeechRecognition) {
             console.warn('[DCard Voice] Web Speech API not supported in this browser.');
-            alert('הכתבה קולית לא נתמכת בדפדפן הזה. אפשר להמשיך ולכתוב באופן רגיל.');
             return;
         }
 
@@ -2629,7 +2673,8 @@
                 console.error(`[DCard Voice] (${label}) onerror:`, event.error, event);
                 const message = micErrorMessage(event.error);
                 if (message) {
-                    alert(message);
+                    // סעיף 3.5א: שורת התראה מתחת לשדה הרלוונטי, לא alert.
+                    kbShowAlertBanner(btn, 'mic-notice-' + label, message);
                 }
             };
 
@@ -3345,6 +3390,59 @@
         }
     }
 
+    // סעיף 3.5א: שגיאת שדה - מסגרת אדומה + שורת טקסט מתחת לשדה, עם
+    // aria-invalid/aria-describedby, פוקוס לשדה, ונעלמת ברגע שמתחילים
+    // להקליד (listener חד-פעמי על 'input'). bannerEl הוא ה-<div
+    // class="kb-field-error"> הסטטי שכבר קיים ב-HTML ליד השדה.
+    function kbShowFieldError(fieldEl, bannerEl, message) {
+        bannerEl.textContent = message;
+        bannerEl.style.display = 'flex';
+        fieldEl.setAttribute('aria-invalid', 'true');
+        fieldEl.focus();
+        const clearOnInput = function () {
+            kbClearFieldError(fieldEl, bannerEl);
+            fieldEl.removeEventListener('input', clearOnInput);
+        };
+        fieldEl.addEventListener('input', clearOnInput);
+    }
+    function kbClearFieldError(fieldEl, bannerEl) {
+        bannerEl.style.display = 'none';
+        bannerEl.textContent = '';
+        fieldEl.removeAttribute('aria-invalid');
+    }
+
+    // סעיף 3.5א: "שורת התראה" - רקע --blush, בלי בועה, עם כפתור "נסה שוב"
+    // אופציונלי. נוצרת דינמית (לא ב-HTML מראש) ומוכנסת מיד אחרי afterEl -
+    // ר' שימוש ב-attachVoiceButton (שגיאות מיקרופון) למעלה.
+    function kbShowAlertBanner(afterEl, id, message, retryFn) {
+        let el = document.getElementById(id);
+        if (!el) {
+            el = document.createElement('div');
+            el.id = id;
+            el.className = 'kb-alert-banner';
+            afterEl.insertAdjacentElement('afterend', el);
+        }
+        el.innerHTML = '';
+        const text = document.createElement('span');
+        text.textContent = message;
+        el.appendChild(text);
+        if (retryFn) {
+            const retryBtn = document.createElement('button');
+            retryBtn.type = 'button';
+            retryBtn.textContent = 'נסה שוב';
+            retryBtn.addEventListener('click', function () {
+                kbHideAlertBanner(id);
+                retryFn();
+            });
+            el.appendChild(retryBtn);
+        }
+        el.style.display = 'flex';
+    }
+    function kbHideAlertBanner(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    }
+
     // נועל את תיבת הכתיבה ומציג הודעת סיום במקומה. נקרא משני מקומות שונים
     // (ר' btnSend), עם טקסט מתאים לכל אחד:
     //   - הסוכן עצמו קבע שהתהליך הסתיים (data.endSession) - יכול לקרות
@@ -3379,20 +3477,36 @@
 
     // תיקון "נתקע על מבצע התחברות": אם initSession() עדיין לא רצה בכלל, או
     // שרצה ונכשלה (sessionInitiated התאפס ל-false, ר' initSession למעלה) -
-    // מנסים כאן ממש, לא רק מתריעים ומוותרים. המשתמש לוחץ שוב ביודעין, אז זו
-    // בדיוק נקודת ה"ניסיון חוזר" הטבעית, בלי צורך בכפתור "נסה שוב" נפרד.
-    // משותף עכשיו לשלוש נקודות כניסה: btnDeckAction (קלף נוסף) ושני כפתורי
-    // בחירת המסלול (ר' למטה - הועלו להתחיל את העירבוב מיד בעצמם).
-    async function ensureSessionReady() {
+    // מנסים כאן ממש. משותף לשלוש נקודות כניסה: btnDeckAction (קלף נוסף)
+    // ושני כפתורי בחירת המסלול.
+    //
+    // סעיף 3.5א ("כפתור מושבת" - בלי alert): triggerBtn (אם הועבר) מושבת
+    // בזמן ההמתנה, וחוזר למצבו הרגיל ברגע שהסשן מוכן (או שנכשל, כדי
+    // שאפשר יהיה ללחוץ שוב - אין פה הודעת שגיאה בכלל, בדיוק כמו "תשובה
+    // ריקה בשיחה" בטבלה). אם ההמתנה עוברת שנייה, הטקסט על הכפתור עצמו
+    // מתחלף זמנית ל"רגע, מתכוננים...".
+    async function ensureSessionReady(triggerBtn) {
         if (sessionToken) return true;
+
+        const originalText = triggerBtn ? triggerBtn.innerText : null;
+        if (triggerBtn) triggerBtn.disabled = true;
+        const slowTimer = triggerBtn ? setTimeout(function () {
+            triggerBtn.innerText = 'רגע, מתכוננים...';
+        }, 1000) : null;
+
         if (!sessionInitiated) {
             await initSession();
+        } else if (sessionInitPromise) {
+            await sessionInitPromise; // כבר רץ ברקע (למשל מטעינת העמוד) - מחכים לו, לא קוראים שוב
         }
-        if (!sessionToken) {
-            alert(sessionInitError || "המערכת מבצעת התחברות לשרת, אנא המתן שניה ונסה שוב.");
-            return false;
+
+        if (slowTimer) clearTimeout(slowTimer);
+        if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.innerText = originalText;
         }
-        return true;
+
+        return !!sessionToken;
     }
 
     // תיקון UX (התבקש: "מיד כשהמשתמש לוחץ על כפתור המסר או שיחה מפתחת -
@@ -3402,9 +3516,11 @@
     // הראשון. מחזיר false (ולא נועל/מתחיל כלום) אם השאלה עדיין ריקה.
     function lockQuestionAndStartShuffling() {
         if (userQuestion.value.trim() === "") {
-            alert("אנא כתוב את שאלתך לפני שנתחיל.");
+            kbShowFieldError(userQuestion, questionFieldError,
+                ( 'female' === userGender ) ? 'כתבי את השאלה שלך, ואז נתחיל.' : 'כתוב את השאלה שלך, ואז נתחיל.');
             return false;
         }
+        kbClearFieldError(userQuestion, questionFieldError);
         userQuestion.classList.add('locked');
         userQuestion.readOnly = true;
         btnMic.style.display = 'none'; // השאלה ננעלה, אין יותר למה להכתיב
@@ -3427,7 +3543,7 @@
     // ב-kbBuildStage/kbShuffle למעלה); הכפתור כאן הוא רק הדרך השנייה
     // (העיקרית, סעיף 7.7) לשלוף - "הקלף האחרון שזז" (kbShuffleController.drawNow).
     btnDeckAction.addEventListener('click', async function() {
-        if (!(await ensureSessionReady())) return;
+        if (!(await ensureSessionReady(btnDeckAction))) return;
 
         if (appState === 'drawn') {
             // קלף נוסף (לא הראשון) - השאלה כבר ננעלה מזמן. סעיף 7.6:
@@ -3526,7 +3642,7 @@
             return;
         }
 
-        if (!(await ensureSessionReady())) return;
+        if (!(await ensureSessionReady(btnPathChat))) return;
         if (!lockQuestionAndStartShuffling()) return; // שאלה ריקה - נשארים על מסך בחירת המסלול
 
         pathChosen = true;
@@ -3552,7 +3668,7 @@
             return;
         }
 
-        if (!(await ensureSessionReady())) return;
+        if (!(await ensureSessionReady(btnPathMessage))) return;
         if (!lockQuestionAndStartShuffling()) return;
 
         pathChosen = true;
@@ -3712,39 +3828,55 @@
     });
 
     // 5. כפתורי סיום (מבוסס על סדר הכפתורים ב-HTML)
-    // כפתור: סיום הסשן ויציאה
-    endSessionBtns[0].addEventListener('click', async () => {
-        if(confirm("האם אתה בטוח שברצונך לסיים את הסשן?")) {
-            sessionEndedExplicitly = true; // ר' ההערה ליד ההכרזה - מונע כפילות מול מאזין ה-pagehide
-            await fetch(`${API_BASE}/end`, {
-                method: 'POST',
-                headers: dcardHeaders(),
-                body: JSON.stringify({ session_token: sessionToken, email: "", exit_type: 'explicit' })
-            });
+    // כפתור: סיום הסשן ויציאה - סעיף 3.5א: בלי confirm() של הדפדפן, חלון
+    // אישור אמיתי (כללי סגירה כמו 3.4: Esc/רקע/"ביטול").
+    const kbEndSessionModal = document.getElementById('kb-end-session-modal');
+    const kbEndSessionConfirmBtn = document.getElementById('kb-end-session-confirm');
+    const kbEndSessionCancelBtn = document.getElementById('kb-end-session-cancel');
 
-            // מסך סיום: מחליפים את כל #card-reader-app (כל הבלוקים 1-5) בתמונת
-            // הקלף האחרון שנשלף + טקסט פרידה - זה העיצוב שהמשתמש ביקש לשחזר.
-            // card-display:last-child נבחר מתוך cards-container (לא ממשתנה
-            // נפרד) כדי לקבל בדיוק את התמונה שכבר מוצגת בפועל על המסך, בלי
-            // תלות בפירוק/בנייה חדשה של ה-URL. אם מאיזושהי סיבה לא נשלף אף
-            // קלף בסשן הזה (יצא לפני ששלף קלף ראשון) - מוצג רק הטקסט, בלי
-            // תמונה שבורה.
-            const lastCardImg = document.querySelector('#cards-container .card-display:last-child');
-            const lastCardSrc = lastCardImg ? lastCardImg.src : '';
-            cardReaderApp.innerHTML =
-                '<div style="text-align:center; padding: 40px 20px;">' +
-                (lastCardSrc ? '<img src="' + lastCardSrc + '" alt="קלף אחרון שנשלף" style="max-width:220px; width:100%; height:auto; border-radius:12px; margin-bottom:20px;" />' : '') +
-                '<h3>תודה לך. אשמח שנתראה בקרוב.</h3>' +
-                '</div>';
+    function kbCloseEndSessionModal() {
+        kbEndSessionModal.hidden = true;
+        endSessionBtns[0].focus();
+    }
+    endSessionBtns[0].addEventListener('click', () => {
+        kbEndSessionModal.hidden = false;
+        kbEndSessionCancelBtn.focus();
+    });
+    kbEndSessionCancelBtn.addEventListener('click', kbCloseEndSessionModal);
+    kbEndSessionModal.addEventListener('click', function (e) {
+        if (e.target === kbEndSessionModal) kbCloseEndSessionModal();
+    });
+    kbEndSessionConfirmBtn.addEventListener('click', async () => {
+        kbEndSessionModal.hidden = true;
+        sessionEndedExplicitly = true; // ר' ההערה ליד ההכרזה - מונע כפילות מול מאזין ה-pagehide
+        await fetch(`${API_BASE}/end`, {
+            method: 'POST',
+            headers: dcardHeaders(),
+            body: JSON.stringify({ session_token: sessionToken, email: "", exit_type: 'explicit' })
+        });
 
-            // תיקון "מסך תקוע": מסך הסיום לעיל הושאר פתוח לצמיתות קודם, בלי
-            // שום דרך חזרה - המשתמש פשוט נתקע עליו. השהיה של 2.5 שניות
-            // *אחרי* שהמסך הזה כבר נראה (לא לפני) נותנת למשתמש רגע לקרוא את
-            // הטקסט, ואז מפנה אותו החוצה לעמוד הבית במקום להשאיר אותו תקוע.
-            setTimeout(function () {
-                window.location.href = 'https://nuriteldar.co.il';
-            }, 2500);
-        }
+        // מסך סיום: מחליפים את כל #card-reader-app (כל הבלוקים 1-5) בתמונת
+        // הקלף האחרון שנשלף + טקסט פרידה - זה העיצוב שהמשתמש ביקש לשחזר.
+        // card-display:last-child נבחר מתוך cards-container (לא ממשתנה
+        // נפרד) כדי לקבל בדיוק את התמונה שכבר מוצגת בפועל על המסך, בלי
+        // תלות בפירוק/בנייה חדשה של ה-URL. אם מאיזושהי סיבה לא נשלף אף
+        // קלף בסשן הזה (יצא לפני ששלף קלף ראשון) - מוצג רק הטקסט, בלי
+        // תמונה שבורה.
+        const lastCardImg = document.querySelector('#cards-container .card-display:last-child');
+        const lastCardSrc = lastCardImg ? lastCardImg.src : '';
+        cardReaderApp.innerHTML =
+            '<div style="text-align:center; padding: 40px 20px;">' +
+            (lastCardSrc ? '<img src="' + lastCardSrc + '" alt="קלף אחרון שנשלף" style="max-width:220px; width:100%; height:auto; border-radius:12px; margin-bottom:20px;" />' : '') +
+            '<h3>תודה לך. אשמח שנתראה בקרוב.</h3>' +
+            '</div>';
+
+        // תיקון "מסך תקוע": מסך הסיום לעיל הושאר פתוח לצמיתות קודם, בלי
+        // שום דרך חזרה - המשתמש פשוט נתקע עליו. השהיה של 2.5 שניות
+        // *אחרי* שהמסך הזה כבר נראה (לא לפני) נותנת למשתמש רגע לקרוא את
+        // הטקסט, ואז מפנה אותו החוצה לעמוד הבית במקום להשאיר אותו תקוע.
+        setTimeout(function () {
+            window.location.href = 'https://nuriteldar.co.il';
+        }, 2500);
     });
 
     // תיקון QA 3.2: ולידציה בסיסית - לא תחליף לאימות אמיתי (שליחת מייל עם
