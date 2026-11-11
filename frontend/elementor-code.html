@@ -2953,6 +2953,13 @@
             el.addEventListener('click', () => pick(id));
             cards.push(el);
         }
+        // דווח בפועל (פעמיים): עדיין קשה לכוון בדיוק לקלף, גם עם שטח ההקשה
+        // המורחב (::after, ר' CSS). לחיצה בכל מקום בתוך הבמה (כולל "בין"
+        // הקלפים) שולפת את הקלף שבתנועה - בדיוק כמו הכפתור - כדי שלא יהיה
+        // צורך לדעת איפה בדיוק ללחוץ. לחיצה על קלף ספציפי עדיין עובדת כרגיל
+        // (ה-listener שלו רץ קודם, ב-bubbling; ה-guard ב-pick() מונע הפעלה
+        // כפולה כשההקשה הזו "נופלת" גם היא על אותו אירוע).
+        stage.addEventListener('click', () => pick(last ?? A[A.length - 1]));
 
         function setCardsTabIndex(v) {
             cards.forEach((el, id) => { if (id !== chosen) el.tabIndex = v; });
@@ -3083,7 +3090,6 @@
     }
 
     kbBuildStage(kbStage, 12);
-    let lastCardResponse = null; // { data, mode } - ר' kbFetchCard/kbOnCardRevealed
     const kbShuffleController = kbShuffle(kbStage, {
         mobile: window.matchMedia('(max-width: 767px)').matches,
         fetchCard: kbFetchCard,
@@ -3112,60 +3118,53 @@
         kbStageStatus.textContent = texts[key] || '';
     }
 
-    // קריאת השרת שבוחרת את הקלף בפועל (סעיף 7.2: האקראיות בצד השרת, חובה) -
-    // ה-fetchCard של kbShuffle. אותו endpoint קיים (session/card-selected)
-    // ממשיך לשלב בבקשה אחת גם את בחירת הקלף וגם קריאת AI מלאה (לפעמים עם
-    // retry) - בדיוק כמו ב-runCardAI הישן (ר' ההערה שהייתה שם על מניעת
-    // timeout) - ולכן, במפורש, אין כאן טיימר/טיימאאוט על הבקשה עצמה; המשתמש
-    // בוחר קלף ביד (הקשה/כפתור) ומחכה לתשובה. 403/404 (קרדיטים/מגבלה
-    // יומית/סשן שפג) מטפלים בעצמם ב-UI (קיר תשלום/נעילת צ'אט) ואז זורקים,
-    // כדי ש-kbShuffle יחזיר את הקלף לזרימה במקום "לתקוע" את הבמה.
+    // קריאת השרת שרק *בוחרת* קלף (סעיף 7.2: האקראיות בצד השרת, חובה) -
+    // ה-fetchCard של kbShuffle. דווח בפועל: "הקלף עומד קפוא עד שהוא מתהפך" -
+    // זה קרה כי /session/card-selected (הישן) שילב בבקשה אחת גם את בחירת
+    // הקלף וגם קריאת AI מלאה (יכולה לקחת כמה שניות, בעיקר במסלול "קבלת
+    // מסר") - וההתהפכות המתינה לכל זה. פוצל עכשיו לשני endpoints: /draw-card
+    // (כאן, מהיר - בלי AI בכלל) מפעיל את ההתהפכות מיד; /card-selected
+    // (kbRunAiTurnForCard למטה) רץ *במקביל*, לא נחסם ע"י האנימציה ולא חוסם
+    // אותה - מעדכן את הצ'אט כשהוא מוכן, מתי שזה יהיה.
     function kbFetchCard() {
         const mode = chatModeActive ? 'chat' : 'message';
-        showTyping();
         return (async () => {
             try {
                 const excludeIds = Array.from(recentCardExclusionSet());
-                const cardRes = await fetch(`${API_BASE}/card-selected`, {
+                const drawRes = await fetch(`${API_BASE}/draw-card`, {
                     method: 'POST',
                     headers: dcardHeaders(),
-                    body: JSON.stringify({
-                        session_token: sessionToken,
-                        exclude_ids: excludeIds,
-                        question: drawnCards.length === 0 ? userQuestion.value.trim() : undefined,
-                        mode: mode
-                    })
+                    body: JSON.stringify({ session_token: sessionToken, exclude_ids: excludeIds, mode: mode })
                 });
-                const cardData = await cardRes.json();
+                const drawData = await drawRes.json();
 
-                if (403 === cardRes.status && 'credits_exhausted' === cardData.code) {
-                    stopTyping();
+                if (403 === drawRes.status && 'credits_exhausted' === drawData.code) {
                     if (userQuestion && userQuestion.value && userQuestion.value.trim()) {
                         dcardSetLS(DCARD_LS_KEYS.pendingQuestion, userQuestion.value.trim());
                     }
                     triggerPaymentWall();
                     throw new Error('kb_handled');
                 }
-                if (403 === cardRes.status && 'daily_limit_reached' === cardData.code) {
-                    stopTyping();
-                    lockChatInput(cardData.error || 'הגעת להיום למספר הפניות המרבי. נשמח לפגוש אותך שוב מחר.');
+                if (403 === drawRes.status && 'daily_limit_reached' === drawData.code) {
+                    lockChatInput(drawData.error || 'הגעת להיום למספר הפניות המרבי. נשמח לפגוש אותך שוב מחר.');
                     throw new Error('kb_handled');
                 }
-                if (404 === cardRes.status) {
-                    stopTyping();
+                if (404 === drawRes.status) {
                     appendMessage('ai', 'חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
                     lockChatInput();
                     throw new Error('kb_handled');
                 }
-                if (!cardData.aiReply || !cardData.imageUrl || !cardData.cardId) {
+                if (!drawData.imageUrl || !drawData.cardId) {
                     appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר להמתין מעט ולנסות שוב. במידה ולא מסתדר, אפשר ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
                     throw new Error('kb_handled');
                 }
 
-                drawnCards.push(cardData.cardId);
-                recordCardInHistory(cardData.cardId);
-                lastCardResponse = { data: cardData, mode: mode };
-                return { id: cardData.cardId, image_url: cardData.imageUrl, alt: cardData.cardAlt };
+                drawnCards.push(drawData.cardId);
+                recordCardInHistory(drawData.cardId);
+                // לא מחכים לזה (ר' ההערה המלאה של הפונקציה) - רץ במקביל
+                // לאנימציה ומעדכן את הצ'אט לבד כשיסיים.
+                kbRunAiTurnForCard(drawData.cardId, mode);
+                return { id: drawData.cardId, image_url: drawData.imageUrl, alt: drawData.cardAlt };
             } catch (e) {
                 if (!(e instanceof Error) || 'kb_handled' !== e.message) {
                     appendMessage('ai', 'אירעה שגיאה בחיבור למערכת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
@@ -3176,16 +3175,12 @@
         })();
     }
 
-    // מה שקורה ברגע שהקלף "נוחת" (סוף שלב land, סעיף 7.4 #8) - בדיוק מה
-    // שה-handler הישן של btnDeckAction עשה מיד אחרי runCardAI, רק שעכשיו
-    // זה רץ אחרי שהאנימציה עצמה כבר הציגה את התמונה האמיתית על הקלף הפיזי
-    // בבמה. אין כפתור "להמשך הקריאה" נפרד (סעיף 7.4 #8) - ממשיכים ישר
-    // לתצוגת הקלף/הצ'אט, כמו שכל שאר האפליקציה כבר עובדת (אין בכך סטייה
-    // מרשימת הבדיקות ב-7.9, שלא דורשת כפתור כזה).
+    // מה שקורה ברגע שהקלף "נוחת" (סוף שלב land, סעיף 7.4 #8) - החלק החזותי
+    // בלבד (תמונה בגלריה + הסתרת הבמה). אין יותר תלות בתשובת ה-AI כאן -
+    // ר' kbRunAiTurnForCard, שמריץ את חלק הצ'אט בנפרד/במקביל. אין כפתור
+    // "להמשך הקריאה" נפרד (סעיף 7.4 #8) - ממשיכים ישר לתצוגת הקלף, כמו
+    // שכל שאר האפליקציה כבר עובדת (אין בכך סטייה מרשימת הבדיקות ב-7.9).
     function kbOnCardRevealed(card) {
-        const cardData = lastCardResponse.data;
-        const mode = lastCardResponse.mode;
-
         const cardWrapper = document.createElement('div');
         cardWrapper.className = 'card-item';
         const imgElement = document.createElement('img');
@@ -3193,7 +3188,7 @@
         imgElement.addEventListener('load', function () {
             imgElement.classList.add('card-fade-in');
         });
-        imgElement.src = cardData.imageUrl;
+        imgElement.src = card.image_url;
         cardWrapper.appendChild(imgElement);
 
         if (drawnCards.length < MAX_CARDS) {
@@ -3223,13 +3218,48 @@
             appState = 'max';
         }
         kbHideStage();
+    }
 
-        const aiBubble = appendMessage('ai', cardData.aiReply, 'chat' !== mode);
-        if (mode === 'chat') {
-            maybeOfferAnotherCard(cardData.nextAction);
-        } else {
-            countSessionIfNeeded(DCARD_LS_KEYS.anonMsgCount);
-            offerDeepenIntoChat(aiBubble);
+    // חלק ה-AI/צ'אט (קריאה ל-/session/card-selected) - עצמאי לגמרי מהאנימציה
+    // (ר' ההערה המלאה ב-kbFetchCard): מתחיל במקביל ללחיצה/הקשה שבחרה את
+    // הקלף, ומעדכן את הצ'אט מתי שהתשובה מגיעה, בלי קשר לשלב שבו נמצאת
+    // האנימציה באותו רגע. 403 קרדיטים/מגבלה יומית כבר נבדקו ב-/draw-card
+    // (לפני שבכלל הוצג קלף) - אין יותר ענפים כאלה כאן.
+    async function kbRunAiTurnForCard(cardId, mode) {
+        showTyping();
+        try {
+            const res = await fetch(`${API_BASE}/card-selected`, {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({
+                    session_token: sessionToken,
+                    card_id: String(cardId),
+                    question: drawnCards.length === 1 ? userQuestion.value.trim() : undefined,
+                    mode: mode
+                })
+            });
+            const data = await res.json();
+
+            if (404 === res.status) {
+                appendMessage('ai', 'חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
+                lockChatInput();
+                return;
+            }
+            if (!data.aiReply) {
+                appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר להמתין מעט ולנסות שוב. במידה ולא מסתדר, אפשר ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+                return;
+            }
+
+            const aiBubble = appendMessage('ai', data.aiReply, 'chat' !== mode);
+            if (mode === 'chat') {
+                maybeOfferAnotherCard(data.nextAction);
+            } else {
+                countSessionIfNeeded(DCARD_LS_KEYS.anonMsgCount);
+                offerDeepenIntoChat(aiBubble);
+            }
+        } catch (e) {
+            appendMessage('ai', 'אירעה שגיאה בחיבור למערכת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+            console.error(e);
         }
     }
 

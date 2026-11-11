@@ -165,22 +165,39 @@ class DCard_REST_Controller {
 			),
 		) );
 
+		// Design-spec §7.2 (חובה: הקלף נבחר בשרת) + דווח בפועל ("ההתהפכות
+		// מחכה לתשובת ה-AI, שיכולה לקחת כמה שניות") - פוצל משני ל-/session/
+		// card-selected: הבקשה הזו רק בוחרת את הקלף (random_int, בלי AI)
+		// ומחזירה תמונה, כדי שהאנימציה (ההתהפכות) לא תחכה לקריאת ה-AI. ר'
+		// session_draw_card_inner למטה.
+		register_rest_route( self::NAMESPACE_, '/session/draw-card', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'session_draw_card' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+			'args'                => array(
+				'session_token' => array( 'required' => true ),
+				// 'chat' (default) או 'message' - קובע את מאגר הקרדיט שנבדק
+				// (msg/chat), ר' ההערה המלאה ב-session_draw_card_inner.
+				'mode'          => array( 'required' => false ),
+				// אותו דגם כמו קודם: לא "בוחר" קלף מטעם הלקוח, רק ids
+				// שהלקוח כבר יודע שהם "תפוסים" (היסטוריה אחרונה מאותו יום,
+				// client-side בלבד - ר' recentCardExclusionSet ב-elementor-code.html).
+				// הקלפים של הסשן הנוכחי נחסמים בשרת בלי קשר לרשימה הזו.
+				'exclude_ids'   => array( 'required' => false ),
+			),
+		) );
+
 		register_rest_route( self::NAMESPACE_, '/session/card-selected', array(
 			'methods'             => 'POST',
 			'callback'            => array( $this, 'session_card_selected' ),
 			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
 			'args'                => array(
 				'session_token' => array( 'required' => true ),
-				// Design-spec §7.2: the card itself is chosen in PHP
-				// (random_int, below), never trusted from the client - so
-				// card_id is no longer a client-supplied param.
-				// Optional: ids the client already knows are "taken" (this
-				// session's own drawn cards are excluded server-side
-				// regardless; this covers the client's separate same-day
-				// recent-history exclusion, kept client-side since it is
-				// per-device, not per-session - see recentCardExclusionSet()
-				// in elementor-code.html).
-				'exclude_ids'   => array( 'required' => false ),
+				// הקלף כבר נבחר ונקבע (session_draw_card_inner) - כאן רק
+				// מריצים עליו את ה-AI. $card_id חייב להיות הקלף האחרון
+				// שנקבע בפועל בסשן הזה (נבדק ב-session_card_selected_inner),
+				// אחרת 409 - אין כאן שום בחירה חדשה מטעם הלקוח.
+				'card_id'       => array( 'required' => true ),
 				// Optional: the user's original question, sent on the FIRST
 				// card of a session so this single call can ground the AI's
 				// reflection in it. See the comment on session_card_selected_inner().
@@ -453,6 +470,101 @@ class DCard_REST_Controller {
 	}
 
 	// ---------------------------------------------------------------
+	// POST /session/draw-card
+	// ---------------------------------------------------------------
+	public function session_draw_card( WP_REST_Request $request ) {
+		return $this->safely( 'session_draw_card', function () use ( $request ) {
+			return $this->session_draw_card_inner( $request );
+		} );
+	}
+
+	/**
+	 * דווח בפועל: "הקלף עומד קפוא זמן רב לפני שהוא מתהפך" - כי /session/
+	 * card-selected משלב בבקשה אחת גם את בחירת הקלף וגם קריאת AI מלאה
+	 * (לפעמים כמה שניות, בעיקר במסלול 'message'). ה-route הזה רק בוחר קלף
+	 * (random_int, בלי שום קריאת AI) ומחזיר תמונה - זו הבקשה שמפעילה את
+	 * ההתהפכות באנימציה (ר' kbFetchCard ב-elementor-code.html), בלי לחכות
+	 * לתשובת ה-AI בכלל. /session/card-selected (למטה) ממשיך לרוץ בנפרד,
+	 * ורק מעדכן את הצ'אט כשהוא מוכן.
+	 *
+	 * הקלף *מחויב/נרשם* (add_drawn_card) כבר כאן, לא מחכה להצלחת ה-AI -
+	 * בדיוק כמו הקוד המקורי (מלפני סעיף 7), ששם בחר קלף לגמרי בצד הלקוח
+	 * ורשם אותו מיד, לפני שבכלל פנה ל-AI. אם קריאת ה-AI בהמשך (card-selected)
+	 * נכשלת, המשתמש מקבל הודעת שגיאה בצ'אט, אבל הקלף שכבר מוצג על המסך
+	 * לא "מתחלף" - התנהגות זהה למה שהיה לפני סעיף 7.
+	 */
+	private function session_draw_card_inner( WP_REST_Request $request ) {
+		$ip = DCard_Rate_Limiter::client_ip();
+		if ( ! DCard_Rate_Limiter::check_card_selected( $ip ) ) {
+			return new WP_REST_Response( array( 'error' => 'יותר מדי בקשות. נסו שוב בעוד קצת.' ), 429 );
+		}
+
+		$session_token      = sanitize_text_field( (string) $request->get_param( 'session_token' ) );
+		$mode               = sanitize_text_field( (string) $request->get_param( 'mode' ) );
+		$mode               = in_array( $mode, array( 'chat', 'message' ), true ) ? $mode : 'chat';
+		$raw_exclude_ids    = $request->get_param( 'exclude_ids' );
+		$raw_exclude_ids    = is_array( $raw_exclude_ids ) ? $raw_exclude_ids : array();
+		$client_exclude_ids = array_map( 'absint', $raw_exclude_ids );
+
+		$session = DCard_DB::get_session( $session_token );
+		if ( ! $session || 'active' !== $session['status'] ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
+		}
+
+		if ( count( $session['drawn_cards'] ) >= 3 ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'הגעת למקסימום 3 קלפים לשאלה' ), 409 );
+		}
+
+		// אותה אכיפת קרדיטים/מגבלה יומית שהייתה קודם ב-session_card_selected_inner,
+		// רק מוקדמת יותר עכשיו - כאן, *לפני* שמציגים קלף בכלל, לא אחרי
+		// שהאנימציה כבר רצה. $is_first_card_draw נבדק *לפני* add_drawn_card
+		// למטה, אז עדיין משקף נכון "האם זה הקלף הראשון בסשן".
+		$device_token       = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user    = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+		$is_first_card_draw = empty( $session['drawn_cards'] );
+		$credit_type        = ( 'message' === $mode ) ? 'msg' : 'chat';
+
+		if ( $registered_user && $is_first_card_draw && ! DCard_Users::has_credits( $registered_user['id'], $credit_type ) ) {
+			DCard_Logger::info( 'session_draw_card - registered user out of credits, rejecting with 403', array( 'user_id' => $registered_user['id'], 'credit_type' => $credit_type ) );
+			return new WP_REST_Response( array(
+				'success' => false,
+				'error'   => 'נגמרו הקרדיטים שלך במסלול הנוכחי. אפשר לשדרג כדי להמשיך.',
+				'code'    => 'credits_exhausted',
+			), 403 );
+		}
+
+		if ( $registered_user && DCard_Usage_Logs::count_calls_today( $registered_user['id'] ) >= DCard_Quotas::get_daily_ai_call_limit() ) {
+			DCard_Logger::info( 'session_draw_card - registered user hit daily AI call cap', array( 'user_id' => $registered_user['id'] ) );
+			return new WP_REST_Response( array(
+				'success' => false,
+				'error'   => 'הגעת להיום למספר הפניות המרבי לקורא בקלפים. נשמח לפגוש אותך שוב מחר.',
+				'code'    => 'daily_limit_reached',
+			), 403 );
+		}
+
+		// Testing mode: the first card of a session is always the forced one -
+		// decided server-side, never by the client.
+		$forced_card_id = DCard_Settings::get_forced_card_id();
+		if ( $forced_card_id && empty( $session['drawn_cards'] ) && DCard_Cards::exists( $forced_card_id ) ) {
+			$card_id = $forced_card_id;
+		} else {
+			// Design-spec §7.2 (חובה): הבחירה עצמה - מי מ-72 הקלפים יוצא -
+			// נקבעת כאן, עם random_int(), אף פעם לא אצל הלקוח.
+			$excluded = array_unique( array_merge( $session['drawn_cards'], $client_exclude_ids ) );
+			$card_id  = $this->pick_random_card_id( $excluded );
+		}
+
+		DCard_DB::add_drawn_card( $session_token, $card_id );
+
+		return new WP_REST_Response( array(
+			'success'  => true,
+			'cardId'   => $card_id,
+			'imageUrl' => $this->card_image_url( $card_id ),
+			'cardAlt'  => 'קלף מספר ' . $card_id,
+		), 200 );
+	}
+
+	// ---------------------------------------------------------------
 	// POST /session/card-selected
 	// ---------------------------------------------------------------
 	public function session_card_selected( WP_REST_Request $request ) {
@@ -470,82 +582,38 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'error' => 'יותר מדי בקשות. נסו שוב בעוד קצת.' ), 429 );
 		}
 
-		$session_token    = sanitize_text_field( (string) $request->get_param( 'session_token' ) );
-		$question         = sanitize_textarea_field( (string) $request->get_param( 'question' ) );
-		$mode             = sanitize_text_field( (string) $request->get_param( 'mode' ) );
-		$mode             = in_array( $mode, array( 'chat', 'message' ), true ) ? $mode : 'chat';
-		$raw_exclude_ids  = $request->get_param( 'exclude_ids' );
-		$raw_exclude_ids  = is_array( $raw_exclude_ids ) ? $raw_exclude_ids : array();
-		$client_exclude_ids = array_map( 'absint', $raw_exclude_ids );
+		$session_token = sanitize_text_field( (string) $request->get_param( 'session_token' ) );
+		$card_id       = absint( $request->get_param( 'card_id' ) );
+		$question      = sanitize_textarea_field( (string) $request->get_param( 'question' ) );
+		$mode          = sanitize_text_field( (string) $request->get_param( 'mode' ) );
+		$mode          = in_array( $mode, array( 'chat', 'message' ), true ) ? $mode : 'chat';
 
 		$session = DCard_DB::get_session( $session_token );
 		if ( ! $session || 'active' !== $session['status'] ) {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
 		}
 
-		if ( count( $session['drawn_cards'] ) >= 3 ) {
-			return new WP_REST_Response( array( 'success' => false, 'error' => 'הגעת למקסימום 3 קלפים לשאלה' ), 409 );
+		// הקלף כבר נבחר ונרשם ב-/session/draw-card (session_draw_card_inner) -
+		// כאן רק מריצים עליו AI. חייב להיות בדיוק הקלף *האחרון* שנרשם בסשן
+		// הזה - לא שום card_id אחר שהלקוח יכול לשלוח - כדי ש"השרת בוחר את
+		// הקלף" (סעיף 7.2) יישאר נכון גם אחרי הפיצול לשתי בקשות.
+		if ( empty( $session['drawn_cards'] ) || end( $session['drawn_cards'] ) !== $card_id ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'הקלף הזה לא נבחר בסשן הזה' ), 409 );
 		}
 
-		// Freemium PLG, אכיפת קרדיטים - תיקון יחידת המדידה: קרדיט אחד =
-		// סשן אחד (שאלה אחת, עד 3 קלפים + כל השיחה סביבם), לא הודעה/קלף
-		// בודד. לכן הבדיקה (ולא רק ה-הורדה, ר' deduct_credit למטה) חלה
-		// *רק* על הקלף הראשון בסשן (drawn_cards עדיין ריק) - קלף שני/
-		// שלישי באותו סשן לא נבדק ולא מוריד קרדיט נוסף, כי הסשן כבר שולם
-		// עליו בקלף הראשון. מזוהה כאן (לא דרך פרמטר נפרד) - X-Dcard-Device-
-		// Token כבר מצורף אוטומטית לכל קריאה מה-frontend. משתמש אנונימי
-		// (אין header כזה / לא תואם) - $registered_user נשאר null, בלי
-		// שום בדיקת קרדיטים (המכסה האנונימית עדיין בצד הלקוח, ברמת סשן גם
-		// היא - ר' התיקון המקביל ב-elementor-code.html).
-		$device_token      = $request->get_header( 'X-Dcard-Device-Token' );
-		$registered_user   = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
-		$is_first_card_draw = empty( $session['drawn_cards'] );
+		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+		// drawn_cards כבר כולל את הקלף הנוכחי (נרשם ב-draw-card) - "הקלף
+		// הראשון בסשן" הוא כאן מערך באורך 1, לא ריק (בניגוד למה שזה היה
+		// לפני הפיצול - ר' ההערה המלאה ב-session_draw_card_inner).
+		$is_first_card_draw = ( 1 === count( $session['drawn_cards'] ) );
 		// תיקון (פיצול קרדיטים מסר/שיחה מפתחת, ר' ההערה המלאה ב-DCard_Plans) -
 		// $mode כאן הוא המצב שהסשן *נפתח* בו (קבלת מסר/שיחה פתוחה); זה
-		// המאגר שנבדק/מקוזז על הקלף הראשון. אם הסשן "יעמיק" לשיחה פתוחה
-		// בהמשך (ר' $new_state_fields['converted_from_message'] למטה) -
-		// יקוזז אז קרדיט *נוסף* ממאגר ה-chat, בנוסף למה שכבר קוזז כאן.
+		// המאגר שמקוזז על הקלף הראשון (הבדיקה עצמה כבר קרתה ב-draw-card).
+		// אם הסשן "יעמיק" לשיחה פתוחה בהמשך (ר' $new_state_fields['converted_
+		// from_message'] למטה) - יקוזז אז קרדיט *נוסף* ממאגר ה-chat, בנוסף
+		// למה שכבר קוזז כאן.
 		$credit_type = ( 'message' === $mode ) ? 'msg' : 'chat';
-
-		if ( $registered_user && $is_first_card_draw && ! DCard_Users::has_credits( $registered_user['id'], $credit_type ) ) {
-			DCard_Logger::info( 'session_card_selected - registered user out of credits, rejecting with 403', array( 'user_id' => $registered_user['id'], 'credit_type' => $credit_type ) );
-			return new WP_REST_Response( array(
-				'success' => false,
-				'error'   => 'נגמרו הקרדיטים שלך במסלול הנוכחי. אפשר לשדרג כדי להמשיך.',
-				'code'    => 'credits_exhausted',
-			), 403 );
-		}
-
-		// תיקון (התבקש: "לקוח שמתמיד במשך יום X שאלות... לעצור אותו בהודעה
-		// מנומסת שמזמינה להמשיך מחר") - ציר נפרד מהקרדיטים (שם אין "חידוש
-		// יומי" בכלל, ר' upsert_by_email): מגבלה על קצב השימוש *באותו יום*,
-		// בלי קשר ליתרת הקרדיטים. נבדק לפני הקריאה ל-AI (לא אחריה) כדי
-		// שלא נשלם על קריאה שבלאו הכי תידחה. משתמש אנונימי תמיד 0 (ר'
-		// count_calls_today) - לא נחסם כאן, אין זהות יציבה לאכוף מולה.
-		if ( $registered_user && DCard_Usage_Logs::count_calls_today( $registered_user['id'] ) >= DCard_Quotas::get_daily_ai_call_limit() ) {
-			DCard_Logger::info( 'session_card_selected - registered user hit daily AI call cap', array( 'user_id' => $registered_user['id'] ) );
-			return new WP_REST_Response( array(
-				'success' => false,
-				'error'   => 'הגעת להיום למספר הפניות המרבי לקורא בקלפים. נשמח לפגוש אותך שוב מחר.',
-				'code'    => 'daily_limit_reached',
-			), 403 );
-		}
-
-		// Testing mode: the first card of a session is always the forced one -
-		// decided server-side, never by the client, so the AI is guaranteed
-		// to see that card.
-		$forced_card_id = DCard_Settings::get_forced_card_id();
-		if ( $forced_card_id && empty( $session['drawn_cards'] ) && DCard_Cards::exists( $forced_card_id ) ) {
-			$card_id = $forced_card_id;
-		} else {
-			// Design-spec §7.2 (חובה): the draw itself - which of the 72
-			// cards comes up - is decided here, with random_int(), never on
-			// the client. $excluded keeps the session from repeating a card
-			// it already drew, plus whatever same-day recent-history ids
-			// the client asked to avoid (see the exclude_ids param above).
-			$excluded = array_unique( array_merge( $session['drawn_cards'], $client_exclude_ids ) );
-			$card_id  = $this->pick_random_card_id( $excluded );
-		}
 
 		// The frontend flow here skips a separate clarifying chat turn - the
 		// user types their question and draws a card in one step. So the
@@ -570,8 +638,12 @@ class DCard_REST_Controller {
 			) );
 		}
 
-		$card          = DCard_Cards::get( $card_id );
-		$candidate_ids = array_merge( $session['drawn_cards'], array( $card_id ) );
+		// $session['drawn_cards'] כבר כולל את הקלף הנוכחי (נרשם ב-draw-card,
+		// ר' ההערה המלאה למעלה) - אין יותר merge של $card_id אליו כאן; אבל
+		// לסיכומי "קלפים קודמים" (selected_cards למטה) צריך להוציא אותו שוב.
+		$card               = DCard_Cards::get( $card_id );
+		$candidate_ids      = $session['drawn_cards'];
+		$previous_card_ids  = array_slice( $candidate_ids, 0, -1 );
 		$is_additional_card = count( $candidate_ids ) > 1;
 
 		// The card is already on screen, so the model must be in the card
@@ -621,7 +693,7 @@ class DCard_REST_Controller {
 				// Text only, and only the card just drawn in full. Earlier cards as short
 				// summaries - never image data, never the card database.
 				'current_card'   => DCard_Cards::describe( $card ),
-				'selected_cards' => DCard_Cards::summaries( $session['drawn_cards'] ),
+				'selected_cards' => DCard_Cards::summaries( $previous_card_ids ),
 				'user_message'   => '',
 				'site_event'     => $is_additional_card ? 'additional_card_shown' : 'first_card_shown',
 			), $candidate_ids );
@@ -726,14 +798,13 @@ class DCard_REST_Controller {
 		// draw of the session, since there is no "previous card" yet).
 		$turns_on_previous_card = isset( $session['state']['card_turn_count'] ) ? (int) $session['state']['card_turn_count'] : 0;
 
-		// Only commit the card + state once we have a usable AI response.
-		DCard_DB::add_drawn_card( $session_token, $card_id );
-
-		// ר' הבדיקה למעלה - מורידים קרדיט רק עכשיו, אחרי הצלחה בפועל, רק
-		// אם זוהה משתמש רשום, ו*רק אם זה הקלף הראשון בסשן* ($is_first_card_
-		// draw חושב *לפני* add_drawn_card() - לכן עדיין תקף כאן, לא השתנה
-		// בינתיים). קלף שני/שלישי באותו סשן לא מוריד קרדיט נוסף - הסשן
-		// כולו (עד 3 קלפים + כל השיחה) הוא יחידת החיוב, לא כל קלף בנפרד.
+		// הקלף כבר נרשם (add_drawn_card) ב-/session/draw-card - לא כאן יותר
+		// (ר' ההערה המלאה בתחילת הפונקציה ובתחילת session_draw_card_inner).
+		//
+		// מורידים קרדיט רק אם זוהה משתמש רשום, ו*רק אם זה הקלף הראשון
+		// בסשן* ($is_first_card_draw, ר' למעלה). קלף שני/שלישי באותו סשן
+		// לא מוריד קרדיט נוסף - הסשן כולו (עד 3 קלפים + כל השיחה) הוא
+		// יחידת החיוב, לא כל קלף בנפרד.
 		if ( $registered_user && $is_first_card_draw ) {
 			DCard_Users::deduct_credit( $registered_user['id'], $credit_type );
 		}
@@ -843,13 +914,11 @@ class DCard_REST_Controller {
 			'platform'               => self::session_platform( $session ),
 		) );
 
+		// imageUrl/cardAlt כבר הגיעו ללקוח מ-/session/draw-card - אין צורך
+		// לשלוח אותם שוב כאן.
 		return new WP_REST_Response( array(
 			'success'     => true,
 			'cardId'      => $card_id,
-			// §7.2: the image the client preloads before it reveals the
-			// card - never derived client-side from cardId.
-			'imageUrl'    => $this->card_image_url( $card_id ),
-			'cardAlt'     => 'קלף מספר ' . $card_id,
 			'aiReply'     => $data['speak'],
 			'nextAction'  => $data['next_action'],
 			'endSession'  => (bool) $data['end_session'],
