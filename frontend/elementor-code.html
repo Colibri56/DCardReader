@@ -375,15 +375,7 @@
         display: none;
         text-align: center;
     }
-    .drawn-cards-container {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 30px;
-        margin-top: 15px;
-    }
     .card-item {
-        flex: 0 1 260px; /* רוחב בסיסי גדול לקלף (260 פיקסלים) */
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -404,21 +396,24 @@
     .card-display.card-fade-in {
         animation: cardEnter 0.5s ease-out forwards;
     }
-    /* כפתור "קלף נוסף" ליד התמונה - עיצוב משני/עדין בכוונה (לא כמו btn-main),
-       כי זו עדיין לא פעולה מודגשת/מעודדת, רק זמינה למי שרוצה אותה. */
+    /* "קלף נוסף" (סעיף 6.5) - עכשיו תא נוסף בשורת הקלפים עצמה (לא פיל קטן
+       ליד התמונה), באותו גודל כמו קלף: מסגרת מקווקוות, טקסט בבורדו, +.
+       אין לידו מונה, ונעלם לגמרי אחרי הקלף השלישי. */
     .btn-extra-card {
         font-family: 'Rubik', sans-serif;
         background: transparent;
         color: var(--bordeaux, #7D2E46);
-        border: 1.5px solid var(--bordeaux, #7D2E46);
-        padding: 8px 20px;
-        font-size: 14px;
-        border-radius: 999px;
+        border: 1.5px dashed var(--dashed, #C9AEB6);
+        border-radius: 12px;
+        aspect-ratio: 4 / 3;
+        width: 100%;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+        font-size: 15px;
         cursor: pointer;
     }
+    .btn-extra-card::before { content: '+'; font-size: 28px; line-height: 1; }
     .btn-extra-card:hover {
-        background: var(--bordeaux, #7D2E46);
-        color: white;
+        background: var(--blush, #F3E7EA);
     }
     .btn-extra-card:disabled {
         opacity: 0.5;
@@ -457,9 +452,10 @@
     }
     .chat-input-area {
         display: flex;
-        flex-wrap: wrap; /* מאפשר להודעת שגיאת מיקרופון (flex-basis: 100%) לרדת לשורה משלה */
+        flex-wrap: wrap; /* מאפשר להודעת שגיאת מיקרופון/לתווית (flex-basis: 100%) לרדת לשורה משלהן */
         gap: 10px;
     }
+    .chat-input-area > .kb-field-label { flex-basis: 100%; }
     .chat-input-area textarea {
         flex: 1;
         padding: 12px;
@@ -514,15 +510,18 @@
         flex-wrap: wrap;
     }
 
-    /* בלוק 5: כפתורי סיום */
+    /* בלוק 5: שורת הפעולות (סעיף 6.5) - שלושת הכפתורים העיקריים בקבוצה
+       אחת, "לתת משוב" בקצה השני. קו הפרדה 1px מעליה, ריווח 18px. */
     .actions-block {
         display: none;
-        justify-content: center;
+        justify-content: space-between;
+        align-items: center;
         flex-wrap: wrap;
-        gap: 15px;
-        border-top: 2px solid #eee;
-        padding-top: 20px;
+        gap: 14px;
+        border-top: 1px solid var(--line, #E6DCDE);
+        padding-top: 18px;
     }
+    .kb-actions-group { display: flex; flex-wrap: wrap; gap: 10px; }
     /* kb-btn--secondary (סעיף 3.1) - כפתור משני עם מסגרת */
     .btn-outline {
         font-family: 'Rubik', sans-serif;
@@ -547,6 +546,18 @@
     }
     .btn-outline:hover .kb-btn-sub {
         color: #F3E7EA;
+    }
+
+    /* סעיף 3.1: ארבעה סוגי כפתורים בלבד - kb-btn--primary/secondary כבר
+       קיימים כ-.btn-main/.btn-outline (שמות ישנים, לא שונו כדי לא לשבור
+       שימושים קיימים). emphasis/link חדשים לשורת הפעולות (6.5). */
+    .kb-btn { font-family: 'Rubik', sans-serif; font-weight: 500; border-radius: 999px; min-height: 44px; padding: 0 22px; cursor: pointer; border: none; }
+    .kb-btn--emphasis { background: var(--surface); color: var(--bordeaux); border: 2px solid var(--bordeaux); }
+    .kb-btn--emphasis:hover { background: var(--blush); }
+    .kb-btn--link {
+        background: none; border: none; color: var(--bordeaux); text-decoration: underline;
+        text-underline-offset: 4px; padding: 0 6px; min-height: auto; display: inline-flex;
+        align-items: center; gap: 6px; font-size: 15px;
     }
 
     /* משוב מיקרו (לייק/דיסלייק) - תיקון UI (התבקש: "להכניס את המיקרו משוב
@@ -576,88 +587,6 @@
         margin-inline-start: auto;
     }
 
-    @media (max-width: 600px) {
-        /* תיקון QA מובייל ("סדר הכפתורים צריך להתחלף - 'סיום ויציאה' למעלה,
-           הוא צריך להיות אחרון") - ב-DOM הוא ראשון מבין 3 הכפתורים, ולכן
-           ברוחב צר (כל כפתור נופל לשורה נפרדת ע"י flex-wrap הקיים ב-
-           .actions-block) הוא יוצא העליון. order קובע רק סדר *תצוגה* -
-           ה-DOM/קריאות מסך לא משתנים, ודסקטופ (אין כאן media query) לא
-           מושפע בכלל. */
-        .btn-email-chat {
-            order: 1;
-        }
-        .btn-new-question {
-            order: 2;
-        }
-        .btn-end-session {
-            order: 3;
-        }
-    }
-
-    /* משוב מאקרו - שורת קלט בסטייל וואטסאפ: פיל מעוגל אחד, לא textarea
-       גדולה + כפתור טקסט נפרד כמו קודם. ה-RTL של #card-reader-app עצמו
-       (direction: rtl) דואג לכך שהמיקרופון (ראשון ב-DOM) יישב מימין
-       והשליחה (אחרונה ב-DOM) משמאל - בדיוק סדר אפליקציות צ'אט מוכרות ב-RTL. */
-    .feedback-macro-block {
-        width: 100%;
-        margin-top: 4px;
-    }
-    .feedback-macro-bar {
-        display: flex;
-        align-items: flex-end;
-        gap: 6px;
-        background: #fff;
-        border: 1px solid #e0e0e0;
-        border-radius: 24px;
-        padding: 5px 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }
-    /* .btn-mic עצמה (גודל/צבע/מצב recording) כבר מוגדרת למעלה - בכוונה לא
-       מוגדרת כ-position:absolute כמו בתיבת השאלה (בלוק 1), כי כאן היא
-       חלק משורת flex רגילה, לא פינה בתוך שדה טקסט עצמאי. */
-    .feedback-macro-bar .btn-mic {
-        width: 38px;
-        height: 38px;
-    }
-    .feedback-macro-bar textarea {
-        flex: 1;
-        border: none;
-        outline: none;
-        resize: none;
-        background: transparent;
-        font-family: inherit;
-        font-size: 15px;
-        line-height: 1.4;
-        max-height: 120px; /* תקרת ה"הרחבה האוטומטית" - ר' ה-JS שמכוון את הגובה */
-        padding: 9px 4px;
-    }
-    .feedback-send-btn {
-        width: 46px;
-        height: 46px;
-        flex-shrink: 0;
-        border: none;
-        border-radius: 50%;
-        background: #8B1E3F;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: background 0.2s, opacity 0.2s;
-    }
-    .feedback-send-btn:hover {
-        background: #6e1731;
-    }
-    .feedback-send-btn:disabled {
-        opacity: 0.5;
-        cursor: default;
-    }
-    #feedback-macro-thanks {
-        text-align: center;
-        margin-top: 8px;
-        color: #555;
-        font-size: 14px;
-    }
 
     /* מסגרת "קבלת מסר אישי" בבורדו כמו שאר האתר, לא באפור כמו שאר כפתורי ה-outline */
     #btn-path-message {
@@ -674,7 +603,82 @@
     .dcard-bubble {
         text-align: right;
         direction: rtl;
+        max-width: 85%;
     }
+    /* סעיף 3.5: הודעת משתמש - בועה blush, הודעת AI - בלי בועה בכלל. */
+    .kb-user-bubble {
+        background: var(--blush, #F3E7EA);
+        color: var(--ink, #2A2326);
+        border-radius: 20px 20px 20px 6px;
+        padding: 12px 18px;
+        float: left;
+        max-width: 75%;
+        line-height: 1.5;
+    }
+    .kb-ai-message {
+        float: right;
+        max-width: 85%;
+        padding: 0;
+        background: none;
+    }
+    .kb-ai-label-row {
+        display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    .kb-ai-icon {
+        width: 34px; height: 34px; border-radius: 50%; background: var(--blush, #F3E7EA);
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .kb-ai-icon svg { width: 16px; height: 14px; }
+    .kb-ai-label { font-size: 15px; color: var(--muted, #6E6266); font-weight: 500; }
+    .kb-ai-text {
+        font-size: 19px; line-height: 1.8; color: var(--ink, #2A2326);
+    }
+    .kb-ai-text p { margin: 0 0 14px; }
+    .kb-ai-text p:last-child { margin-bottom: 0; }
+    /* אגודל למעלה/למטה (סעיף 3.5): קו דק, בלי רקע, בלי אימוג'י; בלחיצה - בורדו */
+    .dcard-feedback-pill {
+        display: flex; width: fit-content; gap: 10px; margin-top: 10px;
+        align-items: center; border: none;
+    }
+    .dcard-feedback-btn {
+        width: 38px; height: 38px; border-radius: 50%; border: none; background: none;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+        color: var(--muted, #6E6266); transition: color 0.2s;
+    }
+    .dcard-feedback-btn svg { width: 20px; height: 20px; }
+    .dcard-feedback-btn.kb-feedback-active { color: var(--bordeaux, #7D2E46); }
+
+    /* סעיף 6.6: אזור "רוצה להעמיק?" */
+    .kb-deepen-box {
+        background: var(--blush, #F3E7EA); border-radius: 18px; padding: 20px;
+        clear: both; width: 100%; box-sizing: border-box; margin: 14px 0;
+    }
+    .kb-deepen-box h4 { font-size: 19px; margin: 0 0 8px; font-weight: 500; }
+    .kb-deepen-box p { font-size: 15px; color: var(--ink-soft, #4A3F43); margin: 0 0 16px; line-height: 1.5; }
+
+    /* סעיף 6.5: שורת הקלפים */
+    .kb-card-row {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 260px)); gap: 28px;
+        justify-content: center; width: 100%;
+    }
+    .kb-card-row .card-item { width: 100%; }
+    .kb-card-row .card-display {
+        width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+        border: 10px solid #fff; box-shadow: var(--shadow-card, 0 18px 40px rgba(42,35,38,.16));
+    }
+    @media (max-width: 767px) {
+        .kb-card-row {
+            display: flex; grid-template-columns: none; overflow-x: auto; flex-wrap: nowrap;
+            scroll-snap-type: x mandatory; gap: 16px; padding-bottom: 4px;
+        }
+        .kb-card-row .card-item, .kb-card-row .btn-extra-card { flex: 0 0 290px; scroll-snap-align: center; }
+    }
+    .kb-card-dots { display: none; justify-content: center; gap: 6px; margin-top: 10px; }
+    @media (max-width: 767px) {
+        .kb-card-dots { display: flex; }
+    }
+    .kb-card-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong, #D9C9CD); }
+    .kb-card-dots span.kb-dot-active { width: 22px; height: 8px; border-radius: 4px; background: var(--bordeaux, #7D2E46); }
 
     /* שינוי UX (#3): אנימציית טעינה - שלוש נקודות פועמות, במקום הטקסט
        הסטטי "הקורא בקלפים מתמקד...". אותו בורדו כמו .btn-main/.card-back
@@ -809,6 +813,11 @@
         cursor: pointer; display: flex; align-items: center; justify-content: center;
     }
     .kb-radio-card:hover { color: var(--ink) !important; }
+    /* חלון המייל (6.7) וחלון המשוב (6.8) */
+    .kb-checkbox-row { display: flex; align-items: center; gap: 8px; margin: 2px 0 18px; font-size: 14px; color: var(--ink-soft); }
+    .kb-checkbox-row input { width: 18px; height: 18px; cursor: pointer; }
+    .kb-success-icon { background: var(--blush); color: var(--bordeaux); }
+    .kb-success-icon svg { width: 28px; height: 28px; }
     .kb-radio-card[aria-pressed="true"] {
         border: 2px solid var(--bordeaux); background: var(--blush); color: var(--ink) !important;
     }
@@ -1031,17 +1040,18 @@
         <button class="btn-main" id="btn-deck-action" disabled>ערבוב קלפים</button>
     </div>
 
-    <!-- בלוק 3: אזור הצגת הקלפים שנשלפו -->
+    <!-- בלוק 3: אזור הצגת הקלפים שנשלפו (סעיף 6.5: שורת קלפים, עד 3, 4:3) -->
     <div class="cards-block" id="block-3">
-        <div id="cards-container" class="drawn-cards-container"></div>
+        <div id="cards-container" class="kb-card-row"></div>
+        <div id="cards-dots" class="kb-card-dots" aria-hidden="true"></div>
     </div>
 
     <!-- בלוק 4: דיאלוג עם ה-AI -->
     <div class="chat-block" id="block-4">
         <div class="chat-history" id="chat-history">
-            (כאן תוצג תגובת הקורא בקלפים)
         </div>
         <div class="chat-input-area">
+            <label class="kb-field-label" for="ai-reply-input">התשובה שלך</label>
             <textarea id="ai-reply-input" rows="3" placeholder="כתבו כאן את מה שעולה לכם בעקבות הקלף, או שאלו שאלת המשך..."></textarea>
             <button type="button" class="btn-mic" id="btn-mic-chat" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
@@ -1054,33 +1064,18 @@
         </div>
     </div>
 
-    <!-- בלוק 5: כפתורי סיום סשן -->
+    <!-- בלוק 5: שורת הפעולות (סעיף 6.5/6.6) - קו הפרדה + הכפתורים, ו"לתת
+         משוב" בקצה השני (נפתח רק מכאן - סעיף 6.8). -->
     <div class="actions-block" id="block-5">
-        <!-- תיקון (התבקש: "כדאי להעלות אותו מעל 3 הכפתורים") - בלוק המשוב
-             המאקרו הועבר לפני כפתורי הסיום, כדי שיהיה גלוי ובולט יותר לפני
-             שהמשתמש בכלל מגיע להחלטה "לסיים"/"שאלה חדשה". -->
-        <div class="feedback-macro-block" id="feedback-macro-block">
-            <div class="feedback-macro-bar">
-                <button type="button" class="btn-mic" id="btn-mic-feedback" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;">
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
-                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                    </svg>
-                    <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-                </button>
-                <textarea id="feedback-macro-text" placeholder="שתף אותנו בתחושות שלך..." rows="1"></textarea>
-                <button type="button" class="feedback-send-btn" id="btn-feedback-macro-submit" title="שליחה" aria-label="שליחה">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <path d="M2.5 21l19-9-19-9v7l14 2-14 2z"/>
-                    </svg>
-                </button>
-            </div>
-            <div id="feedback-macro-thanks" style="display:none;">תודה על המשוב! 🙏</div>
+        <div class="kb-actions-group">
+            <button type="button" class="kb-btn kb-btn--emphasis btn-new-question" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
+            <button type="button" class="kb-btn kb-btn--secondary btn-email-chat">שליחת השיחה במייל</button>
+            <button type="button" class="kb-btn kb-btn--secondary btn-end-session">סיום השיחה</button>
         </div>
-
-        <button class="btn-outline btn-end-session">סיום ויציאה</button>
-        <button class="btn-outline btn-email-chat">שליחת השיחה במייל</button>
-        <button class="btn-outline btn-new-question" onclick="window.dcardStartNewReading()">שאלה חדשה</button>
+        <button type="button" class="kb-btn kb-btn--link" id="btn-open-feedback">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
+            לתת משוב
+        </button>
     </div>
 
     </div> <!-- /kb-main-content -->
@@ -1158,6 +1153,70 @@
             <div class="kb-modal-actions">
                 <button type="button" class="btn-main" id="kb-end-session-confirm">כן, לסיים</button>
                 <button type="button" class="btn-outline" id="kb-end-session-cancel">ביטול</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- חלון "שליחת השיחה במייל" (סעיף 6.7) - מחליף את window.prompt. -->
+    <div id="kb-email-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-email-title">
+            <div class="kb-modal-handle"></div>
+            <div id="kb-email-form-state">
+                <h2 class="kb-modal-title" id="kb-email-title" style="text-align:center;">שליחת השיחה במייל</h2>
+                <p class="kb-modal-text" id="kb-email-explain" style="text-align:center;"></p>
+                <label class="kb-field-label" for="kb-email-input">כתובת מייל</label>
+                <input type="email" id="kb-email-input" class="kb-field" dir="ltr" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
+                <div class="kb-field-error" id="kb-email-field-error" style="display:none;" role="alert"></div>
+                <div class="kb-checkbox-row">
+                    <input type="checkbox" id="kb-email-remember" checked>
+                    <label for="kb-email-remember">לזכור את הכתובת לפעם הבאה</label>
+                </div>
+                <div class="kb-alert-banner" id="kb-email-send-error" style="display:none;"></div>
+                <div class="kb-modal-actions">
+                    <button type="button" class="btn-main" id="kb-email-submit">שליחה</button>
+                    <button type="button" class="btn-outline" id="kb-email-cancel">ביטול</button>
+                </div>
+            </div>
+            <div id="kb-email-success-state" style="display:none;text-align:center;">
+                <div class="kb-onboarding-icon kb-success-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                </div>
+                <h2 class="kb-modal-title">השיחה נשלחה</h2>
+                <p class="kb-modal-text">העותק בדרך לתיבת הדואר שלך. אם הוא לא מגיע תוך כמה דקות, כדאי לבדוק גם בתיקיית הספאם.</p>
+                <div class="kb-modal-actions">
+                    <button type="button" class="btn-main" id="kb-email-back-to-chat">חזרה לשיחה</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- חלון "לתת משוב" (סעיף 6.8) - נפתח רק מהקישור "לתת משוב". -->
+    <div id="kb-feedback-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-feedback-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-feedback-title" style="text-align:center;"></h2>
+            <p class="kb-modal-text" style="text-align:center;">איך הייתה השיחה בשבילך? המשוב מגיע רק אלינו, למטרת שיפור האפליקציה.</p>
+            <div class="kb-radio-group" role="radiogroup" aria-label="דירוג">
+                <button type="button" class="kb-radio-card" id="kb-feedback-rating-low" aria-pressed="false">פחות</button>
+                <button type="button" class="kb-radio-card" id="kb-feedback-rating-mid" aria-pressed="false">בסדר</button>
+                <button type="button" class="kb-radio-card" id="kb-feedback-rating-high" aria-pressed="false">עזרה מאוד</button>
+            </div>
+            <div class="kb-field-error" id="kb-feedback-rating-error" style="display:none;" role="alert">בחרו דירוג לפני השליחה.</div>
+            <div class="kb-alert-banner" id="kb-feedback-send-error" style="display:none;"></div>
+            <label class="kb-field-label" for="kb-feedback-text">רוצה לספר לנו עוד?</label>
+            <div style="position:relative;">
+                <textarea id="kb-feedback-text" class="kb-field" rows="3" style="width:100%;box-sizing:border-box;padding:12px 14px;" placeholder="מה עזר לך, ומה היה חסר. אפשר גם להקליט"></textarea>
+                <button type="button" class="btn-mic" id="btn-mic-feedback-modal" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;position:absolute;bottom:14px;left:14px;">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="width:30px;height:30px;">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                    <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                </button>
+            </div>
+            <div class="kb-modal-actions" style="margin-top:16px;">
+                <button type="button" class="btn-main" id="kb-feedback-submit">שליחת המשוב</button>
+                <button type="button" class="btn-outline" id="kb-feedback-cancel">ביטול</button>
             </div>
         </div>
     </div>
@@ -1637,12 +1696,13 @@
     const chatHistory = document.getElementById('chat-history');
     const chatInput = document.getElementById('ai-reply-input');
     const btnMicChat = document.getElementById('btn-mic-chat');
-    const btnMicFeedback = document.getElementById('btn-mic-feedback');
+    const btnMicFeedback = document.getElementById('btn-mic-feedback-modal');
     const chatInputArea = document.querySelector('.chat-input-area');
     const btnSend = document.querySelector('.btn-send');
-    // סקופ ל-block-5 בלבד: כפתור "קבלת מסר" משתמש גם הוא ב-btn-outline,
-    // וחיפוש גלובלי היה מזיז את האינדקסים של כפתורי הסיום.
-    const endSessionBtns = document.querySelectorAll('#block-5 .btn-outline');
+    // שורת הפעולות (סעיף 6.5) - שמות מחלקה ייעודיים, לא אינדקס מיקום.
+    const btnEndSession = document.querySelector('#block-5 .btn-end-session');
+    const btnEmailChat = document.querySelector('#block-5 .btn-email-chat');
+    const btnOpenFeedback = document.getElementById('btn-open-feedback');
     const pathChoiceBlock = document.getElementById('block-path-choice');
     const btnPathChat = document.getElementById('btn-path-chat');
     const btnPathMessage = document.getElementById('btn-path-message');
@@ -1864,6 +1924,10 @@
         kbHomeParagraph.textContent = ( 'female' === userGender )
             ? 'שאלי שאלה על משהו בחייך, בחרי קלף אקראי, והקורא בקלפים יכוון אותך לתשובה המדויקת לך.'
             : 'שאל שאלה על משהו בחייך, בחר קלף אקראי, והקורא בקלפים יכוון אותך לתשובה המדויקת לך.';
+        // סעיף 6.5 - placeholder לפי לשון פנייה
+        chatInput.placeholder = ( 'female' === userGender )
+            ? 'כתבי מה עולה בך, או שאלי שאלת המשך'
+            : 'כתוב מה עולה בך, או שאל שאלת המשך';
     }
     kbUpdateHomeTexts();
 
@@ -1984,6 +2048,8 @@
         else if (!kbInfoModal.hidden) kbInfoModal.hidden = true;
         else if (!kbGuidelinesModal.hidden) kbGuidelinesModal.hidden = true;
         else if (!kbEndSessionModal.hidden) kbEndSessionModal.hidden = true;
+        else if (!kbEmailModal.hidden) kbEmailModal.hidden = true;
+        else if (!kbFeedbackModal.hidden) kbFeedbackModal.hidden = true;
         // kb-onboarding-modal לא נסגר ב-Esc בכוונה - המידע חובה לפני שממשיכים.
     });
 
@@ -2708,94 +2774,111 @@
 
         questionMicController = attachVoiceButton(btnMic, userQuestion, 'question'); // בלוק 1: תיבת השאלה
         chatMicController = attachVoiceButton(btnMicChat, chatInput, 'chat'); // בלוק 4: שיחה אישית עם ה-AI
-        // שורת משוב מאקרו (בלוק 5) - document.getElementById ישיר, לא קבוע
-        // feedbackMacroText (שמוכרז רק מאוחר יותר בקובץ, ליד handler
-        // השליחה) - כדי לא להיתקע על תלות סדר הכרזות.
+        // חלון המשוב (סעיף 6.8) - document.getElementById ישיר, לא קבוע
+        // (הטקסטריה מוכרזת רק מאוחר יותר בקובץ) - כדי לא להיתקע על תלות
+        // סדר הכרזות.
         if (btnMicFeedback) {
-            attachVoiceButton(btnMicFeedback, document.getElementById('feedback-macro-text'), 'feedback');
+            attachVoiceButton(btnMicFeedback, document.getElementById('kb-feedback-text'), 'feedback');
         }
     })();
 
-    // 2. פונקציות עזר לבניית בועות צ'אט
-    function appendMessage(role, text, showFeedback) {
+    // 2. פונקציות עזר לבניית הודעות הצ'אט (סעיף 3.5: הודעת AI בלי בועה,
+    // עם שורת תווית; הודעת משתמש - בועה blush).
+    const KB_AI_ICON_SVG = '<svg viewBox="0 0 40 34" fill="#7D2E46" stroke="#7D2E46" stroke-width="2" stroke-linejoin="round" aria-hidden="true">'
+        + '<rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"/>'
+        + '<rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"/>'
+        + '<rect x="14" y="3" width="12" height="18" rx="2"/>'
+        + '<circle cx="20" cy="12" r="1.6" fill="#F3E7EA" stroke="none"/>'
+        + '</svg>';
+    const KB_THUMB_UP_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm0 0 4-7a2 2 0 0 1 2 2v3h5.5a1.5 1.5 0 0 1 1.46 1.84l-1.5 7A2 2 0 0 1 16.52 20H9a2 2 0 0 1-2-2v-7z"/></svg>';
+    const KB_THUMB_DOWN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 13V4H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h3zm0 0-4 7a2 2 0 0 0 2-2v-3h5.5a1.5 1.5 0 0 0 1.46-1.84l-1.5-7A2 2 0 0 0 16.52 4H9a2 2 0 0 0-2 2v7z"/></svg>';
+
+    // text הוא קלט לא-בטוח (גם מה שהמשתמש הקליד, גם מה שה-AI מחזיר) - בונה
+    // פסקאות אמיתיות (שורה ריקה = פסקה חדשה), כל טקסט כ-text node בלבד,
+    // בלתי ניתן לפרשנות כ-HTML לעולם (תיקון אבטחה QA 4.1).
+    function appendTextParagraphs(container, text) {
+        String(text).split(/\n{2,}/).forEach(function (para) {
+            const p = document.createElement('p');
+            const lines = para.split('\n');
+            lines.forEach(function (line, index) {
+                p.appendChild(document.createTextNode(line));
+                if (index < lines.length - 1) p.appendChild(document.createElement('br'));
+            });
+            container.appendChild(p);
+        });
+    }
+
+    // label: תווית שורת ה-AI - "הקורא" (ברירת מחדל) או "המסר שלך" (מסך קבלת מסר).
+    function appendMessage(role, text, showFeedback, label) {
         // עוצר את סבב הטקסטים המתחלפים (clearInterval) ומסיר את חיווי ה"מקליד",
         // אם הם מוצגים - זה קורה תמיד לפני שמוצגת כל הודעה חדשה, ולכן בפועל
         // תמיד ברגע שמגיעה תשובה מה-API (הצלחה או שגיאה).
         stopTyping();
 
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'dcard-bubble';
-        msgDiv.style.margin = "10px 0";
-        msgDiv.style.padding = "12px 18px";
-        msgDiv.style.borderRadius = "15px";
-        msgDiv.style.maxWidth = "85%";
-        msgDiv.style.display = "inline-block";
-        msgDiv.style.lineHeight = "1.5";
-
-        if (role === 'user') {
-            msgDiv.style.background = "#f1f1f1";
-            msgDiv.style.color = "#333";
-            msgDiv.style.float = "left"; // יישור למשתמש
-            msgDiv.style.borderBottomLeftRadius = "2px";
-        } else {
-            msgDiv.style.background = "#8B1E3F";
-            msgDiv.style.color = "white";
-            msgDiv.style.float = "right"; // יישור לסוכן ה-AI
-            msgDiv.style.borderBottomRightRadius = "2px";
-        }
-
-        // תיקון אבטחה (QA 4.1): לא innerHTML - text הוא קלט לא-בטוח (גם מה
-        // שהמשתמש הקליד בעצמו, גם מה שה-AI מחזיר) ועלול להכיל HTML/JS.
-        // בונים את שבירות השורה כאלמנטים אמיתיים, והטקסט עצמו תמיד כ-text
-        // node - בלתי ניתן לפרשנות כ-HTML לעולם, תהיה התוכן שלו אשר יהיה.
-        const lines = String(text).split('\n');
-        lines.forEach(function (line, index) {
-            msgDiv.appendChild(document.createTextNode(line));
-            if (index < lines.length - 1) {
-                msgDiv.appendChild(document.createElement('br'));
-            }
-        });
-
         const wrapper = document.createElement('div');
         wrapper.style.overflow = "hidden";
         wrapper.style.clear = "both";
         wrapper.style.width = "100%";
+
+        let msgDiv, textContainer;
+
+        if (role === 'user') {
+            msgDiv = document.createElement('div');
+            msgDiv.className = 'dcard-bubble kb-user-bubble';
+            textContainer = msgDiv;
+            appendTextParagraphs(textContainer, text);
+        } else {
+            // סעיף 3.5: בלי בועה - שורת תווית (עיגול + "הקורא"/"המסר שלך") מעל הטקסט.
+            msgDiv = document.createElement('div');
+            msgDiv.className = 'dcard-bubble kb-ai-message';
+
+            const labelRow = document.createElement('div');
+            labelRow.className = 'kb-ai-label-row';
+            const icon = document.createElement('span');
+            icon.className = 'kb-ai-icon';
+            icon.innerHTML = KB_AI_ICON_SVG;
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'kb-ai-label';
+            labelSpan.textContent = label || 'הקורא';
+            labelRow.appendChild(icon);
+            labelRow.appendChild(labelSpan);
+            msgDiv.appendChild(labelRow);
+
+            textContainer = document.createElement('div');
+            textContainer.className = 'kb-ai-text';
+            appendTextParagraphs(textContainer, text);
+            msgDiv.appendChild(textContainer);
+        }
+
         wrapper.appendChild(msgDiv);
 
         // משוב מיקרו (לייק/דיסלייק) - רק על הודעות AI, לא על הודעות המשתמש
         // עצמו. messageId נשמר על ה-bubble (לא רק במשתנה מקומי) למקרה שיהיה
         // צורך לאתר אותו מבחוץ בעתיד. showFeedback: undefined (לא הועבר כלל,
         // כמו בכל שאר הקריאות ל-appendMessage בקובץ) = ברירת מחדל true -
-        // false מפורש בלבד (ר' runCardAI) מדלג, לתבנית הקבועה של קלף
-        // בשיחה שאין עליה בכלל מה לתת משוב.
+        // false מפורש בלבד מדלג, לתבנית הקבועה של קלף בשיחה שאין עליה
+        // בכלל מה לתת משוב.
         if (role === 'ai' && false !== showFeedback) {
             const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
             msgDiv.dataset.messageId = messageId;
 
-            // תיקון UI (התבקש: "להכניס את המיקרו משוב לתוך תיבת התשובה
-            // של ה-AI") - פיל (pill) עדין - ר' .dcard-feedback-pill ב-CSS,
-            // עכשיו מתווסף ישירות כילד של msgDiv (הבועה עצמה) למטה, לא
-            // כאלמנט נפרד לצידה/מתחתיה.
+            // סעיף 3.5: "שני כפתורי אייקון שקטים... קו דק, בלי רקע ובלי
+            // אימוג'י. כשלוחצים, האייקון נצבע בבורדו" - SVG קו (לא emoji),
+            // צבע מוחלף ע"י .kb-feedback-active (ר' CSS), לא opacity.
             const feedbackRow = document.createElement('div');
             feedbackRow.className = 'dcard-feedback-pill';
 
             const likeBtn = document.createElement('button');
             likeBtn.type = 'button';
-            likeBtn.textContent = '👍';
             likeBtn.className = 'dcard-feedback-btn';
-            likeBtn.style.border = 'none';
-            likeBtn.style.background = 'transparent';
-            likeBtn.style.cursor = 'pointer';
-            likeBtn.style.fontSize = '24px';
+            likeBtn.setAttribute('aria-label', 'הודעה שימושית');
+            likeBtn.innerHTML = KB_THUMB_UP_SVG;
 
             const dislikeBtn = document.createElement('button');
             dislikeBtn.type = 'button';
-            dislikeBtn.textContent = '👎';
             dislikeBtn.className = 'dcard-feedback-btn';
-            dislikeBtn.style.border = 'none';
-            dislikeBtn.style.background = 'transparent';
-            dislikeBtn.style.cursor = 'pointer';
-            dislikeBtn.style.fontSize = '24px';
+            dislikeBtn.setAttribute('aria-label', 'הודעה לא שימושית');
+            dislikeBtn.innerHTML = KB_THUMB_DOWN_SVG;
 
             // תיקון (התבקש: "לאפשר שינוי/תיקון הבחירה של מיקרו משוב - ייתכן
             // ולחצו בטעות ורוצים לתקן") - הכפתורים לא ננעלים יותר אחרי
@@ -2808,8 +2891,8 @@
             function handleFeedbackClick(value, chosenBtn, otherBtn) {
                 if (currentFeedbackValue === value) return;
                 currentFeedbackValue = value;
-                chosenBtn.style.opacity = '1';
-                otherBtn.style.opacity = '0.3';
+                chosenBtn.classList.add('kb-feedback-active');
+                otherBtn.classList.remove('kb-feedback-active');
                 sendMicroFeedback(messageId, value);
             }
             likeBtn.addEventListener('click', function () { handleFeedbackClick('like', likeBtn, dislikeBtn); });
@@ -2850,6 +2933,35 @@
         // חלק למצב "שיחה פתוחה" אחרי הודעת "קבלת מסר", ר' runCardAI למטה)
         // יוכל להוסיף לתוכו שורה נוספת בהמשך, בלי ליצור בועה נפרדת.
         return msgDiv;
+    }
+
+    // סעיף 3.5: "הודעת שגיאה - לא מופיעה כבועה. שורת התראה מתחת לשיחה,
+    // רקע --blush... עם [ניסיון חוזר]". retryFn אופציונלי - בלעדיו (למשל
+    // סשן שפג, אין טעם ב"ניסיון חוזר") מוצג רק הטקסט.
+    function appendErrorBanner(text, retryFn) {
+        stopTyping();
+        const wrapper = document.createElement('div');
+        wrapper.style.clear = 'both';
+        wrapper.style.width = '100%';
+
+        const banner = document.createElement('div');
+        banner.className = 'kb-alert-banner';
+        const span = document.createElement('span');
+        span.textContent = text;
+        banner.appendChild(span);
+        if (retryFn) {
+            const retryBtn = document.createElement('button');
+            retryBtn.type = 'button';
+            retryBtn.textContent = 'ניסיון חוזר';
+            retryBtn.addEventListener('click', function () {
+                wrapper.remove();
+                retryFn();
+            });
+            banner.appendChild(retryBtn);
+        }
+        wrapper.appendChild(banner);
+        chatHistory.appendChild(wrapper);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
     // חיווי המתנה: אנימציית שלוש נקודות (ללא טקסט) שמתחלפת כל 3.5 שניות
@@ -3209,7 +3321,7 @@
         const texts = {
             shuffling: 'מערבבים את הקלפים...',
             flowing: ( 'female' === userGender ) ? 'לבחירת קלף - געי בקלף או לחצי על הכפתור' : 'לבחירת קלף - גע בקלף או לחץ על הכפתור',
-            error: 'החיבור נכשל - אפשר לנסות שוב',
+            error: 'הקלף לא נשלף בגלל תקלה בחיבור. אפשר לנסות שוב.',
             revealed: 'זה הקלף שנבחר'
         };
         kbStageStatus.textContent = texts[key] || '';
@@ -3247,12 +3359,14 @@
                     throw new Error('kb_handled');
                 }
                 if (404 === drawRes.status) {
-                    appendMessage('ai', 'חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
+                    appendErrorBanner('חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
                     lockChatInput();
                     throw new Error('kb_handled');
                 }
                 if (!drawData.imageUrl || !drawData.cardId) {
-                    appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר להמתין מעט ולנסות שוב. במידה ולא מסתדר, אפשר ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+                    // סעיף 3.5א טבלה: "תקלה בשליפת קלף" - שורת התראה *בבמה*
+                    // עצמה (kbOnHint('error')), לא הודעה כפולה גם בצ'אט -
+                    // ר' pick()/kb-shuffle שמציג אותה אחרי שה-throw הזה מגיע אליו.
                     throw new Error('kb_handled');
                 }
 
@@ -3264,7 +3378,6 @@
                 return { id: drawData.cardId, image_url: drawData.imageUrl, alt: drawData.cardAlt };
             } catch (e) {
                 if (!(e instanceof Error) || 'kb_handled' !== e.message) {
-                    appendMessage('ai', 'אירעה שגיאה בחיבור למערכת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
                     console.error(e);
                 }
                 throw e;
@@ -3277,6 +3390,17 @@
     // ר' kbRunAiTurnForCard, שמריץ את חלק הצ'אט בנפרד/במקביל. אין כפתור
     // "להמשך הקריאה" נפרד (סעיף 7.4 #8) - ממשיכים ישר לתצוגת הקלף, כמו
     // שכל שאר האפליקציה כבר עובדת (אין בכך סטייה מרשימת הבדיקות ב-7.9).
+    const cardsDots = document.getElementById('cards-dots');
+    // סעיף 6.5 (בטלפון): נקודה פעילה = פס בורדו, השאר נקודות רגילות.
+    function kbUpdateCardDots() {
+        cardsDots.innerHTML = '';
+        for (let i = 0; i < drawnCards.length; i++) {
+            const dot = document.createElement('span');
+            if (i === drawnCards.length - 1) dot.className = 'kb-dot-active';
+            cardsDots.appendChild(dot);
+        }
+    }
+
     function kbOnCardRevealed(card) {
         const cardWrapper = document.createElement('div');
         cardWrapper.className = 'card-item';
@@ -3288,9 +3412,18 @@
         imgElement.src = card.image_url;
         cardWrapper.appendChild(imgElement);
 
+        // סעיף 6.5: "קלף נוסף" הוא תא בסוף שורת הקלפים עצמה (לא פיל ליד
+        // התמונה) - מוסר ונוצר מחדש בכל שליפה כדי להישאר תמיד אחרון בשורה.
+        const existingExtraBtn = document.getElementById('btn-extra-card');
+        if (existingExtraBtn) existingExtraBtn.remove();
+
+        cardsContainer.appendChild(cardWrapper);
+        kbUpdateCardDots();
+
         if (drawnCards.length < MAX_CARDS) {
             const extraCardBtn = document.createElement('button');
             extraCardBtn.type = 'button';
+            extraCardBtn.id = 'btn-extra-card';
             extraCardBtn.className = 'btn-extra-card';
             if (!chatModeActive) {
                 extraCardBtn.style.display = 'none';
@@ -3300,10 +3433,9 @@
                 extraCardBtn.disabled = true;
                 maybeOfferAnotherCard('request_card_draw', true);
             });
-            cardWrapper.appendChild(extraCardBtn);
+            cardsContainer.appendChild(extraCardBtn);
         }
 
-        cardsContainer.appendChild(cardWrapper);
         block3Cards.style.display = 'block';
         block4Chat.style.display = 'block';
         block5Actions.style.display = 'flex';
@@ -3322,6 +3454,15 @@
     // הקלף, ומעדכן את הצ'אט מתי שהתשובה מגיעה, בלי קשר לשלב שבו נמצאת
     // האנימציה באותו רגע. 403 קרדיטים/מגבלה יומית כבר נבדקו ב-/draw-card
     // (לפני שבכלל הוצג קלף) - אין יותר ענפים כאלה כאן.
+    // סעיף 6.6: המשפט הקבוע שה-AI מצרף בסוף "קבלת מסר" ("אני מזמין אותך
+    // להמשיך ולהעמיק...") מיותר עכשיו - יש קופסת "רוצה להעמיק?" ייעודית
+    // (offerDeepenIntoChat). מסוננת כאן בתצוגה בלבד, לא בנוסח שה-AI מחזיר
+    // (ר' ההערה המלאה ליד MESSAGE_MODE_CLOSING_LINE ב-PHP) - נשאר בתמלול/מייל.
+    const KB_MESSAGE_MODE_CLOSING_LINE = 'אני מזמין אותך להמשיך ולהעמיק בלחיצה על "להמשיך ולהעמיק בשיחה" או לשאלה נוספת בכפתור "שאלה חדשה"';
+    function kbStripClosingLine(text) {
+        return String(text).replace(KB_MESSAGE_MODE_CLOSING_LINE, '').replace(/\n{2,}$/, '').trim();
+    }
+
     async function kbRunAiTurnForCard(cardId, mode) {
         showTyping();
         try {
@@ -3338,16 +3479,17 @@
             const data = await res.json();
 
             if (404 === res.status) {
-                appendMessage('ai', 'חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
+                appendErrorBanner('חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
                 lockChatInput();
                 return;
             }
             if (!data.aiReply) {
-                appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר להמתין מעט ולנסות שוב. במידה ולא מסתדר, אפשר ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+                appendErrorBanner('החיבור נקטע לרגע. ההודעה שלך לא אבדה.', function () { kbRunAiTurnForCard(cardId, mode); });
                 return;
             }
 
-            const aiBubble = appendMessage('ai', data.aiReply, 'chat' !== mode);
+            const replyText = ( 'message' === mode ) ? kbStripClosingLine(data.aiReply) : data.aiReply;
+            const aiBubble = appendMessage('ai', replyText, 'chat' !== mode, ( 'message' === mode ) ? 'המסר שלך' : 'הקורא');
             if (mode === 'chat') {
                 maybeOfferAnotherCard(data.nextAction);
             } else {
@@ -3355,7 +3497,7 @@
                 offerDeepenIntoChat(aiBubble);
             }
         } catch (e) {
-            appendMessage('ai', 'אירעה שגיאה בחיבור למערכת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+            appendErrorBanner('החיבור נקטע לרגע. ההודעה שלך לא אבדה.', function () { kbRunAiTurnForCard(cardId, mode); });
             console.error(e);
         }
     }
@@ -3571,19 +3713,30 @@
     // חדשה - chatModeActive הוא הדגל היחיד שמסלול השיחה הרגיל (btnPathChat)
     // כבר קורא לו בכל מקום אחר בקובץ הזה, אז זו לא התנהגות נפרדת.
     function offerDeepenIntoChat(aiBubble) {
+        // סעיף 6.6: קופסת "רוצה להעמיק?" (במקום הכפתור האפור הקודם) -
+        // כותרת+הסבר+כפתור ראשי. הטקסט שה-AI מפנה אליו ("להמשיך ולהעמיק
+        // בשיחה") הוסר מהתצוגה בנפרד (ר' kbRunAiTurnForCard) - הקופסה
+        // הזו היא ה-CTA היחיד עכשיו.
         const deepenWrapper = document.createElement('div');
         deepenWrapper.style.clear = 'both';
-        deepenWrapper.style.textAlign = 'center';
-        deepenWrapper.style.margin = '14px 0';
+        deepenWrapper.style.width = '100%';
 
+        const deepenBox = document.createElement('div');
+        deepenBox.className = 'kb-deepen-box';
+
+        const deepenTitle = document.createElement('h4');
+        deepenTitle.textContent = 'רוצה להעמיק?';
+        const deepenText = document.createElement('p');
+        deepenText.textContent = 'אפשר להמשיך מכאן לדיאלוג מכוון, עם אותה שאלה ואותו קלף. הקורא ישאל אותך שאלות ויעזור לך להגיע לתשובה מדויקת יותר.';
         const deepenBtn = document.createElement('button');
         deepenBtn.type = 'button';
-        deepenBtn.className = 'btn-outline';
-        // תיקון: הטקסט כאן חייב להתאים בדיוק למה שמשפט הסיום של "קבלת מסר"
-        // מפנה אליו (ר' MESSAGE_MODE_INSTRUCTION ב-class-dcard-rest-controller.php) -
-        // אחרת המשתמש מחפש כפתור בשם אחד ורואה כפתור בשם אחר.
-        deepenBtn.textContent = 'להמשיך ולהעמיק בשיחה';
-        deepenWrapper.appendChild(deepenBtn);
+        deepenBtn.className = 'btn-main';
+        deepenBtn.textContent = 'המשך לדיאלוג מכוון';
+
+        deepenBox.appendChild(deepenTitle);
+        deepenBox.appendChild(deepenText);
+        deepenBox.appendChild(deepenBtn);
+        deepenWrapper.appendChild(deepenBox);
         chatHistory.appendChild(deepenWrapper);
         // תיקון QA (דווח בפועל: "התיקון הקודם לא עבד - אחרי בחירת קבלת
         // מסר האפליקציה עדיין מגלגלת לסוף") - appendMessage() כבר מיקם
@@ -3703,13 +3856,37 @@
         let agentEndedConversation = false;
         let creditsExhausted = false; // ר' ה-finally למטה - מונע lockChatInput עם הודעה שגויה אם זה קרה בדיוק בתור האחרון
 
-        try {
+        async function attemptTurn() {
             const res = await fetch(`${API_BASE}/turn`, {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({ session_token: sessionToken, message: text, is_final_turn: isFinalTurn })
             });
-            const data = await res.json();
+            return { res: res, data: await res.json() };
+        }
+        // סעיף 3.5: "ניסיון חוזר" שולח שוב את אותה הודעה אחרונה (text, אותו
+        // משתנה שכבר נשלח בפעם הראשונה) - לא מוסיף עוד בועת משתמש, לא סופר שוב.
+        function retryTurn() {
+            appendErrorBanner('החיבור נקטע לרגע. ההודעה שלך לא אבדה.', async function () {
+                try {
+                    const { res, data } = await attemptTurn();
+                    if (data.aiReply) {
+                        appendMessage('ai', data.aiReply);
+                        if (!isFinalTurn && !data.endSession) maybeOfferAnotherCard(data.nextAction);
+                    } else if (404 === res.status) {
+                        lockChatInput();
+                    } else {
+                        retryTurn();
+                    }
+                } catch (e2) {
+                    console.error(e2);
+                    retryTurn();
+                }
+            });
+        }
+
+        try {
+            const { res, data } = await attemptTurn();
 
             // ר' ההערה המלאה ב-runCardAI למעלה - אותה תגובה ל-403/
             // credits_exhausted. (העדכון ב-session_turn_inner שסגר את
@@ -3756,15 +3933,16 @@
             } else if (404 === res.status) {
                 // אותו תיקון כמו ב-runCardAI למעלה (timeout אמיתי - הסשן
                 // כבר נמחק ע"י cleanup_old_sessions אחרי 2 שעות חוסר פעילות).
-                appendMessage('ai', 'חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
+                appendErrorBanner('חלף זמן ארוך מדי ללא פעילות אז אני סוגר את השיחה ומזמין אותך לדבר שוב כשיהיה לך פנאי.');
                 lockChatInput();
             } else {
-                // אותו תיקון כמו ב-runCardAI למעלה - לא מציגים טקסט שגיאה גולמי
-                // מהשרת, וגם לא "נסה שוב" לבדו אם זה כשל שחוזר על עצמו.
-                appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר להמתין מעט ולנסות שוב. במידה ולא מסתדר, אפשר ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+                // סעיף 3.5: שורת התראה עם "ניסיון חוזר" - שולח שוב בדיוק
+                // את אותה הודעה אחרונה, בלי להוסיף עוד בועת משתמש/לספור שוב.
+                retryTurn();
             }
         } catch(e) {
-            appendMessage('ai', 'אירעה שגיאה בתקשורת. אפשר לנסות שוב, ואם זה חוזר על עצמו - מומלץ ללחוץ על "שאלה חדשה" ולהתחיל מחדש.');
+            retryTurn();
+            console.error(e);
         } finally {
             // הנעילה תמיד קורית כאן (לא רק בענף ההצלחה) - גם אם התשובה חזרה
             // כשגיאה על השאלה ה-15, כדי שהמונה בפועל והמצב הנעול תמיד יסתנכרנו.
@@ -3836,9 +4014,9 @@
 
     function kbCloseEndSessionModal() {
         kbEndSessionModal.hidden = true;
-        endSessionBtns[0].focus();
+        btnEndSession.focus();
     }
-    endSessionBtns[0].addEventListener('click', () => {
+    btnEndSession.addEventListener('click', () => {
         kbEndSessionModal.hidden = false;
         kbEndSessionCancelBtn.focus();
     });
@@ -3943,47 +4121,149 @@
         }
     });
 
-    // 6. משוב מאקרו (טקסט חופשי, שורת קלט בסטייל וואטסאפ) - בלוק 5.
-    const feedbackMacroText = document.getElementById('feedback-macro-text');
-    const btnFeedbackMacroSubmit = document.getElementById('btn-feedback-macro-submit');
-    const feedbackMacroThanks = document.getElementById('feedback-macro-thanks');
-    const feedbackMacroBar = document.querySelector('.feedback-macro-bar');
+    // 6. חלון "לתת משוב" (סעיף 6.8) - נפתח רק מ"לתת משוב" בשורת הפעולות.
+    const kbFeedbackModal = document.getElementById('kb-feedback-modal');
+    const kbFeedbackTitle = document.getElementById('kb-feedback-title');
+    const kbFeedbackText = document.getElementById('kb-feedback-text');
+    const kbFeedbackSubmit = document.getElementById('kb-feedback-submit');
+    const kbFeedbackCancel = document.getElementById('kb-feedback-cancel');
+    const kbFeedbackRatingError = document.getElementById('kb-feedback-rating-error');
+    const kbFeedbackRatingBtns = {
+        low: document.getElementById('kb-feedback-rating-low'),
+        mid: document.getElementById('kb-feedback-rating-mid'),
+        high: document.getElementById('kb-feedback-rating-high')
+    };
+    let kbFeedbackRating = null;
+    function kbSetFeedbackRating(value) {
+        kbFeedbackRating = value;
+        Object.keys(kbFeedbackRatingBtns).forEach(function (key) {
+            kbFeedbackRatingBtns[key].setAttribute('aria-pressed', String(key === value));
+        });
+        kbFeedbackRatingError.style.display = 'none';
+    }
+    kbFeedbackRatingBtns.low.addEventListener('click', function () { kbSetFeedbackRating('low'); });
+    kbFeedbackRatingBtns.mid.addEventListener('click', function () { kbSetFeedbackRating('mid'); });
+    kbFeedbackRatingBtns.high.addEventListener('click', function () { kbSetFeedbackRating('high'); });
 
-    // הרחבה אוטומטית (עד התקרה שנקבעה ב-CSS, max-height) - שורה אחת
-    // כברירת מחדל, גדל רק אם המשתמש בפועל כותב הרבה. 'auto' לפני המדידה
-    // כדי שהגובה יכול גם *להתכווץ* חזרה (למשל אחרי מחיקת טקסט), לא רק לגדול.
-    feedbackMacroText.addEventListener('input', function () {
-        feedbackMacroText.style.height = 'auto';
-        feedbackMacroText.style.height = feedbackMacroText.scrollHeight + 'px';
+    function kbOpenFeedbackModal() {
+        kbFeedbackTitle.textContent = 'נשמח לשמוע ממך, ' + userName;
+        kbSetFeedbackRating(null);
+        kbFeedbackText.value = '';
+        kbHideAlertBanner('kb-feedback-send-error');
+        kbFeedbackModal.hidden = false;
+        kbFeedbackRatingBtns.low.focus();
+    }
+    function kbCloseFeedbackModal() {
+        kbFeedbackModal.hidden = true;
+        btnOpenFeedback.focus();
+    }
+    btnOpenFeedback.addEventListener('click', kbOpenFeedbackModal);
+    kbFeedbackCancel.addEventListener('click', kbCloseFeedbackModal);
+    kbFeedbackModal.addEventListener('click', function (e) {
+        if (e.target === kbFeedbackModal) kbCloseFeedbackModal();
     });
 
-    btnFeedbackMacroSubmit.addEventListener('click', function () {
-        const text = feedbackMacroText.value.trim();
-        if (!text) return;
-
-        btnFeedbackMacroSubmit.disabled = true; // מניעת שליחה כפולה - לפני ה-fetch, לא רק אחריו
-        feedbackMacroText.disabled = true;
-
+    kbFeedbackSubmit.addEventListener('click', function () {
+        if (!kbFeedbackRating) {
+            kbFeedbackRatingError.style.display = 'flex';
+            return;
+        }
+        kbFeedbackSubmit.disabled = true;
         fetch(`${FEEDBACK_API_BASE}/macro`, {
             method: 'POST',
             headers: dcardHeaders(),
             body: JSON.stringify({
                 type: 'macro',
                 session_id: sessionToken,
-                text: text,
+                text: kbFeedbackText.value.trim(),
+                rating: kbFeedbackRating,
                 flow_type: currentFlowType(),
                 timestamp: new Date().toISOString()
             })
         }).then(function () {
-            // מחליפים את כל ה-pill (לא רק שדה/כפתור בודדים) בהודעת התודה -
-            // כך גם המיקרופון שבפנים נעלם בבת אחת, בלי שרידים ויזואליים.
-            if (feedbackMacroBar) feedbackMacroBar.style.display = 'none';
-            feedbackMacroThanks.style.display = 'block';
+            kbCloseFeedbackModal();
         }).catch(function (err) {
             console.warn('[DCard Feedback] macro feedback failed to send:', err);
-            // משאירים את הטופס פתוח לניסיון חוזר - רק כשל ברשת, לא בחירת המשתמש
-            btnFeedbackMacroSubmit.disabled = false;
-            feedbackMacroText.disabled = false;
+            kbShowAlertBanner(kbFeedbackText, 'kb-feedback-send-error', 'המשוב לא נשלח בגלל תקלה בחיבור.', function () {
+                kbFeedbackSubmit.click();
+            });
+        }).finally(function () {
+            kbFeedbackSubmit.disabled = false;
         });
+    });
+
+    // 7. חלון "שליחת השיחה במייל" (סעיף 6.7) - מחליף window.prompt. בניגוד
+    // ל"סיום ויציאה", זה לא מסיים את הסשן (ר' /session/email-transcript
+    // החדש בשרת) - מצב ההצלחה מאפשר "חזרה לשיחה" בפועל.
+    const kbEmailModal = document.getElementById('kb-email-modal');
+    const kbEmailFormState = document.getElementById('kb-email-form-state');
+    const kbEmailSuccessState = document.getElementById('kb-email-success-state');
+    const kbEmailInput = document.getElementById('kb-email-input');
+    const kbEmailFieldError = document.getElementById('kb-email-field-error');
+    const kbEmailRemember = document.getElementById('kb-email-remember');
+    const kbEmailSubmit = document.getElementById('kb-email-submit');
+    const kbEmailCancel = document.getElementById('kb-email-cancel');
+    const kbEmailBackToChat = document.getElementById('kb-email-back-to-chat');
+    const kbEmailExplain = document.getElementById('kb-email-explain');
+
+    function kbOpenEmailModal() {
+        kbEmailExplain.textContent = ( 'female' === userGender )
+            ? 'נשלח אלייך עותק של השאלה, הקלפים שיצאו והשיחה כולה, כדי שתוכלי לחזור אליה מתי שתרצי.'
+            : 'נשלח אליך עותק של השאלה, הקלפים שיצאו והשיחה כולה, כדי שתוכל לחזור אליה מתי שתרצה.';
+        kbEmailInput.value = dcardGetLS(DCARD_LS_KEYS.email) || '';
+        kbClearFieldError(kbEmailInput, kbEmailFieldError);
+        kbHideAlertBanner('kb-email-send-error');
+        kbEmailFormState.style.display = '';
+        kbEmailSuccessState.style.display = 'none';
+        kbEmailModal.hidden = false;
+        kbEmailInput.focus();
+    }
+    function kbCloseEmailModal() {
+        kbEmailModal.hidden = true;
+        btnEmailChat.focus();
+    }
+    btnEmailChat.addEventListener('click', kbOpenEmailModal);
+    kbEmailCancel.addEventListener('click', kbCloseEmailModal);
+    kbEmailBackToChat.addEventListener('click', kbCloseEmailModal);
+    kbEmailModal.addEventListener('click', function (e) {
+        if (e.target === kbEmailModal) kbCloseEmailModal();
+    });
+
+    kbEmailSubmit.addEventListener('click', async function () {
+        const email = kbEmailInput.value.trim();
+        if (!EMAIL_REGEX.test(email)) {
+            kbShowFieldError(kbEmailInput, kbEmailFieldError, 'הכתובת לא נראית תקינה. כדאי לבדוק שאין רווחים ושיש @');
+            return;
+        }
+        kbClearFieldError(kbEmailInput, kbEmailFieldError);
+        kbHideAlertBanner('kb-email-send-error');
+        kbEmailSubmit.disabled = true;
+
+        if (kbEmailRemember.checked) {
+            dcardSetLS(DCARD_LS_KEYS.email, email);
+        }
+
+        // תמונות הקלפים שנשלפו בפועל בסשן, לפי סדר השליפה - יוטמעו במייל.
+        const cardImages = Array.from(document.querySelectorAll('#cards-container .card-display')).map(img => img.src);
+
+        try {
+            const res = await fetch(`${API_BASE}/email-transcript`, {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ session_token: sessionToken, email: email, cardImages: cardImages })
+            });
+            const data = await res.json();
+            if (data.emailSent) {
+                kbEmailFormState.style.display = 'none';
+                kbEmailSuccessState.style.display = '';
+                kbEmailBackToChat.focus();
+            } else {
+                kbShowAlertBanner(kbEmailInput, 'kb-email-send-error', 'המייל לא נשלח בגלל תקלה בחיבור.', function () { kbEmailSubmit.click(); });
+            }
+        } catch (e) {
+            kbShowAlertBanner(kbEmailInput, 'kb-email-send-error', 'המייל לא נשלח בגלל תקלה בחיבור.', function () { kbEmailSubmit.click(); });
+        } finally {
+            kbEmailSubmit.disabled = false;
+        }
     });
 </script>

@@ -61,9 +61,13 @@ class API_Feedback {
 
         $session_token = sanitize_text_field( $params['session_id'] ?? '' );
         $text          = sanitize_textarea_field( $params['text'] ?? '' );
+        // סעיף 6.8: דירוג תלת-כיווני ("פחות"/"בסדר"/"עזרה מאוד") - החובה
+        // האמיתית בטופס החדש, לא הטקסט (אופציונלי, "רוצה לספר לנו עוד?").
+        $rating        = sanitize_text_field( $params['rating'] ?? '' );
+        $rating        = in_array( $rating, array( 'low', 'mid', 'high' ), true ) ? $rating : '';
 
-        if ( empty( $session_token ) || empty( $text ) ) {
-            return new \WP_Error( 'missing_data', 'Missing session ID or text', [ 'status' => 400 ] );
+        if ( empty( $session_token ) || ( empty( $text ) && empty( $rating ) ) ) {
+            return new \WP_Error( 'missing_data', 'Missing session ID, and both text and rating', [ 'status' => 400 ] );
         }
 
         // ר' ההערה המלאה ב-handle_micro_feedback למעלה.
@@ -72,6 +76,7 @@ class API_Feedback {
             'session_token' => $session_token,
             'user_name'     => $session ? $session['user_name'] : null,
             'feedback_text' => $text,
+            'rating'        => $rating,
         ) );
 
         return rest_ensure_response( [ 'success' => true ] );

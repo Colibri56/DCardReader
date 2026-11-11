@@ -316,6 +316,20 @@ class DCard_REST_Controller {
 				'exit_type'     => array( 'required' => false ),
 			),
 		) );
+
+		// סעיף 6.7: שליחת העתק השיחה במייל בלי לסיים את הסשן - בניגוד
+		// ל-/session/end, שתמיד מסמן את הסשן כ-completed. המודל החדש
+		// ("חזרה לשיחה" אחרי הצלחה) מחייב שהסשן נשאר active אחרי השליחה.
+		register_rest_route( self::NAMESPACE_, '/session/email-transcript', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'session_email_transcript' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+			'args'                => array(
+				'session_token' => array( 'required' => true ),
+				'email'         => array( 'required' => true ),
+				'cardImages'    => array( 'required' => false ),
+			),
+		) );
 	}
 
 	/**
@@ -1179,6 +1193,58 @@ class DCard_REST_Controller {
 			'emailSent'      => $email_sent,
 			'closingMessage' => $closing_message,
 		), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// POST /session/email-transcript
+	// ---------------------------------------------------------------
+	public function session_email_transcript( WP_REST_Request $request ) {
+		return $this->safely( 'session_email_transcript', function () use ( $request ) {
+			return $this->session_email_transcript_inner( $request );
+		} );
+	}
+
+	/**
+	 * סעיף 6.7: שולחת את אותו מייל תמלול שגם /session/end שולח (DCard_Mailer::
+	 * send_transcript, אותם פרמטרים), אבל בלי finalize_session() - הסשן
+	 * נשאר 'active', כדי שאפשר יהיה לחזור לשיחה (כפתור "חזרה לשיחה") אחרי
+	 * מצב ההצלחה בחלון. לא נרשם session_completed - רק אירוע ייעודי קל.
+	 */
+	private function session_email_transcript_inner( WP_REST_Request $request ) {
+		$session_token = sanitize_text_field( (string) $request->get_param( 'session_token' ) );
+		$email_raw     = (string) $request->get_param( 'email' );
+		$email         = $email_raw ? sanitize_email( $email_raw ) : '';
+		$card_images   = $this->sanitize_card_image_urls( $request->get_param( 'cardImages' ) );
+
+		if ( ! $email || ! is_email( $email ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'הכתובת לא נראית תקינה' ), 400 );
+		}
+
+		$session = DCard_DB::get_session( $session_token );
+		if ( ! $session || 'active' !== $session['status'] ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
+		}
+
+		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+		$is_message_mode = 'message' === ( isset( $session['state']['reading_mode'] ) ? $session['state']['reading_mode'] : null );
+		$resolved_phone  = $registered_user ? $registered_user['phone'] : null;
+
+		$email_sent = DCard_Mailer::send_transcript( $email, $session['user_name'], $session['transcript'], $card_images, $is_message_mode, $session_token, $resolved_phone );
+		if ( $email_sent ) {
+			DCard_DB::set_email_sent_to( $session_token, $email );
+		} else {
+			DCard_Logger::warning( 'wp_mail() returned false for mid-session email-transcript', array( 'session_token' => $session_token ) );
+		}
+
+		DCard_Analytics::track( 'email_requested_mid_session', array(
+			'session_token' => $session_token,
+			'user_name'     => $session['user_name'],
+			'email_sent'    => $email_sent ? 'Yes' : '',
+			'platform'      => self::session_platform( $session ),
+		) );
+
+		return new WP_REST_Response( array( 'success' => true, 'emailSent' => $email_sent ), 200 );
 	}
 
 	/**
