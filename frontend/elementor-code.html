@@ -103,6 +103,12 @@
         flex-direction: column;
         gap: 30px;
         box-sizing: border-box;
+        /* רשת ביטחון לטלפון צר (סעיף 7.9: 360-430px בלי גלילה אופקית) -
+           ערימות הקלפים המפוצלות (.kb-stage, סעיף 7) יכולות לקרב את קצה
+           הערימה לשוליים בטלפון הצר ביותר; זה חוסם גלילת-עמוד אופקית בלי
+           לחתוך את .kb-stage עצמו (ששם היה חותך גם בדסקטופ, ששם יש הרבה
+           מקום - דווח בפועל). */
+        overflow-x: hidden;
     }
     /* מרחיב את הרוחב המקסימלי רק מ-1024px ומעלה, בדיוק כשעמודת הקלפים
        הדקורטיביים (360px) נכנסת לתמונה (סעיף 6.3) - כדי שבאמת יהיה מקום
@@ -140,7 +146,7 @@
         color: var(--bordeaux, #7D2E46);
         font-weight: 500;
         font-size: 24px;
-        text-align: center;
+        text-align: right;
         resize: none;
         /* תיקון QA ("סקרול ויזואלי בלבד - לא ניתן לגלול טקסט ארוך"): הנעילה
            בפועל היא readOnly (ר' userQuestion.readOnly=true ב-JS) - לא
@@ -239,14 +245,14 @@
     .kb-stage {
         position: relative;
         width: 100%;
-        max-width: 480px;
+        /* max-width בפועל נקבע ב-JS (kbShuffle) לפי PX/PUSH/CW של אותה נקודת
+           שבירה - לא קבוע כאן, כדי שערימות הקלפים לא ייחתכו בשוליים (דווח
+           בפועל - היה קבוע מדי ב-480px, קטן מהרוחב שה-PX/PUSH הדסקטופ
+           באמת צריכים). */
+        max-width: 620px;
         height: var(--stage-h, 400px);
         perspective: 1400px;
-        margin: 0 auto 12px;
-        /* בטיחות לרוחב טלפון צר (360px, סעיף 7.9): PUSH+PX של שלב 'drawn'
-           יכולים לקרב את קצה הערימה לשוליים - מונע גלילה אופקית בעמוד
-           גם אם קצה קלף בודד נחתך חלקית ברגע המעבר. */
-        overflow: hidden;
+        margin: 0 auto 8px;
     }
     .kb-deck-card {
         position: absolute;
@@ -2909,9 +2915,12 @@
     //      הוחלט (במפורש, לא בכוונה לסטות משקט מסעיף 7.2) לחייב בחירה
     //      ידנית (הקשה על קלף/לחיצה על הכפתור) בלי טיימר אוטומטי.
     function kbShuffle(stage, opts) {
+        // BT/STAGE_H הוקטנו מול המקור (דווח בפועל: "להעלות את ערימות הקלפים
+        // למעלה" + "לצמצם את הרווח מתחת לקלפים") - הקלפים יושבים גבוה יותר
+        // בתוך הבמה, והבמה עצמה נמוכה יותר. PX/PUSH/CW נשארו כמו שהיו.
         const P = opts.mobile
-            ? { N: 12, CW: 86,  CH: 129, PX: 112, BT: 150, STAGE_H: 400, PY: -80,  S: 1.55, SL: 1.5, PUSH: 30, PUSHY: 30, FLOW: 170 }
-            : { N: 12, CW: 130, CH: 195, PX: 190, BT: 200, STAGE_H: 560, PY: -110, S: 1.7,  SL: 1.5, PUSH: 40, PUSHY: 60, FLOW: 170 };
+            ? { N: 12, CW: 86,  CH: 129, PX: 112, BT: 90,  STAGE_H: 260, PY: -80,  S: 1.55, SL: 1.5, PUSH: 30, PUSHY: 30, FLOW: 170 }
+            : { N: 12, CW: 130, CH: 195, PX: 190, BT: 130, STAGE_H: 380, PY: -110, S: 1.7,  SL: 1.5, PUSH: 40, PUSHY: 60, FLOW: 170 };
         const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
         const cards = [], timers = [];
         let order = [...Array(P.N).keys()], A = [], B = [], dir = 'AB', phase = 'stack';
@@ -2921,6 +2930,10 @@
 
         stage.style.setProperty('--cw', P.CW + 'px'); stage.style.setProperty('--ch', P.CH + 'px');
         stage.style.setProperty('--bt', P.BT + 'px'); stage.style.setProperty('--stage-h', P.STAGE_H + 'px');
+        // דווח בפועל: הקצוות של ערימות הקלפים המפוצלות נחתכו - 480px הקבועים
+        // ב-CSS היו צרים מדי ביחס ל-PX+PUSH+CW בפועל. רוחב הבמה נקבע כאן
+        // לפי הפרמטרים עצמם, עם שוליים נוספים, כדי שכל קלף יוצג במלואו.
+        stage.style.maxWidth = (2 * (P.PX + P.PUSH) + P.CW + 32) + 'px';
         for (let id = 0; id < P.N; id++) {
             const el = stage.querySelector(`[data-card="${id}"]`);
             el.addEventListener('click', () => pick(id));
@@ -3006,7 +3019,8 @@
             chosen = null; last = null;
             opts.onBusyChange(true); opts.onHint('shuffling'); render();
             let t = 400;
-            if (!skipRiffle && !reduce) for (let k = 0; k < 2; k++) {
+            // 3 סבבי ריפל (לא 2) - דווח בפועל: "להוסיף עירבוב נוסף".
+            if (!skipRiffle && !reduce) for (let k = 0; k < 3; k++) {
                 later(t, () => { phase = 'split'; render(); }); t += 650;
                 later(t, () => { phase = 'riffle'; order = riffle(order); render(); }); t += 1000;
                 later(t, () => { phase = 'stack'; render(); }); t += 300;
@@ -3074,7 +3088,7 @@
     function kbOnHint(key) {
         const texts = {
             shuffling: 'מערבבים את הקלפים...',
-            flowing: ( 'female' === userGender ) ? 'געי בקלף או לחצי על הכפתור לבחירה' : 'גע בקלף או לחץ על הכפתור לבחירה',
+            flowing: ( 'female' === userGender ) ? 'לבחירת קלף - געי בקלף או לחצי על הכפתור' : 'לבחירת קלף - גע בקלף או לחץ על הכפתור',
             error: 'החיבור נכשל - אפשר לנסות שוב',
             revealed: 'זה הקלף שנבחר'
         };

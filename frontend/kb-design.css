@@ -323,13 +323,12 @@
 .kb-stage {
   position: relative;
   width: 100%;
-  max-width: 480px;
+  /* max-width בפועל נקבע ב-JS (kbShuffle) לפי PX/PUSH/CW - ר' ההערה המלאה
+     במקור (frontend/elementor-code.html). */
+  max-width: 620px;
   height: var(--stage-h, 400px);
   perspective: 1400px;
-  margin: 0 auto 12px;
-  /* בטיחות לרוחב טלפון צר (360px, סעיף 7.9) - ר' ההערה המלאה במקור
-     (frontend/elementor-code.html). */
-  overflow: hidden;
+  margin: 0 auto 8px;
 }
 .kb-deck-card {
   position: absolute;
