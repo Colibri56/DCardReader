@@ -2950,16 +2950,32 @@
         stage.style.maxWidth = (2 * (P.PX + P.PUSH) + P.CW + 32) + 'px';
         for (let id = 0; id < P.N; id++) {
             const el = stage.querySelector(`[data-card="${id}"]`);
-            el.addEventListener('click', () => pick(id));
+            el.addEventListener('click', () => { if (phase !== 'drawn') skipToFlowThenPick(id); });
             cards.push(el);
         }
         // דווח בפועל (פעמיים): עדיין קשה לכוון בדיוק לקלף, גם עם שטח ההקשה
         // המורחב (::after, ר' CSS). לחיצה בכל מקום בתוך הבמה (כולל "בין"
         // הקלפים) שולפת את הקלף שבתנועה - בדיוק כמו הכפתור - כדי שלא יהיה
         // צורך לדעת איפה בדיוק ללחוץ. לחיצה על קלף ספציפי עדיין עובדת כרגיל
-        // (ה-listener שלו רץ קודם, ב-bubbling; ה-guard ב-pick() מונע הפעלה
-        // כפולה כשההקשה הזו "נופלת" גם היא על אותו אירוע).
-        stage.addEventListener('click', () => pick(last ?? A[A.length - 1]));
+        // (ה-listener שלו רץ קודם, ב-bubbling; ה-guard ב-pick()/skipToFlowThenPick
+        // מונע הפעלה כפולה כשההקשה הזו "נופלת" גם היא על אותו אירוע).
+        stage.addEventListener('click', () => { if (phase !== 'drawn') skipToFlowThenPick(last ?? A[A.length - 1] ?? order[0]); });
+
+        // דווח בפועל: "משתמשים וותיקים לא בהכרח ירצו לחכות שניות מיותרות" -
+        // לחיצה/הקשה בזמן הריפל (לפני ששלב ה-flow בכלל התחיל) מדלגת ישר
+        // לשלב flow ושולפת קלף מיידית, בלי לחכות שהריפל יסתיים או שה-flow
+        // יתחיל קודם. ב-flow עצמו (phase==='flow') זה פשוט pick() רגיל.
+        function skipToFlowThenPick(id) {
+            if (phase === 'flow') { pick(id); return; }
+            if (phase === 'drawn' || chosen !== null) return; // כבר נבחר קלף - אין מה לדלג אליו
+            timers.forEach(clearTimeout); timers.length = 0;
+            clearInterval(flowTimer);
+            phase = 'flow';
+            A = reduce ? order.slice(0, P.N / 2) : order.slice();
+            B = reduce ? order.slice(P.N / 2) : [];
+            render();
+            pick(id);
+        }
 
         function setCardsTabIndex(v) {
             cards.forEach((el, id) => { if (id !== chosen) el.tabIndex = v; });
@@ -3005,10 +3021,12 @@
             A = A.filter(x => x !== id); B = B.filter(x => x !== id);
             opts.onBusyChange(true); render();
             setCardsTabIndex(-1);
-            setT(id, { x: 0, y: P.PY, r: -1, s: reduce ? 1 : P.S, dur: reduce ? 0 : 750, zi: 9999 }); // lift
-            // תיקון תזמון (דווח בפועל: "הקלף עומד קפוא זמן רב") - חצי שניה
-            // של עמידה (היה 700), התהפכות בכ-שניה (950, היה 750), וחצי שניה
-            // בין ההתהפכות לנחיתה (היה 800) - ר' גם ההערה המלאה למטה.
+            // דווח בפועל: "לדלג על שלב הצגת קלף קטן ואז מגדיל - זה מיותר
+            // ולא אסתטי" - אין יותר שלב נפרד של גדילה לגודל מלא *לפני*
+            // ההיפוך (שהיה מראה קלף-גב ענק עומד). כאן רק מרכזים אותו
+            // במקומו, בגודל רגיל - משוב מיידי על איזה קלף נבחר, בלי
+            // "תפיחה" מוקדמת.
+            setT(id, { x: 0, y: P.PY, r: -1, s: 1, dur: reduce ? 0 : 400, zi: 9999 });
             const minLift = new Promise(r => setTimeout(r, reduce ? 0 : 500));
             try {
                 const card = await opts.fetchCard();
@@ -3026,10 +3044,14 @@
                     opts.onHint('revealed');
                     opts.onReveal(card);
                 } else {
-                    setT(id, { x: 0, y: P.PY, r: -1, ry: 180, s: P.S, dur: 950, zi: 9999 }); // flip (עומד)
-                    later(500, () => {
-                        setT(id, { x: 0, y: P.PY, r: 90, ry: 180, s: P.SL, dur: 750, zi: 9999 }); // land (לרוחב)
-                        later(650, () => { opts.onHint('revealed'); opts.onReveal(card); });
+                    // דווח בפועל: "כשהקלף מתהפך, הוא צריך להיות כבר בגודל
+                    // מלא בפורטרט" - הגדילה (ל-S) וההיפוך (ry:180) קורים
+                    // יחד, בבת אחת, לא בשני שלבים נפרדים. הנחיתה ללנסקייפ
+                    // (קטנה מ-S ל-SL) היא עכשיו החלק האיטי/המודגש.
+                    setT(id, { x: 0, y: P.PY, r: -1, ry: 180, s: P.S, dur: 550, zi: 9999 }); // גדילה+היפוך
+                    later(600, () => {
+                        setT(id, { x: 0, y: P.PY, r: 90, ry: 180, s: P.SL, dur: 1100, zi: 9999 }); // נחיתה איטית ללנסקייפ
+                        later(1150, () => { opts.onHint('revealed'); opts.onReveal(card); });
                     });
                 }
             } catch (e) {
