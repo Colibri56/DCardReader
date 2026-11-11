@@ -452,11 +452,11 @@
 .kb-ai-text p:last-child { margin-bottom: 0; }
 .dcard-feedback-pill { display: flex; width: fit-content; gap: 10px; margin-top: 10px; align-items: center; border: none; }
 .dcard-feedback-btn {
-  width: 38px; height: 38px; border-radius: 50%; border: none; background: none;
+  width: 40px; height: 40px; border-radius: 50%; border: none; background: none;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   color: var(--muted, #6E6266); transition: color 0.2s;
 }
-.dcard-feedback-btn svg { width: 20px; height: 20px; }
+.dcard-feedback-btn svg { width: 26px; height: 26px; }
 .dcard-feedback-btn.kb-feedback-active { color: var(--bordeaux, #7D2E46); }
 
 /* סעיף 6.6: אזור "רוצה להעמיק?" */
