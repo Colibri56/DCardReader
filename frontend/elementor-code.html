@@ -459,8 +459,16 @@
         min-height: 0;
     }
     .chat-block.kb-visible { display: flex; flex: 1; }
+    /* תיקון QA (סעיף 6.5: "תיבת התשובה צמודה להודעה האחרונה, ויורדת
+       לתחתית רק כשהשיחה ממלאת את המסך") - flex:1 (היה כאן קודם) גרם
+       לאזור ההודעות תמיד "לנפוח" ולמלא את כל הגובה הפנוי של chat-block,
+       כך שהתיבה נדחפה לתחתית המסך גם כששיחה קצרה בת הודעה אחת. flex:0 1
+       auto + min-height:0 (הנוסחה המדויקת בסעיף 6.5) - האזור תופס רק את
+       גובה התוכן שלו, והתיבה נשארת צמודה אליו; רק כשהתוכן עצמו גבוה מהחלל
+       הפנוי האזור גדל/נגלל ודוחק את התיבה לקבוע בתחתית. */
     .chat-history {
-        flex: 1;
+        flex: 0 1 auto;
+        min-height: 0;
         overflow-y: auto;
         margin-bottom: 0;
         padding: 20px 4px 15px;
@@ -576,6 +584,17 @@
     .btn-outline:hover .kb-btn-sub {
         color: #F3E7EA;
     }
+    /* תיקון QA (סעיף 3.1: "'ביטול' בחלונות הוא תמיד כפתור שקט... בלי רקע
+       ובלי מסגרת. אסור שיהיה מלא או צבעוני"; וגם "אף כפתור לא נצבע בוורוד
+       או באדום, בשום מצב") - כפתורי "ביטול" בפועל (סיום שיחה/מייל/משוב)
+       השתמשו עד כה ב-.btn-outline (מסגרת + מילוי בורדוקס מלא ב-hover, ר'
+       למעלה) - בדיוק ההפך מ"כפתור שקט". מחלקה נפרדת, בלי הירושה הזו בכלל. */
+    .kb-btn--quiet {
+        background: none; border: none; color: var(--muted, #6E6266);
+        font-family: 'Rubik', sans-serif; font-weight: 500; font-size: 15px;
+        min-height: 44px; padding: 0 12px; cursor: pointer;
+    }
+    .kb-btn--quiet:hover { color: var(--ink, #2A2326); background: none; }
 
     /* סעיף 3.1: ארבעה סוגי כפתורים בלבד - kb-btn--primary/secondary כבר
        קיימים כ-.btn-main/.btn-outline (שמות ישנים, לא שונו כדי לא לשבור
@@ -587,7 +606,12 @@
        האלה) הכיל את הסגנון. בלי ההגדרה הכפתורים נפלו לברירת המחדל של
        הדפדפן (בלי מסגרת, טקסט שחור). */
     .kb-btn--secondary { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line-strong); }
-    .kb-btn--secondary:hover { background: var(--bordeaux); border-color: var(--bordeaux); color: #fff; }
+    /* תיקון QA (דווח בפועל: "'שליחת השיחה במייל' ו'סיום השיחה' נצבעים
+       בוורוד/בורדו מלא") - אותה בעיה כמו .btn-outline:hover למעלה: מילוי
+       מלא ב-hover סותר את §3.1 ("אף כפתור לא נצבע... בשום מצב"). הנוסח
+       החוזר של הסעיף עצמו מגדיר hover עדין בלבד ל-secondary/emphasis:
+       background: var(--blush) - לא מילוי צבע. */
+    .kb-btn--secondary:hover { background: var(--blush); }
     .kb-btn--emphasis { background: var(--surface); color: var(--bordeaux); border: 2px solid var(--bordeaux); }
     .kb-btn--emphasis:hover { background: var(--blush); }
     .kb-btn--link {
@@ -854,6 +878,15 @@
         gap: 0;
         padding-bottom: 0;
     }
+    /* תיקון QA (סעיף 6.5: "גובה המסך מחושב לפי מה שבאמת נשאר") - 100dvh
+       לבדו לא מספיק: כש-WP מציג את סרגל הניהול (#wpadminbar, position:fixed),
+       הוא דוחף את ה-html כולו למטה ב-margin-top קבוע (32px במחשב, 46px
+       בטלפון עד 782px - ערכי הליבה של וורדפרס עצמו), ובלעדיי הפיצול הזה
+       100dvh היה גולש מתחת לתחתית המסך הנראית באותו גובה בדיוק. */
+    body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px); }
+    @media (max-width: 782px) {
+        body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 46px); }
+    }
     #kb-main-content.kb-reading-active .kb-header { flex-shrink: 0; }
     #kb-reading-screen { display: none; flex-direction: column; min-height: 0; }
     #kb-main-content.kb-reading-active #kb-reading-screen {
@@ -888,10 +921,20 @@
         #kb-reading-main { padding-inline-end: 24px; }
     }
     /* עמודת הצד: השאלה (block-1, שעובר לכאן ב-JS, כבר .locked), הקלפים
-       (block-3) ושורת הפעולות (block-5, קבועה בתחתית במחשב - ר' flex
-       המשותף מעלה שדוחף אותה לסוף העמודה). */
+       (block-3) ושורת הפעולות (block-5). תיקון QA (סעיף 6.5: "הכפתורים
+       באים מיד אחרי הקלפים, לא בתחתית העמודה... שום כפתור לא נחתך") -
+       margin-top:auto (היה כאן קודם) דחף אותם בכוח לתחתית העמודה, עם חלל
+       ריק לפניהם אם התוכן לא מילא את הגובה. עכשיו רווח קבוע בלבד, מיד
+       אחרי "צריך עוד קלף?" (ר' .cards-block), והעמודה כולה נגללת אם צריך
+       (overflow-y:auto כבר מוגדר על #kb-reading-side במדיה-קוורי למעלה). */
     #kb-reading-side-question .question-block { margin-bottom: 20px; }
-    #kb-reading-side .actions-block { margin-top: auto; }
+    #kb-reading-side .actions-block { margin-top: 24px; }
+    /* "אחד מתחת לשני, כל אחד ברוחב מלא" - קבוצת הכפתורים הראשית הייתה
+       flex-wrap אופקי (מתאים לטלפון, שם block-5 עובר לסוף השיחה - ר'
+       kbPlaceActionsBlock); בעמודת הצד במחשב צריך טור, לא שורה. */
+    #kb-reading-side .kb-actions-group { flex-direction: column; }
+    #kb-reading-side .kb-actions-group .kb-btn { width: 100%; }
+    #kb-reading-side #btn-open-feedback { align-self: center; }
 
     /* לייטבוקס (סעיף 6.5, בטלפון/טאבלט): תמונת קלף ממוזערת שנפתחת בגדול */
     #kb-card-lightbox {
@@ -1270,14 +1313,17 @@
 
     <!-- חלון אישור סיום סשן (סעיף 3.5א: בלי confirm() של הדפדפן) -
          סגירה ב-Esc/רקע/"ביטול", לפי כללי 3.4. -->
+    <!-- סעיף 6.9: בגוף יחיד עם השם, לפי לשון הפנייה - אף פעם לא רבים.
+         הטקסטים עצמם (userName/userGender) מוזנים ב-JS, ר' kbOpenEndSessionModal. -->
     <div id="kb-end-session-modal" class="kb-modal-scrim" hidden>
         <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-end-session-title">
             <div class="kb-modal-handle"></div>
-            <h2 class="kb-modal-title" id="kb-end-session-title" style="text-align:center;">סיום השיחה</h2>
-            <p class="kb-modal-text" style="text-align:center;">האם אתם בטוחים שברצונכם לסיים את הסשן?</p>
+            <h2 class="kb-modal-title" id="kb-end-session-title" style="text-align:center;"></h2>
+            <p class="kb-modal-text" id="kb-end-session-explain" style="text-align:center;"></p>
             <div class="kb-modal-actions">
                 <button type="button" class="btn-main" id="kb-end-session-confirm">כן, לסיים</button>
-                <button type="button" class="btn-outline" id="kb-end-session-cancel">ביטול</button>
+                <button type="button" class="kb-btn kb-btn--secondary" id="kb-end-session-email-first" style="width:100%;">שליחה למייל קודם</button>
+                <button type="button" class="kb-btn kb-btn--quiet" id="kb-end-session-cancel" style="align-self:center;">ביטול</button>
             </div>
         </div>
     </div>
@@ -1299,7 +1345,7 @@
                 <div class="kb-alert-banner" id="kb-email-send-error" style="display:none;"></div>
                 <div class="kb-modal-actions">
                     <button type="button" class="btn-main" id="kb-email-submit">שליחה</button>
-                    <button type="button" class="btn-outline" id="kb-email-cancel">ביטול</button>
+                    <button type="button" class="kb-btn kb-btn--quiet" id="kb-email-cancel">ביטול</button>
                 </div>
             </div>
             <div id="kb-email-success-state" style="display:none;text-align:center;">
@@ -1341,7 +1387,7 @@
             </div>
             <div class="kb-modal-actions" style="margin-top:16px;">
                 <button type="button" class="btn-main" id="kb-feedback-submit">שליחת המשוב</button>
-                <button type="button" class="btn-outline" id="kb-feedback-cancel">ביטול</button>
+                <button type="button" class="kb-btn kb-btn--quiet" id="kb-feedback-cancel">ביטול</button>
             </div>
         </div>
     </div>
@@ -2933,7 +2979,12 @@
     // סעיף 3.2א: width/height גם כמאפיינים וגם ב-CSS (kb-icon--sm, 18px
     // !important) - כדי שהאייקון לא יתכווץ/יימתח מכללי CSS של התבנית.
     const KB_THUMB_UP_SVG = '<svg class="kb-icon kb-icon--sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm0 0 4-7a2 2 0 0 1 2 2v3h5.5a1.5 1.5 0 0 1 1.46 1.84l-1.5 7A2 2 0 0 1 16.52 20H9a2 2 0 0 1-2-2v-7z"/></svg>';
-    const KB_THUMB_DOWN_SVG = '<svg class="kb-icon kb-icon--sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 13V4H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h3zm0 0-4 7a2 2 0 0 0 2-2v-3h5.5a1.5 1.5 0 0 0 1.46-1.84l-1.5-7A2 2 0 0 0 16.52 4H9a2 2 0 0 0-2 2v7z"/></svg>';
+    // תיקון QA (סעיף 3.5: "אגודל למעלה ולמטה: אותו SVG בדיוק בשניהם. באגודל
+    // למטה מסובבים את כל ה-SVG (rotate(180deg)). לא משתמשים בצורה אחרת ולא
+    // בהיפוך מראה") - עד כה היה כאן path שונה (מצויר ידנית בכיוון הפוך),
+    // לא אותו SVG מסובב. עכשיו אותו path בדיוק כמו KB_THUMB_UP_SVG, עם
+    // transform:rotate(180deg) על ה-svg עצמו.
+    const KB_THUMB_DOWN_SVG = '<svg class="kb-icon kb-icon--sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(180deg);"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3zm0 0 4-7a2 2 0 0 1 2 2v3h5.5a1.5 1.5 0 0 1 1.46 1.84l-1.5 7A2 2 0 0 1 16.52 20H9a2 2 0 0 1-2-2v-7z"/></svg>';
 
     // text הוא קלט לא-בטוח (גם מה שהמשתמש הקליד, גם מה שה-AI מחזיר) - בונה
     // פסקאות אמיתיות (שורה ריקה = פסקה חדשה), כל טקסט כ-text node בלבד,
@@ -3527,8 +3578,12 @@
                 drawnCards.push(drawData.cardId);
                 recordCardInHistory(drawData.cardId);
                 // לא מחכים לזה (ר' ההערה המלאה של הפונקציה) - רץ במקביל
-                // לאנימציה ומעדכן את הצ'אט לבד כשיסיים.
-                kbRunAiTurnForCard(drawData.cardId, mode);
+                // לאנימציה ומעדכן את הצ'אט לבד כשיסיים. drawnCards.length
+                // (אחרי ה-push הזה) הוא מספר סידורי ייחודי וגדל-תמיד של
+                // השליפה הזו בסשן - לא card_id, שיכול לחזור על עצמו
+                // (אותו קלף 1..72 יכול לצאת פעמיים באותו סשן) - ר' ההערה
+                // המלאה ב-kbRunAiTurnForCard למה זה קריטי להגנה מפני כפילות.
+                kbRunAiTurnForCard(drawData.cardId, mode, drawnCards.length);
                 return { id: drawData.cardId, image_url: drawData.imageUrl, alt: drawData.cardAlt };
             } catch (e) {
                 if (!(e instanceof Error) || 'kb_handled' !== e.message) {
@@ -3660,7 +3715,17 @@
         return String(text).replace(KB_MESSAGE_MODE_CLOSING_LINE, '').replace(/\n{2,}$/, '').trim();
     }
 
-    async function kbRunAiTurnForCard(cardId, mode) {
+    // תיקון QA (דווח בפועל: "שלפת קלף נוסף. מה עולה בך..." מופיעה פעמיים) -
+    // לא אותרה נקודת קריאה כפולה ודאית בזרימת הקוד הסטטית (כל ה-handlers
+    // שמובילים לכאן מוגנים כבר מפני הפעלה כפולה על אותו אירוע) - ייתכן
+    // מרוץ שרק דפדפן אמיתי יחשוף. הגנה הזו סוגרת את הפער בכל מקרה: drawIndex
+    // (לא card_id - אותו קלף יכול לחזור פעמיים באותו סשן, ר' ההערה ב-
+    // kbFetchCard) הוא מספר השליפה הסידורי - קריאה שנייה לאותה שליפה בדיוק
+    // (drawIndex <= האחרון שכבר טופל) מדלגת, במקום להוסיף הודעה כפולה.
+    let kbLastHandledDrawIndex = 0;
+    async function kbRunAiTurnForCard(cardId, mode, drawIndex, isRetry) {
+        if (drawIndex && drawIndex === kbLastHandledDrawIndex && !isRetry) return;
+        if (drawIndex) kbLastHandledDrawIndex = drawIndex;
         showTyping();
         try {
             const res = await fetch(`${API_BASE}/card-selected`, {
@@ -3681,7 +3746,7 @@
                 return;
             }
             if (!data.aiReply) {
-                appendErrorBanner('החיבור נקטע לרגע. ההודעה שלך לא אבדה.', function () { kbRunAiTurnForCard(cardId, mode); });
+                appendErrorBanner('החיבור נקטע לרגע. ההודעה שלך לא אבדה.', function () { kbRunAiTurnForCard(cardId, mode, drawIndex, true); });
                 return;
             }
 
@@ -3694,7 +3759,7 @@
                 offerDeepenIntoChat(aiBubble);
             }
         } catch (e) {
-            appendErrorBanner('החיבור נקטע לרגע. ההודעה שלך לא אבדה.', function () { kbRunAiTurnForCard(cardId, mode); });
+            appendErrorBanner('החיבור נקטע לרגע. ההודעה שלך לא אבדה.', function () { kbRunAiTurnForCard(cardId, mode, drawIndex, true); });
             console.error(e);
         }
     }
@@ -3909,6 +3974,12 @@
             // §7.4: "שליפת קלף" לוקחת את הקלף האחרון שזז - kbShuffleController
             // (drawNow) כבר מממש בדיוק את זה; בחירת הקלף עצמו (1..72),
             // התמונה וה-AI מגיעים מ-kbFetchCard/kbOnCardRevealed למעלה.
+            // תיקון QA (סעיף 7.4 #5: "ברגע הלחיצה, כפתור 'שליפת קלף' נעלם
+            // מיד, עוד לפני שהקלף עולה") - עד כה הכפתור רק הושבת (disabled,
+            // עדיין אפור ונראה) דרך onBusyChange; עכשיו גם מוסתר לגמרי,
+            // מיד, לפני שה-animation הפנימית בכלל מתחילה. kbShowStage()
+            // (למטה, כשהקלף הבא נחשף) מחזיר אותו - ר' kbHideStage/kbShowStage.
+            btnDeckAction.style.display = 'none';
             kbShuffleController.drawNow();
         }
     });
@@ -3953,13 +4024,18 @@
         // ל-scrollHeight (=הסוף, אחרי הכפתור) בכל פעם. לא נוגעים בגלילה
         // כאן בכלל - משאירים את המיקום שכבר נקבע.
 
+        // סעיף 6.6 (עדכון): "המשך לדיאלוג מכוון" מציג קודם הודעת פתיחה
+        // מהקורא, עם סימן הקלדה, ורק אחריה נפתחת התיבה - אף פעם לא מוצגת
+        // תיבה ריקה בלי שאלה מהקורא. הטקסט הקבוע מהמפרט משמש כאן ישירות
+        // (באותו דפוס של "טקסט קבוע מיידי" שכבר קיים בצד השרת ל"קלף
+        // נוסף" - ר' ההערה המלאה ב-kbRunAiTurnForCard/class-dcard-rest-
+        // controller.php) - אין כאן קריאת AI אמיתית לשרת בסיבוב הזה; אם
+        // בעתיד ירצו שאלת פתיחה שנבנית ע"י המודל בפועל (לא רק הטקסט
+        // הקבוע), זה ידרוש גם endpoint חדש בצד ה-PHP.
+        const KB_DEEPEN_OPENING_DELAY_MS = 900; // מדמה זמן "מחשבה" קצר - לא מיידי/מכני
         deepenBtn.addEventListener('click', function () {
             deepenWrapper.remove(); // לחיצה חד-פעמית - לא רלוונטי יותר אחרי המעבר לשיחה
 
-            // תיקון QA (סעיף 6.6: "ההודעה 'מה תרצה לשאול?' לא אמורה להופיע") -
-            // הוסרה. תיבת התשובה עצמה (שנחשפת ממש כאן, display='' למטה)
-            // והפלייסהולדר שבה ("כתבו מה עולה לכם...") כבר מזמינים להמשיך,
-            // בלי בועת AI נוספת ומיותרת.
             chatModeActive = true; // מכאן ואילך - כמו אחרי btnPathChat - גם בקלפים נוספים
             // תיקון: אותו חשיפה רטרואקטיבית של כפתור "קלף נוסף" כמו ב-
             // btnPathChat - גם כאן (העמקה ממסר לשיחה) יכול להיות קלף כבר
@@ -3970,9 +4046,17 @@
             // countSessionIfNeeded לא עושה כלום (currentSessionCounted
             // כבר true) - לא נספר פעמיים כ"שני סשנים" על אותה פנייה אחת.
             countSessionIfNeeded(DCARD_LS_KEYS.anonChatCount);
-            chatInputArea.style.display = '';
-            chatInput.focus();
-            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            showTyping();
+            setTimeout(function () {
+                const openingText = ( 'female' === userGender )
+                    ? 'בואי נעמיק. מה הדבר הראשון שמשך את עינך בתמונה?'
+                    : 'בוא נעמיק. מה הדבר הראשון שמשך את עינך בתמונה?';
+                appendMessage('ai', openingText);
+                chatInputArea.style.display = '';
+                chatInput.focus();
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }, KB_DEEPEN_OPENING_DELAY_MS);
         });
     }
 
@@ -4228,20 +4312,40 @@
     // כפתור: סיום הסשן ויציאה - סעיף 3.5א: בלי confirm() של הדפדפן, חלון
     // אישור אמיתי (כללי סגירה כמו 3.4: Esc/רקע/"ביטול").
     const kbEndSessionModal = document.getElementById('kb-end-session-modal');
+    const kbEndSessionTitle = document.getElementById('kb-end-session-title');
+    const kbEndSessionExplain = document.getElementById('kb-end-session-explain');
     const kbEndSessionConfirmBtn = document.getElementById('kb-end-session-confirm');
     const kbEndSessionCancelBtn = document.getElementById('kb-end-session-cancel');
+    const kbEndSessionEmailFirstBtn = document.getElementById('kb-end-session-email-first');
+    // תיקון QA (סעיף 6.9: "שליחה למייל קודם" פותח את חלון 6.7, ובסיומו חוזר
+    // לחלון הזה) - חלון המייל (kbOpenEmailModal/kbCloseEmailModal, מוגדרים
+    // למטה) משותף לכל נקודות הכניסה אליו (גם כפתור "שליחת השיחה במייל"
+    // הרגיל בעמודת הצד); הדגל הזה הוא הדרך היחידה להבדיל לאיזו נקודה
+    // לחזור כשסוגרים/מסיימים אותו - נבדק ב-kbCloseEmailModal.
+    let kbEmailReturnToEndSession = false;
 
+    function kbOpenEndSessionModal() {
+        const isFemale = 'female' === userGender;
+        kbEndSessionTitle.textContent = (isFemale ? userName + ', את רוצה לסיים את השיחה עכשיו?' : userName + ', אתה רוצה לסיים את השיחה עכשיו?');
+        kbEndSessionExplain.textContent = (isFemale
+            ? 'השיחה לא נשמרת אצלנו. אם תרצי לחזור אליה, אפשר לשלוח אותה קודם למייל.'
+            : 'השיחה לא נשמרת אצלנו. אם תרצה לחזור אליה, אפשר לשלוח אותה קודם למייל.');
+        kbEndSessionModal.hidden = false;
+        kbEndSessionCancelBtn.focus();
+    }
     function kbCloseEndSessionModal() {
         kbEndSessionModal.hidden = true;
         btnEndSession.focus();
     }
-    btnEndSession.addEventListener('click', () => {
-        kbEndSessionModal.hidden = false;
-        kbEndSessionCancelBtn.focus();
-    });
+    btnEndSession.addEventListener('click', kbOpenEndSessionModal);
     kbEndSessionCancelBtn.addEventListener('click', kbCloseEndSessionModal);
     kbEndSessionModal.addEventListener('click', function (e) {
         if (e.target === kbEndSessionModal) kbCloseEndSessionModal();
+    });
+    kbEndSessionEmailFirstBtn.addEventListener('click', function () {
+        kbEndSessionModal.hidden = true;
+        kbEmailReturnToEndSession = true;
+        kbOpenEmailModal();
     });
     kbEndSessionConfirmBtn.addEventListener('click', async () => {
         kbEndSessionModal.hidden = true;
@@ -4439,6 +4543,15 @@
     }
     function kbCloseEmailModal() {
         kbEmailModal.hidden = true;
+        // ר' ההערה המלאה ליד ההכרזה של kbEmailReturnToEndSession (למעלה,
+        // ליד חלון סיום השיחה) - "שליחה למייל קודם" ב-6.9 נכנס לכאן עם
+        // הדגל הזה דלוק; סגירה (ביטול/חזרה לשיחה/הצלחה) חוזרת לחלון סיום
+        // השיחה במקום לשיחה עצמה.
+        if (kbEmailReturnToEndSession) {
+            kbEmailReturnToEndSession = false;
+            kbOpenEndSessionModal();
+            return;
+        }
         btnEmailChat.focus();
     }
     btnEmailChat.addEventListener('click', kbOpenEmailModal);

@@ -70,8 +70,15 @@
 .kb-btn--primary   { background: var(--bordeaux); color: #fff; border: none; }
 .kb-btn--primary:hover { background: var(--bordeaux-hover); box-shadow: var(--shadow-small); }
 .kb-btn--secondary { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line-strong); }
-.kb-btn--secondary:hover { background: var(--bordeaux); border-color: var(--bordeaux); color: #fff; }
-.kb-btn--secondary:hover .kb-btn-sub { color: #F3E7EA; }
+/* §3.1: "אף כפתור לא נצבע... בשום מצב" - hover עדין בלבד (--blush), לא מילוי צבע מלא. */
+.kb-btn--secondary:hover { background: var(--blush); }
+/* §3.1: "ביטול" הוא תמיד כפתור שקט - בלי רקע/מסגרת בשום מצב. */
+.kb-btn--quiet {
+  background: none; border: none; color: var(--muted, #6E6266);
+  font-family: 'Rubik', sans-serif; font-weight: 500; font-size: 15px;
+  min-height: 44px; padding: 0 12px; cursor: pointer;
+}
+.kb-btn--quiet:hover { color: var(--ink, #2A2326); background: none; }
 .kb-btn--emphasis  { background: var(--surface); color: var(--bordeaux); border: 2px solid var(--bordeaux); } /* "שאלה חדשה" */
 .kb-btn--link      { background: none; border: none; color: var(--bordeaux); text-decoration: underline; text-underline-offset: 4px; padding: 0 6px; min-height: auto; } /* "לתת משוב" */
 .kb-btn:disabled   { background: var(--line); color: var(--muted); border: none; cursor: default; }
@@ -516,6 +523,12 @@
 #kb-main-content.kb-reading-active {
   height: 100dvh; overflow: hidden; gap: 0; padding-bottom: 0;
 }
+/* גובה המסך מחושב לפי מה שבאמת נשאר (סעיף 6.5) - פיצוי לסרגל הניהול
+   הקבוע של וורדפרס (#wpadminbar), שדוחף את ה-html למטה ב-margin-top קבוע. */
+body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px); }
+@media (max-width: 782px) {
+  body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 46px); }
+}
 #kb-main-content.kb-reading-active .kb-header { flex-shrink: 0; }
 #kb-reading-screen { display: none; flex-direction: column; min-height: 0; }
 #kb-main-content.kb-reading-active #kb-reading-screen {
@@ -539,7 +552,12 @@
   #kb-reading-main { padding-inline-end: 24px; }
 }
 #kb-reading-side-question .question-block { margin-bottom: 20px; }
-#kb-reading-side .actions-block { margin-top: auto; }
+/* הכפתורים באים מיד אחרי הקלפים, לא בתחתית העמודה (סעיף 6.5) - רווח
+   קבוע, לא margin-top:auto; אחד מתחת לשני ברוחב מלא. */
+#kb-reading-side .actions-block { margin-top: 24px; }
+#kb-reading-side .kb-actions-group { flex-direction: column; }
+#kb-reading-side .kb-actions-group .kb-btn { width: 100%; }
+#kb-reading-side #btn-open-feedback { align-self: center; }
 
 /* לייטבוקס (סעיף 6.5, בטלפון/טאבלט): תמונת קלף ממוזערת שנפתחת בגדול */
 #kb-card-lightbox {
