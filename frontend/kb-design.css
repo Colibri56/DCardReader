@@ -352,7 +352,8 @@
   max-width: 620px;
   height: var(--stage-h, 400px);
   perspective: 1400px;
-  margin: 0 auto 8px;
+  /* תיקון QA (סעיף 6.5: "ריווח קבוע: בין הבמה... לשורת ההנחיה 24px") - היה 8px. */
+  margin: 0 auto 24px;
 }
 .kb-deck-card {
   position: absolute;
@@ -417,6 +418,26 @@
   font-size: 15px;
   color: var(--ink-soft, #6b5c61);
   margin: 0 0 16px;
+}
+/* סעיף 7.2: כפתור "ניסיון חוזר" אמיתי בשורת השגיאה. */
+.kb-stage-retry-btn {
+  background: none; border: none; padding: 0; margin-inline-start: 4px;
+  font-family: 'Rubik', sans-serif; font-size: 15px; font-weight: 500;
+  color: var(--bordeaux, #7D2E46); text-decoration: underline; cursor: pointer;
+}
+/* סעיף 6.5: "קלף נוסף" (כל שליפה מעבר לראשונה) נפתח כשכבה על כל המסך. */
+.kb-overlay-scrim {
+  position: fixed; inset: 0; z-index: 950; background: var(--paper, #FBF8F6);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; box-sizing: border-box;
+}
+.kb-overlay-scrim[hidden] { display: none; }
+.kb-overlay-scrim .deck-block { width: 100%; max-width: 620px; }
+.kb-overlay-close {
+  position: absolute; top: 20px; left: 20px; width: 40px; height: 40px;
+  border-radius: 50%; border: none; background: var(--blush, #F3E7EA);
+  color: var(--bordeaux, #7D2E46); font-size: 22px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
 }
 
 /* סעיף 3.5א: הודעות (בלי alert/confirm/prompt) */
@@ -541,6 +562,14 @@ body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px);
   padding-bottom: 14px; margin-bottom: 10px;
 }
 #kb-reading-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* סעיף 6.5 (מתוקן): השאלה בראש העמודה הרחבה (מחשב בלבד) - טקסט רגיל,
+   קבוע, בלי מסגרת ובלי גלילה - ר' ההערה המלאה במקור. ריקה/לא מוצגת
+   בטלפון (kbPlaceQuestionBlock, JS). */
+#kb-reading-question:empty { display: none; }
+#kb-reading-question {
+  flex: none; margin-bottom: 16px; padding-bottom: 16px;
+  border-bottom: 1px solid var(--line, #E6DCDE);
+}
 @media (min-width: 1024px) {
   #kb-main-content.kb-reading-active #kb-reading-screen { flex-direction: row; }
   #kb-reading-side {
@@ -551,7 +580,24 @@ body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px);
   }
   #kb-reading-main { padding-inline-end: 24px; }
 }
-#kb-reading-side-question .question-block { margin-bottom: 20px; }
+#kb-reading-side-question:empty { display: none; }
+#kb-reading-side-question { margin-bottom: 20px; }
+/* סעיף 6.5 (מתוקן): השאלה כטקסט רגיל, לא תיבת קלט נעולה - ר' ההערה
+   המלאה במקור (elementor-code.html). */
+.kb-question-text {
+  margin: 0; font-family: 'Rubik', sans-serif; font-weight: 500;
+  color: var(--ink, #2A2326); font-size: 24px; line-height: 1.4;
+  white-space: pre-wrap; word-break: break-word;
+}
+.kb-question-clamped .kb-question-text {
+  font-size: 16px; display: -webkit-box; -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.kb-question-expand-link {
+  display: block; margin-top: 6px; background: none; border: none; padding: 0;
+  font-family: 'Rubik', sans-serif; font-size: 14px; color: var(--muted, #6E6266);
+  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
 /* הכפתורים באים מיד אחרי הקלפים, לא בתחתית העמודה (סעיף 6.5) - רווח
    קבוע, לא margin-top:auto; אחד מתחת לשני ברוחב מלא. */
 #kb-reading-side .actions-block { margin-top: 24px; }

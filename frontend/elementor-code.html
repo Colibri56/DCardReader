@@ -182,18 +182,43 @@
         padding: 0; flex-shrink: 0;
     }
 
-    .question-block textarea.locked {
-        background-color: transparent;
-        border-color: transparent;
-        color: var(--bordeaux, #7D2E46);
+    /* תיקון QA (סעיף 6.5 מתוקן: "השאלה מוצגת כטקסט רגיל, לא כתיבת טקסט
+       נעולה. בלי מסגרת, בלי גלילה ובלי התאמת גובה") - אחרי הנעילה תיבת
+       הטקסט המקורית (block-1) מוסתרת כליל; הטקסט מוצג דרך kb-question-display
+       (JS, ר' lockQuestionAndStartShuffling/kbPlaceQuestionBlock) - לא עוד
+       טיפול ויזואלי על ה-textarea עצמו. */
+    .kb-question-text {
+        margin: 0;
+        font-family: 'Rubik', sans-serif;
         font-weight: 500;
+        color: var(--ink, #2A2326);
         font-size: 24px;
-        text-align: right;
-        resize: none;
-        /* תיקון QA ("סקרול ויזואלי בלבד - לא ניתן לגלול טקסט ארוך"): הנעילה
-           בפועל היא readOnly (ר' userQuestion.readOnly=true ב-JS) - לא
-           pointer-events:none, שחסם גם גלילה (לא רק עריכה) בשאלות ארוכות. */
-        overflow-y: auto;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    /* בטלפון/טאבלט (<1024px): עד 3 שורות, עם קישור "הצגת השאלה המלאה"
+       אם היא נחתכת בפועל (ר' קביעת display על kb-question-expand-link,
+       JS - kbPlaceQuestionBlock). */
+    .kb-question-clamped .kb-question-text {
+        font-size: 16px;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .kb-question-expand-link {
+        display: block;
+        margin-top: 6px;
+        background: none;
+        border: none;
+        padding: 0;
+        font-family: 'Rubik', sans-serif;
+        font-size: 14px;
+        color: var(--muted, #6E6266);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
     }
 
     /* מיקרופון להכתבה קולית - פינה בתוך תיבת הטקסט, לא שורה נפרדת */
@@ -292,7 +317,9 @@
         max-width: 620px;
         height: var(--stage-h, 400px);
         perspective: 1400px;
-        margin: 0 auto 8px;
+        /* תיקון QA (סעיף 6.5: "ריווח קבוע: בין הבמה... לשורת ההנחיה 24px") -
+           היה 8px. */
+        margin: 0 auto 24px;
     }
     .kb-deck-card {
         position: absolute;
@@ -365,6 +392,54 @@
         font-size: 15px;
         color: var(--ink-soft, #6b5c61);
         margin: 0 0 16px;
+    }
+    /* סעיף 7.2: שורת השגיאה כוללת כפתור "ניסיון חוזר" אמיתי (לא רק טקסט),
+       שעושה בדיוק מה ש"שליפת קלף" עושה - ר' kbOnHint('error'). */
+    .kb-stage-retry-btn {
+        background: none;
+        border: none;
+        padding: 0;
+        margin-inline-start: 4px;
+        font-family: 'Rubik', sans-serif;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--bordeaux, #7D2E46);
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    /* סעיף 6.5: "קלף נוסף" נפתח כשכבה על כל המסך (לא בתוך העמודה הרחבה/מעל
+       השיחה) - JS מעביר את block-2 לכאן בכל שליפה שאינה הראשונה בסשן
+       (ר' kbShowStage/kbHideStage). השליפה הראשונה (לפני שהצ'אט נפתח)
+       נשארת inline בעמודה הרחבה, כמו היום. */
+    .kb-overlay-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 950;
+        background: var(--paper, #FBF8F6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+    }
+    .kb-overlay-scrim[hidden] { display: none; }
+    .kb-overlay-scrim .deck-block { width: 100%; max-width: 620px; }
+    .kb-overlay-close {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: none;
+        background: var(--blush, #F3E7EA);
+        color: var(--bordeaux, #7D2E46);
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     /* כפתור מרכזי - kb-btn--primary (סעיף 3.1) */
@@ -908,6 +983,17 @@
         display: flex;
         flex-direction: column;
     }
+    /* סעיף 6.5 (מתוקן): השאלה בראש העמודה הרחבה (מחשב בלבד - ר' media
+       query למטה) - קבועה (flex: none, לא ילד של chat-block שנגלל), עם קו
+       --line מתחתיה, לפני שהצ'אט/הקופה מתחילים. ריקה/לא מוצגת בטלפון
+       (ר' kbPlaceQuestionBlock, JS - שם היא עוברת ל-kb-reading-side-question). */
+    #kb-reading-question:empty { display: none; }
+    #kb-reading-question {
+        flex: none;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--line, #E6DCDE);
+    }
     @media (min-width: 1024px) {
         #kb-main-content.kb-reading-active #kb-reading-screen { flex-direction: row; }
         #kb-reading-side {
@@ -920,14 +1006,18 @@
         }
         #kb-reading-main { padding-inline-end: 24px; }
     }
-    /* עמודת הצד: השאלה (block-1, שעובר לכאן ב-JS, כבר .locked), הקלפים
-       (block-3) ושורת הפעולות (block-5). תיקון QA (סעיף 6.5: "הכפתורים
-       באים מיד אחרי הקלפים, לא בתחתית העמודה... שום כפתור לא נחתך") -
-       margin-top:auto (היה כאן קודם) דחף אותם בכוח לתחתית העמודה, עם חלל
-       ריק לפניהם אם התוכן לא מילא את הגובה. עכשיו רווח קבוע בלבד, מיד
-       אחרי "צריך עוד קלף?" (ר' .cards-block), והעמודה כולה נגללת אם צריך
-       (overflow-y:auto כבר מוגדר על #kb-reading-side במדיה-קוורי למעלה). */
-    #kb-reading-side-question .question-block { margin-bottom: 20px; }
+    /* עמודת הצד (מחשב): "הקלפים שלך" (ר' התווית ב-block-3), הקלפים
+       ושורת הפעולות (block-5) - לא עוד השאלה, שעברה לראש העמודה הרחבה
+       (#kb-reading-question, ר' קוד ה-JS kbPlaceQuestionBlock). תיקון QA
+       (סעיף 6.5: "הכפתורים באים מיד אחרי הקלפים, לא בתחתית העמודה... שום
+       כפתור לא נחתך") - margin-top:auto (היה כאן קודם) דחף אותם בכוח
+       לתחתית העמודה, עם חלל ריק לפניהם אם התוכן לא מילא את הגובה. עכשיו
+       רווח קבוע בלבד, מיד אחרי "צריך עוד קלף?" (ר' .cards-block), והעמודה
+       כולה נגללת אם צריך (overflow-y:auto כבר מוגדר על #kb-reading-side
+       במדיה-קוורי למעלה). #kb-reading-side-question (ללא תוכן במחשב - ר'
+       kbPlaceQuestionBlock) לא תופס מקום. */
+    #kb-reading-side-question:empty { display: none; }
+    #kb-reading-side-question { margin-bottom: 20px; }
     #kb-reading-side .actions-block { margin-top: 24px; }
     /* "אחד מתחת לשני, כל אחד ברוחב מלא" - קבוצת הכפתורים הראשית הייתה
        flex-wrap אופקי (מתאים לטלפון, שם block-5 עובר לסוף השיחה - ר'
@@ -1107,8 +1197,9 @@
             <!-- מסך הקריאה הוא מסך נפרד (סעיף 6.5) - ברגע שהשאלה ננעלת
                  (lockQuestionAndStartShuffling), כל הקבוצה הזו (ברכה, כותרת,
                  פסקה, כפתורי מסלול) מוסתרת לגמרי, יחד עם קבוצת הקלפים
-                 הדקורטיביים (kb-home-cards) - ר' JS. נשארת גלויה רק תיבת
-                 השאלה עצמה (#block-1), שבנעילה כבר נראית כטקסט בלבד (.locked). -->
+                 הדקורטיביים (kb-home-cards) ועם תיבת השאלה עצמה (#block-1,
+                 שגם היא מוסתרת לגמרי בנעילה) - ר' JS. השאלה ממשיכה להיות
+                 מוצגת, אבל כטקסט רגיל דרך kb-question-display (ר' למטה). -->
             <div id="kb-home-intro">
                 <!-- ברכה, כותרת ופסקה - הטקסט הסופי (userName/userGender) מתעדכן
                      ב-JS (ר' kbUpdateHomeTexts). -->
@@ -1173,12 +1264,24 @@
          עד אז ה-div הזה ריק/מוסתר ולא משפיע על מסך הבית. -->
     <div id="kb-reading-screen">
         <div id="kb-reading-side">
-            <!-- #block-1 (תיבת השאלה, כבר .locked בשלב הזה) עובר לכאן ב-JS -->
-            <div id="kb-reading-side-question"></div>
+            <!-- סעיף 6.5 (מתוקן): תיבת השאלה (block-1) לא עוברת לכאן יותר -
+                 היא רק מוסתרת (ר' lockQuestionAndStartShuffling). השאלה
+                 מוצגת כטקסט רגיל דרך kb-question-display, שעובר ב-JS
+                 (kbPlaceQuestionBlock) בין כאן (בטלפון, עד 1023px) לבין
+                 kb-reading-question בעמודה הרחבה (במחשב, ≥1024px). ריק
+                 כברירת מחדל - לא תופס מקום עד שהשאלה ננעלת. -->
+            <div id="kb-reading-side-question">
+                <div id="kb-question-display" class="kb-question-clamped">
+                    <div class="kb-field-label">השאלה שלך</div>
+                    <p class="kb-question-text" id="kb-question-text"></p>
+                    <button type="button" class="kb-question-expand-link" id="kb-question-expand-link" style="display:none;">הצגת השאלה המלאה</button>
+                </div>
+            </div>
 
             <!-- בלוק 3: אזור הצגת הקלפים שנשלפו (סעיף 6.5: עד 3 קלפים, 4:3,
                  זה מתחת לזה בעמודת הצד; בטלפון תמונות ממוזערות עם לייטבוקס). -->
             <div class="cards-block" id="block-3">
+                <div class="kb-field-label">הקלפים שלך</div>
                 <div id="cards-container" class="kb-card-row"></div>
                 <div id="cards-dots" class="kb-card-dots" aria-hidden="true"></div>
                 <!-- סעיף 6.5: "קלף נוסף" מוצנע בכוונה - קישור טקסט קטן בלבד, בלי
@@ -1203,13 +1306,21 @@
         </div>
 
         <div id="kb-reading-main">
+            <!-- סעיף 6.5 (מתוקן): ראש העמודה הרחבה (מחשב בלבד) - השאלה
+                 קבועה, מוצגת במלואה, בלי מסגרת ובלי גלילה. kb-question-display
+                 (ר' למעלה) עובר לכאן ב-JS. ריק/לא מוצג בטלפון. -->
+            <div id="kb-reading-question"></div>
+
             <!-- בלוק 2: ערבוב ושליפה (סעיף 7 ב-docs/design-spec.md).
                  .kb-deck-card-ים (N=12) נוצרים ב-JS (kbBuildStage) - ר' הערה שם
-                 למה לא כתובים כאן 12 פעמים ידנית. -->
+                 למה לא כתובים כאן 12 פעמים ידנית. השליפה הראשונה נשארת כאן,
+                 inline; "קלף נוסף" (כל שליפה אחריה) מועבר ב-JS לשכבת
+                 kb-extra-draw-overlay (סעיף 6.5: "נפתחת כשכבה על כל המסך") -
+                 ר' kbShowStage/kbHideStage. -->
             <div class="deck-block" id="block-2">
                 <div class="kb-stage" id="kb-stage" aria-label="חפיסת הקלפים"></div>
                 <div id="kb-stage-status" class="kb-stage-status" aria-live="polite"></div>
-                <button class="btn-main" id="btn-deck-action" disabled>ערבוב קלפים</button>
+                <button class="btn-main" id="btn-deck-action" disabled>רגע, מערבבים…</button>
             </div>
 
             <!-- בלוק 4: דיאלוג עם ה-AI -->
@@ -1237,6 +1348,14 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- סעיף 6.5: שכבת "קלף נוסף" (כל שליפה מעבר לראשונה) - JS מעביר לכאן
+         את block-2 (deck-block) בלחיצה/תשובת AI שמציעה קלף נוסף, ומחזיר
+         אותו למקומו המקורי ב-kb-reading-main כשהקלף נחשף או שנסגר ב-×
+         (ר' kbShowStage/kbHideStage/kbExtraDrawClose). -->
+    <div id="kb-extra-draw-overlay" class="kb-overlay-scrim" hidden>
+        <button type="button" class="kb-overlay-close" id="kb-extra-draw-close" aria-label="סגירה">&times;</button>
     </div>
 
     <!-- לייטבוקס לתמונה הממוזערת של קלף בטלפון (סעיף 6.5: "הקשה על תמונה
@@ -1875,11 +1994,19 @@
     const btnEmailChat = document.querySelector('#block-5 .btn-email-chat');
     const btnOpenFeedback = document.getElementById('btn-open-feedback');
     const pathChoiceBlock = document.getElementById('block-path-choice');
-    // סעיף 6.5: תיבת השאלה (block-1) עוברת ב-JS מתוך kb-home-main לעמודת
-    // הצד הקבועה של מסך הקריאה (kb-reading-side-question), ברגע שהשאלה
-    // ננעלת - ר' lockQuestionAndStartShuffling. אותו אלמנט DOM, אותם
-    // listeners - רק הורה אחר.
+    // סעיף 6.5 (מתוקן): block-1 (תיבת הקלט) רק מוסתר בנעילה - לא עובר
+    // לשום מקום יותר. הטקסט מוצג דרך kb-question-display (טקסט רגיל, לא
+    // תיבת קלט נעולה), שעובר ב-JS בין kb-reading-side-question (בטלפון)
+    // ל-kb-reading-question (בעמודה הרחבה, במחשב) - ר' kbPlaceQuestionBlock.
     const block1Question = document.getElementById('block-1');
+    const kbReadingMain = document.getElementById('kb-reading-main');
+    const kbReadingQuestion = document.getElementById('kb-reading-question');
+    const kbReadingSideQuestion = document.getElementById('kb-reading-side-question');
+    const kbQuestionDisplay = document.getElementById('kb-question-display');
+    const kbQuestionText = document.getElementById('kb-question-text');
+    const kbQuestionExpandLink = document.getElementById('kb-question-expand-link');
+    const kbExtraDrawOverlay = document.getElementById('kb-extra-draw-overlay');
+    const kbExtraDrawClose = document.getElementById('kb-extra-draw-close');
     const kbHomeIntro = document.getElementById('kb-home-intro');
     const kbHomeCards = document.getElementById('kb-home-cards');
     const btnPathChat = document.getElementById('btn-path-chat');
@@ -3021,6 +3148,10 @@
             textContainer = msgDiv;
             appendTextParagraphs(textContainer, text);
         } else {
+            // סעיף 6.5: "לפני התשובה הראשונה"/"בהמשך השיחה" - ר' showTyping,
+            // שמחליט לפי הדגל הזה איזה טקסט המתנה להציג.
+            kbAiHasReplied = true;
+
             // סעיף 3.5: בלי בועה - שורת תווית (עיגול + "הקורא"/"המסר שלך") מעל הטקסט.
             msgDiv = document.createElement('div');
             msgDiv.className = 'dcard-bubble kb-ai-message';
@@ -3162,14 +3293,21 @@
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
-    // חיווי המתנה: אנימציית שלוש נקודות (ללא טקסט) שמתחלפת כל 3.5 שניות
-    // בין "אנכיים" ל"אופקיים" (ר' .dcard-typing-dots ב-<style> למעלה) -
-    // תיקון "משעמם, אין תחושת התקדמות": לא עוד התקדמות חד-כיוונית לפי
-    // זמן, אלא מחזור שממשיך כל עוד ה-AI לא ענה.
+    // חיווי המתנה: שורת "הקורא" (אותו מבנה אווטאר+שם כמו בהודעות AI, סעיף
+    // 6.5) עם אנימציית שלוש נקודות שמתחלפת כל 3.5 שניות בין "אנכיים"
+    // ל"אופקיים" (ר' .dcard-typing-dots ב-<style> למעלה), וטקסט שקט לידן -
+    // "הקורא מתבונן בקלף ובשאלה שלך…" לפני תשובת ה-AI הראשונה בשיחה,
+    // "הקורא כותב…" בהמשכה (kbAiHasReplied, ר' appendMessage).
     //
     // typingModeInterval נשמר כדי שיבוטל ב-stopTyping ברגע שמגיעה תשובה -
     // אחרת הוא ימשיך לרוץ ברקע לנצח גם אחרי שהחיווי כבר הוסר מה-DOM.
     let typingModeInterval = null;
+    let kbAiHasReplied = false;
+    // סעיף 6.5: "אם עוברות 20 שניות בלי תשובה, השורה מתחלפת בשורת השגיאה...
+    // עם 'ניסיון חוזר'" - רשת ביטחון עצמאית מה-fetch/catch של כל קורא
+    // (שלהם יש טיפול שגיאה משלהם); זו רק תופסת מקרה שבו הבקשה נתקעת בלי
+    // להצליח ובלי להיכשל בכלל. retryFn אופציונלי, ר' showTyping.
+    let kbTypingTimeoutTimer = null;
 
     // עוצר את מחזור ההחלפה ומסיר את חיווי ה"מקליד" מה-DOM, אם הוא מוצג.
     // נקראת בתחילת appendMessage() - כלומר ברגע שמגיעה תשובה מה-API (הצלחה
@@ -3177,6 +3315,8 @@
     function stopTyping() {
         clearInterval(typingModeInterval);
         typingModeInterval = null;
+        clearTimeout(kbTypingTimeoutTimer);
+        kbTypingTimeoutTimer = null;
         const typingInd = document.getElementById('typing-indicator');
         if (typingInd) typingInd.remove();
     }
@@ -3187,21 +3327,29 @@
         dotsEl.classList.add(stageClass);
     }
 
-    function showTyping() {
+    function showTyping(retryFn) {
         stopTyping(); // מנקה חיווי/סבב קודם אם קיים, לפני שמתחילים חדש
 
         const msgDiv = document.createElement('div');
         msgDiv.id = "typing-indicator";
-        msgDiv.style.margin = "10px 0";
-        msgDiv.style.padding = "10px 15px";
-        msgDiv.style.borderRadius = "15px";
-        msgDiv.style.background = "#e0e0e0";
-        msgDiv.style.color = "#555";
-        msgDiv.style.float = "right";
-        msgDiv.style.clear = "both";
-        msgDiv.style.display = "flex";
-        msgDiv.style.alignItems = "center";
-        msgDiv.style.gap = "8px";
+        msgDiv.className = 'dcard-bubble kb-ai-message';
+
+        const labelRow = document.createElement('div');
+        labelRow.className = 'kb-ai-label-row';
+        const icon = document.createElement('span');
+        icon.className = 'kb-ai-icon';
+        icon.innerHTML = KB_AI_ICON_SVG;
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'kb-ai-label';
+        labelSpan.textContent = 'הקורא';
+        labelRow.appendChild(icon);
+        labelRow.appendChild(labelSpan);
+        msgDiv.appendChild(labelRow);
+
+        const typingRow = document.createElement('div');
+        typingRow.style.display = 'flex';
+        typingRow.style.alignItems = 'center';
+        typingRow.style.gap = '8px';
 
         const dots = document.createElement('span');
         dots.className = 'dcard-typing-dots stage-vertical'; // מתחילים תמיד מ"אנכיים"
@@ -3213,15 +3361,30 @@
             typingMode = ('vertical' === typingMode) ? 'horizontal' : 'vertical';
             setTypingStage(dots, 'stage-' + typingMode);
         }, 3500);
-        msgDiv.appendChild(dots);
+        typingRow.appendChild(dots);
+
+        const typingText = document.createElement('span');
+        typingText.style.fontSize = '15px';
+        typingText.style.color = 'var(--muted, #6E6266)';
+        typingText.textContent = kbAiHasReplied ? 'הקורא כותב…' : 'הקורא מתבונן בקלף ובשאלה שלך…';
+        typingRow.appendChild(typingText);
+
+        msgDiv.appendChild(typingRow);
 
         const wrapper = document.createElement('div');
         wrapper.style.overflow = "hidden";
+        wrapper.style.clear = "both";
         wrapper.style.width = "100%";
         wrapper.appendChild(msgDiv);
 
         chatHistory.appendChild(wrapper);
         chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        kbTypingTimeoutTimer = setTimeout(function () {
+            if (!document.getElementById('typing-indicator')) return; // התשובה כבר הגיעה
+            stopTyping();
+            appendErrorBanner('החיבור נקטע לרגע. ההודעה שלך לא אבדה.', retryFn);
+        }, 20000);
     }
 
     // תאריך מקומי (לא UTC) בפורמט YYYY-MM-DD - "היום" מוגדר לפי שעון
@@ -3384,6 +3547,11 @@
             if (phase !== 'flow' || chosen !== null) return;
             clearInterval(flowTimer); phase = 'drawn'; chosen = id;
             A = A.filter(x => x !== id); B = B.filter(x => x !== id);
+            // תיקון QA (סעיף 7.4 #5: "ברגע הלחיצה, בלי שום השהייה: כפתור
+            // 'שליפת קלף' וגם שורת ההנחיה שמעליו נעלמים") - כאן, בתוך pick()
+            // עצמה (לא רק בלחיצת הכפתור), כדי שההתנהגות תהיה זהה גם בהקשה
+            // ישירה על קלף (שקוראת ל-pick() ישירות, בלי לעבור בכפתור).
+            opts.onDrawStart();
             opts.onBusyChange(true); render();
             setCardsTabIndex(-1);
             // דווח בפועל: "קצוות אדומים לקלף" - טבעת ה-focus של הדפדפן
@@ -3501,11 +3669,28 @@
         mobile: window.matchMedia('(max-width: 767px)').matches,
         fetchCard: kbFetchCard,
         onReveal: kbOnCardRevealed,
-        onBusyChange: function (busy) { btnDeckAction.disabled = busy; },
+        // תיקון QA (סעיף 7.9: "כשהשרת מחזיר שגיאה... וכפתור 'שליפת קלף'
+        // חוזר") - עד כה disabled=busy בלבד שחזר את ה-hover/המראה, אבל לא
+        // את display (שהוסתר לגמרי ע"י onDrawStart למטה) - עכשיו busy=false
+        // (גם בהצלחה, כש-flow מתחיל, וגם בשגיאה) משחזר גם את הנראות.
+        onBusyChange: function (busy) {
+            btnDeckAction.disabled = busy;
+            if (!busy) btnDeckAction.style.display = '';
+        },
+        onDrawStart: function () { btnDeckAction.style.display = 'none'; kbStageStatus.textContent = ''; },
         onHint: kbOnHint
     });
 
     function kbShowStage() {
+        // סעיף 6.5: "קלף נוסף" (כל שליפה מעבר לראשונה בסשן) נפתח כשכבה על
+        // כל המסך, לא inline בעמודה הרחבה - השליפה הראשונה (drawnCards
+        // עדיין ריק) לבדה נשארת inline, לפני שהצ'אט בכלל נפתח.
+        if (drawnCards.length > 0) {
+            kbExtraDrawOverlay.appendChild(block2Deck);
+            kbExtraDrawOverlay.hidden = false;
+        } else if (kbExtraDrawOverlay.contains(block2Deck)) {
+            kbReadingMain.insertBefore(block2Deck, block4Chat);
+        }
         block2Deck.style.display = 'flex';
         kbStage.style.display = '';
         btnDeckAction.style.display = '';
@@ -3521,15 +3706,41 @@
         kbStage.style.display = 'none';
         btnDeckAction.style.display = 'none';
         kbStageStatus.textContent = '';
+        if (kbExtraDrawOverlay.contains(block2Deck)) {
+            kbReadingMain.insertBefore(block2Deck, block4Chat);
+            kbExtraDrawOverlay.hidden = true;
+        }
     }
+    // × בשכבת "קלף נוסף" - מבטל את השליפה הנוכחית (עוצר את האנימציה, לא
+    // מוחק אותה) וחוזר למצב "כבר נשלף קלף" בלי לשלוף קלף חדש.
+    kbExtraDrawClose.addEventListener('click', function () {
+        kbShuffleController.destroy();
+        kbHideStage();
+        if (appState === 'shuffling') appState = 'drawn';
+    });
     function kbOnHint(key) {
+        if ('error' === key) {
+            // סעיף 7.2: שורת השגיאה כוללת כפתור "ניסיון חוזר" אמיתי (לא רק
+            // טקסט) שעושה בדיוק את מה ש"שליפת קלף" עושה.
+            kbStageStatus.innerHTML = '';
+            kbStageStatus.appendChild(document.createTextNode('הקלף לא נשלף בגלל תקלה בחיבור. '));
+            const retryBtn = document.createElement('button');
+            retryBtn.type = 'button';
+            retryBtn.className = 'kb-stage-retry-btn';
+            retryBtn.textContent = 'ניסיון חוזר';
+            retryBtn.addEventListener('click', function () { kbShuffleController.drawNow(); });
+            kbStageStatus.appendChild(retryBtn);
+            return;
+        }
         const texts = {
-            shuffling: 'מערבבים את הקלפים...',
-            flowing: ( 'female' === userGender ) ? 'לבחירת קלף - געי בקלף או לחצי על הכפתור' : 'לבחירת קלף - גע בקלף או לחץ על הכפתור',
-            error: 'הקלף לא נשלף בגלל תקלה בחיבור. אפשר לנסות שוב.',
+            shuffling: 'מערבבים את הקלפים…',
+            flowing: ( 'female' === userGender )
+                ? 'הקלפים בתנועה. כשמרגיש לך נכון, לחצי על "שליפת קלף" או הקישי על אחד הקלפים'
+                : 'הקלפים בתנועה. כשמרגיש לך נכון, לחץ על "שליפת קלף" או הקש על אחד הקלפים',
             revealed: 'זה הקלף שנבחר'
         };
         kbStageStatus.textContent = texts[key] || '';
+        if ('flowing' === key) btnDeckAction.innerText = 'שליפת קלף';
     }
 
     // קריאת השרת שרק *בוחרת* קלף (סעיף 7.2: האקראיות בצד השרת, חובה) -
@@ -3653,7 +3864,37 @@
     let kbPlaceActionsResizeTimer = null;
     window.addEventListener('resize', function () {
         clearTimeout(kbPlaceActionsResizeTimer);
-        kbPlaceActionsResizeTimer = setTimeout(kbPlaceActionsBlock, 150);
+        kbPlaceActionsResizeTimer = setTimeout(function () {
+            kbPlaceActionsBlock();
+            kbPlaceQuestionBlock();
+        }, 150);
+    });
+
+    // סעיף 6.5 (מתוקן): השאלה כטקסט רגיל - kb-question-display עובר בין
+    // kb-reading-question (ראש העמודה הרחבה, מחשב ≥1024px, בלי חיתוך/גלילה)
+    // ל-kb-reading-side-question (רצועת הטלפון, עד 3 שורות + "הצגת השאלה
+    // המלאה" אם היא בפועל נחתכת). נקרא בנעילת השאלה ובכל שינוי רוחב.
+    function kbPlaceQuestionBlock() {
+        if (!kbMainContent.classList.contains('kb-reading-active')) return; // עוד לא ננעלה שאלה
+        const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+        const target = isDesktop ? kbReadingQuestion : kbReadingSideQuestion;
+        if (kbQuestionDisplay.parentElement !== target) target.appendChild(kbQuestionDisplay);
+        kbQuestionDisplay.classList.toggle('kb-question-clamped', !isDesktop);
+        if (isDesktop) {
+            kbQuestionExpandLink.style.display = 'none';
+        } else {
+            // אחרי שה-DOM התייצב, בודקים אם 3 השורות בפועל חותכות את הטקסט -
+            // אם לא (שאלה קצרה), אין צורך בקישור "הצגת השאלה המלאה" כלל.
+            requestAnimationFrame(function () {
+                if (!kbQuestionDisplay.classList.contains('kb-question-clamped')) return; // כבר הורחב
+                const clipped = kbQuestionText.scrollHeight > kbQuestionText.clientHeight + 1;
+                kbQuestionExpandLink.style.display = clipped ? '' : 'none';
+            });
+        }
+    }
+    kbQuestionExpandLink.addEventListener('click', function () {
+        kbQuestionDisplay.classList.remove('kb-question-clamped');
+        kbQuestionExpandLink.style.display = 'none';
     });
 
     function kbOnCardRevealed(card) {
@@ -3726,7 +3967,7 @@
     async function kbRunAiTurnForCard(cardId, mode, drawIndex, isRetry) {
         if (drawIndex && drawIndex === kbLastHandledDrawIndex && !isRetry) return;
         if (drawIndex) kbLastHandledDrawIndex = drawIndex;
-        showTyping();
+        showTyping(function () { kbRunAiTurnForCard(cardId, mode, drawIndex, true); });
         try {
             const res = await fetch(`${API_BASE}/card-selected`, {
                 method: 'POST',
@@ -3788,7 +4029,7 @@
             kbStage.scrollIntoView({ behavior: 'smooth', block: 'center' });
             if (autoShuffle) {
                 appState = 'shuffling';
-                btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
+                btnDeckAction.innerText = 'רגע, מערבבים…';
                 kbShuffleController.start({ skipRiffle: true });
             }
         }
@@ -3925,33 +4166,48 @@
             return false;
         }
         kbClearFieldError(userQuestion, questionFieldError);
-        userQuestion.classList.add('locked');
         userQuestion.readOnly = true;
         btnMic.style.display = 'none'; // השאלה ננעלה, אין יותר למה להכתיב
 
-        // סעיף 6.5: "מסך הקריאה הוא מסך נפרד" - ברגע שהשאלה נשלחה, כל חלק
-        // מסך הבית (ברכה/כותרת/פסקה/כפתורי מסלול/קלפים דקורטיביים) נעלם
-        // לגמרי, ונשארת גלויה רק תיבת השאלה (כבר .locked, נראית כטקסט בלבד) -
-        // שעוברת ב-JS לעמודת הצד הקבועה של מסך הקריאה (kb-reading-side).
-        // אין יותר בועת "שאלת: ..." ואין תווית "זה הקלף שנבחר" (ר' קוד
-        // קודם; הוסרו במפורש, סעיף 6.5) - השאלה כבר מוצגת למעלה, פעם אחת.
+        // סעיף 6.5 (מתוקן): "מסך הקריאה הוא מסך נפרד" - ברגע שהשאלה נשלחה,
+        // כל חלק ממסך הבית (ברכה/כותרת/פסקה/כפתורי מסלול/קלפים דקורטיביים/
+        // תיבת הקלט עצמה, block-1) נעלם לגמרי. השאלה מוצגת כטקסט רגיל דרך
+        // kb-question-display (לא עוד תיבת קלט "נעולה") - ר' kbPlaceQuestionBlock.
         if (kbHomeIntro) kbHomeIntro.style.display = 'none';
         if (pathChoiceBlock) pathChoiceBlock.style.display = 'none';
         if (kbHomeCards) kbHomeCards.style.display = 'none';
+        block1Question.style.display = 'none';
 
-        const kbReadingSideQuestion = document.getElementById('kb-reading-side-question');
-        if (kbReadingSideQuestion) kbReadingSideQuestion.appendChild(block1Question);
+        kbQuestionText.textContent = userQuestion.value.trim();
         kbMainContent.classList.add('kb-reading-active');
+        kbPlaceQuestionBlock();
+        kbUpdateReadingHeight();
 
         kbShowStage();
         appState = 'shuffling';
-        btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
+        btnDeckAction.innerText = 'רגע, מערבבים…';
         kbShuffleController.start();
         // "העמוד גולל לראש" (סעיף 6.5) - לא עוד לתוך מרכז הבמה, אלא לראש
         // העמוד, כדי שהשאלה (היחידה שנשארה גלויה מעל הבמה) תיראה מיד.
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return true;
     }
+
+    // סעיף 6.5: "גובה המסך מחושב לפי מה שבאמת נשאר" - 100dvh/calc ב-CSS
+    // (ר' admin-bar למעלה) הם קירוב בלבד; התבנית/וורדפרס יכולים להוסיף
+    // עוד מרווחים שאי אפשר לנחש מראש ב-CSS. מחושב בפועל לפי המקום שנשאר
+    // מתחת לראש kb-main-content ועד תחתית ה-viewport הנראה בפועל
+    // (visualViewport, לא innerHeight - חשוב בעיקר בטלפון עם מקלדת פתוחה).
+    // inline style דורס את ה-CSS (ספציפיות גבוהה יותר) - זה בסדר, ה-CSS
+    // נשאר fallback לרגע הקצר לפני שה-JS הזה רץ.
+    function kbUpdateReadingHeight() {
+        if (!kbMainContent.classList.contains('kb-reading-active')) return;
+        const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        const top = kbMainContent.getBoundingClientRect().top;
+        kbMainContent.style.height = Math.max(0, vh - top) + 'px';
+    }
+    window.addEventListener('resize', kbUpdateReadingHeight);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', kbUpdateReadingHeight);
 
     // 3. ניהול שליפת הקלפים - נגיעה בקלף בודד (הקשה ישירה, רק בשלב flow)
     // כבר מטופלת בתוך kbShuffle עצמו (ר' ה-listener שנרשם על כל קלף
@@ -3965,7 +4221,7 @@
             // skipRiffle ל"קלף נוסף" - ישר לשלב flow, בלי רצף הערבוב המלא.
             kbShowStage();
             appState = 'shuffling';
-            btnDeckAction.innerText = ( 'female' === userGender ) ? 'בחרי קלף' : 'בחר קלף';
+            btnDeckAction.innerText = 'רגע, מערבבים…';
             kbShuffleController.start({ skipRiffle: true });
             return;
         }
@@ -3975,11 +4231,9 @@
             // (drawNow) כבר מממש בדיוק את זה; בחירת הקלף עצמו (1..72),
             // התמונה וה-AI מגיעים מ-kbFetchCard/kbOnCardRevealed למעלה.
             // תיקון QA (סעיף 7.4 #5: "ברגע הלחיצה, כפתור 'שליפת קלף' נעלם
-            // מיד, עוד לפני שהקלף עולה") - עד כה הכפתור רק הושבת (disabled,
-            // עדיין אפור ונראה) דרך onBusyChange; עכשיו גם מוסתר לגמרי,
-            // מיד, לפני שה-animation הפנימית בכלל מתחילה. kbShowStage()
-            // (למטה, כשהקלף הבא נחשף) מחזיר אותו - ר' kbHideStage/kbShowStage.
-            btnDeckAction.style.display = 'none';
+            // מיד, עוד לפני שהקלף עולה") - ההיעלמות המיידית (גם של הכפתור
+            // וגם של שורת ההנחיה) עברה לתוך pick() עצמה (opts.onDrawStart),
+            // כדי שתהיה זהה גם בהקשה ישירה על קלף - ר' ההערה ב-pick().
             kbShuffleController.drawNow();
         }
     });
@@ -4132,7 +4386,7 @@
         chatInput.value = '';
         kbAutoGrowReply(); // מאפסת את הגובה בחזרה ל-4 שורות אחרי שליחה
         kbUpdateSendButtonState(); // התיבה ריקה עכשיו - הכפתור חוזר למושבת
-        showTyping();
+        showTyping(function () { retryTurn(); }); // retryTurn מוגדרת למטה (function declaration, hoisted)
         userQuestionCount++; // סופרים את השליחה בפועל, לפני התשובה - זו השאלה ה-userQuestionCount בדיוק
         // רשת ביטחון בלבד: אם הגענו למגבלת 15 (MAX_USER_QUESTIONS) בלי שהסוכן
         // סיים מעצמו קודם, מסמנים לשרת שזו פנייה אחרונה כדי שיסכם ולא ימשיך לשאול.
