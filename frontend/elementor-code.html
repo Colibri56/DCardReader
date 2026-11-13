@@ -197,29 +197,18 @@
         white-space: pre-wrap;
         word-break: break-word;
     }
-    /* בטלפון/טאבלט (<1024px): עד 3 שורות, עם קישור "הצגת השאלה המלאה"
-       אם היא נחתכת בפועל (ר' קביעת display על kb-question-expand-link,
-       JS - kbPlaceQuestionBlock). */
+    /* תיקון QA (סעיף 6.4, מסך הערבוב בטלפון): "18px, עד 3 שורות. אם השאלה
+       ארוכה יותר, היא נחתכת עם ..., והקשה עליה פותחת וסוגרת אותה" - היה
+       16px עם קישור "הצגת השאלה המלאה" נפרד מתחת לטקסט. עכשיו ההקשה על
+       הטקסט עצמו היא שמרחיבה/מכווצת (ר' kb-question-display, JS). */
     .kb-question-clamped .kb-question-text {
-        font-size: 16px;
+        font-size: 18px;
         display: -webkit-box;
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
-    .kb-question-expand-link {
-        display: block;
-        margin-top: 6px;
-        background: none;
-        border: none;
-        padding: 0;
-        font-family: 'Rubik', sans-serif;
-        font-size: 14px;
-        color: var(--muted, #6E6266);
-        text-decoration: underline;
-        text-underline-offset: 3px;
-        cursor: pointer;
-    }
+    #kb-reading-side-question #kb-question-display { cursor: pointer; }
 
     /* מיקרופון להכתבה קולית - פינה בתוך תיבת הטקסט, לא שורה נפרדת */
     .question-block {
@@ -327,12 +316,19 @@
         top: var(--bt, 150px);
         width: var(--cw, 86px);
         height: var(--ch, 129px);
-        padding: 0;
-        border: 0;
-        background: none;
         transform-style: preserve-3d;
         will-change: transform;
         cursor: pointer;
+        /* סעיף 7.5: הקלף הוא <button>, והתבנית צובעת כפתורים (ורוד/אדום).
+           דווח בפועל - צבע הכפתור הציץ בפינות המעוגלות בזמן ההיפוך, בעיקר
+           בטלפון. מאפסים הכול בדיוק לפי הקוד שבסעיף, כולל ה-!important. */
+        -webkit-appearance: none; appearance: none;
+        padding: 0 !important; margin: 0 !important; border: 0 !important;
+        background: transparent !important; box-shadow: none !important; outline-color: transparent;
+        border-radius: 12px; -webkit-tap-highlight-color: transparent;
+    }
+    .kb-deck-card:hover, .kb-deck-card:focus, .kb-deck-card:active {
+        background: transparent !important; box-shadow: none !important;
     }
     /* דווח בפועל: "כמעט בלתי אפשרי לבחור קלף עם העכבר" - שטח ההקשה/לחיצה
        האמיתי מורחב מעבר לגבולות הקלף הנראה (בלי לשנות את הגודל החזותי),
@@ -1269,12 +1265,12 @@
                  מוצגת כטקסט רגיל דרך kb-question-display, שעובר ב-JS
                  (kbPlaceQuestionBlock) בין כאן (בטלפון, עד 1023px) לבין
                  kb-reading-question בעמודה הרחבה (במחשב, ≥1024px). ריק
-                 כברירת מחדל - לא תופס מקום עד שהשאלה ננעלת. -->
+                 כברירת מחדל - לא תופס מקום עד שהשאלה ננעלת. בטלפון: 18px,
+                 עד 3 שורות, והקשה עליה פותחת/סוגרת (סעיף 6.4). -->
             <div id="kb-reading-side-question">
                 <div id="kb-question-display" class="kb-question-clamped">
                     <div class="kb-field-label">השאלה שלך</div>
                     <p class="kb-question-text" id="kb-question-text"></p>
-                    <button type="button" class="kb-question-expand-link" id="kb-question-expand-link" style="display:none;">הצגת השאלה המלאה</button>
                 </div>
             </div>
 
@@ -2004,7 +2000,6 @@
     const kbReadingSideQuestion = document.getElementById('kb-reading-side-question');
     const kbQuestionDisplay = document.getElementById('kb-question-display');
     const kbQuestionText = document.getElementById('kb-question-text');
-    const kbQuestionExpandLink = document.getElementById('kb-question-expand-link');
     const kbExtraDrawOverlay = document.getElementById('kb-extra-draw-overlay');
     const kbExtraDrawClose = document.getElementById('kb-extra-draw-close');
     const kbHomeIntro = document.getElementById('kb-home-intro');
@@ -3872,29 +3867,21 @@
 
     // סעיף 6.5 (מתוקן): השאלה כטקסט רגיל - kb-question-display עובר בין
     // kb-reading-question (ראש העמודה הרחבה, מחשב ≥1024px, בלי חיתוך/גלילה)
-    // ל-kb-reading-side-question (רצועת הטלפון, עד 3 שורות + "הצגת השאלה
-    // המלאה" אם היא בפועל נחתכת). נקרא בנעילת השאלה ובכל שינוי רוחב.
+    // ל-kb-reading-side-question (רצועת הטלפון). נקרא בנעילת השאלה ובכל
+    // שינוי רוחב.
     function kbPlaceQuestionBlock() {
         if (!kbMainContent.classList.contains('kb-reading-active')) return; // עוד לא ננעלה שאלה
         const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
         const target = isDesktop ? kbReadingQuestion : kbReadingSideQuestion;
         if (kbQuestionDisplay.parentElement !== target) target.appendChild(kbQuestionDisplay);
         kbQuestionDisplay.classList.toggle('kb-question-clamped', !isDesktop);
-        if (isDesktop) {
-            kbQuestionExpandLink.style.display = 'none';
-        } else {
-            // אחרי שה-DOM התייצב, בודקים אם 3 השורות בפועל חותכות את הטקסט -
-            // אם לא (שאלה קצרה), אין צורך בקישור "הצגת השאלה המלאה" כלל.
-            requestAnimationFrame(function () {
-                if (!kbQuestionDisplay.classList.contains('kb-question-clamped')) return; // כבר הורחב
-                const clipped = kbQuestionText.scrollHeight > kbQuestionText.clientHeight + 1;
-                kbQuestionExpandLink.style.display = clipped ? '' : 'none';
-            });
-        }
     }
-    kbQuestionExpandLink.addEventListener('click', function () {
-        kbQuestionDisplay.classList.remove('kb-question-clamped');
-        kbQuestionExpandLink.style.display = 'none';
+    // תיקון QA (סעיף 6.4, מסך הערבוב בטלפון): "18px, עד 3 שורות... והקשה
+    // עליה פותחת וסוגרת אותה" - במחשב קבוע (אף פעם לא clamped), כך שההקשה
+    // שם לא עושה דבר.
+    kbQuestionDisplay.addEventListener('click', function () {
+        if (window.matchMedia('(min-width: 1024px)').matches) return;
+        kbQuestionDisplay.classList.toggle('kb-question-clamped');
     });
 
     function kbOnCardRevealed(card) {

@@ -361,12 +361,18 @@
   top: var(--bt, 150px);
   width: var(--cw, 86px);
   height: var(--ch, 129px);
-  padding: 0;
-  border: 0;
-  background: none;
   transform-style: preserve-3d;
   will-change: transform;
   cursor: pointer;
+  /* סעיף 7.5: איפוס עיצוב הכפתור של התבנית בדיוק לפי הקוד שבסעיף -
+     ר' ההערה המלאה במקור (elementor-code.html). */
+  -webkit-appearance: none; appearance: none;
+  padding: 0 !important; margin: 0 !important; border: 0 !important;
+  background: transparent !important; box-shadow: none !important; outline-color: transparent;
+  border-radius: 12px; -webkit-tap-highlight-color: transparent;
+}
+.kb-deck-card:hover, .kb-deck-card:focus, .kb-deck-card:active {
+  background: transparent !important; box-shadow: none !important;
 }
 /* דווח בפועל: "כמעט בלתי אפשרי לבחור קלף עם העכבר" - שטח הקשה/לחיצה מורחב
    מעבר לקלף הנראה, בלי לשנות את גודלו החזותי. */
@@ -590,14 +596,10 @@ body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px);
   white-space: pre-wrap; word-break: break-word;
 }
 .kb-question-clamped .kb-question-text {
-  font-size: 16px; display: -webkit-box; -webkit-line-clamp: 3;
+  font-size: 18px; display: -webkit-box; -webkit-line-clamp: 3;
   -webkit-box-orient: vertical; overflow: hidden;
 }
-.kb-question-expand-link {
-  display: block; margin-top: 6px; background: none; border: none; padding: 0;
-  font-family: 'Rubik', sans-serif; font-size: 14px; color: var(--muted, #6E6266);
-  text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
-}
+#kb-reading-side-question #kb-question-display { cursor: pointer; }
 /* הכפתורים באים מיד אחרי הקלפים, לא בתחתית העמודה (סעיף 6.5) - רווח
    קבוע, לא margin-top:auto; אחד מתחת לשני ברוחב מלא. */
 #kb-reading-side .actions-block { margin-top: 24px; }
