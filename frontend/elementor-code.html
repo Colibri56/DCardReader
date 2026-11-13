@@ -67,12 +67,17 @@
         cursor: pointer;
         font-size: 20px;
     }
-    @media (max-width: 768px) {
-        .kb-header-brand { font-size: 18px; }
+    /* תיקון QA (סעיף 6.5, "בטלפון: כל פיקסל לשיחה" - כותרת מצומצמת 52px,
+       הלוגו 22px, השם 16px, כפתור ☰ 40px, בלי ריווח מעל הכותרת) - היה
+       padding כללי (14px/24px) וגדלים זהים/כמעט-זהים למחשב. */
+    @media (max-width: 1023px) {
+        .kb-header { height: 52px; padding: 0 4px; }
+        .kb-header-brand { font-size: 16px; }
+        .kb-header-menu-btn { width: 40px; height: 40px; }
     }
     .kb-logo { display: inline-flex; width: 30px; height: 26px; flex-shrink: 0; }
-    @media (max-width: 768px) {
-        .kb-logo { width: 26px; height: 22px; }
+    @media (max-width: 1023px) {
+        .kb-logo { width: 22px; height: 19px; }
     }
     .kb-field-label {
         display: block;
@@ -137,6 +142,13 @@
        הדקורטיביים (360px) נכנסת לתמונה (סעיף 6.3) - כדי שבאמת יהיה מקום
        גם לה וגם לשני כפתורי המסלול זה-לצד-זה, בלי שהם "יתפוצצו" לשורה
        נפרדת מחוסר רוחב (900px - 360px - 48px gap נשאר צר מדי לשניהם). */
+    /* תיקון QA (סעיף 6.5: "בלי ריווח מעל הכותרת") - מבטל את ה-padding
+       העליון של האפליקציה עצמה בטלפון/טאבלט, כדי שהכותרת (52px) תתחיל
+       ממש בראש המסך. ריווח תבנית/תמה שמעל ל-#card-reader-app עצמו (אם
+       יש) הוא מחוץ לקובץ הזה ודורש בדיקה בדפדפן אמיתי. */
+    @media (max-width: 1023px) {
+        #card-reader-app { padding-top: 0; }
+    }
     @media (min-width: 1024px) {
         #card-reader-app { max-width: 1100px; }
     }
@@ -594,6 +606,15 @@
         justify-content: center;
         cursor: pointer;
     }
+    /* תיקון QA (סעיף 6.5, בטלפון: "שורה אחת בהתחלה (~48px), גדלה עד 5
+       שורות" ו"המיקרופון וכפתור השליחה 40px כל אחד") - היה זהה למחשב
+       (4 שורות/130px עד 10/330px, עיגולים 44px). אחרי שני הכללים שהיא
+       דורסת (סדר-מקור קובע כששתי הכללים באותה רמת-ספציפיות). */
+    @media (max-width: 1023px) {
+        .chat-input-area textarea { min-height: 48px; max-height: 180px; }
+        .kb-reply-box .btn-mic, .btn-send { width: 40px; height: 40px; }
+        .btn-send { left: 62px; } /* 14px + 40px + 8px רווח */
+    }
     .btn-send:hover {
         background-color: var(--bordeaux-hover, #692539);
     }
@@ -736,6 +757,10 @@
     .kb-ai-text {
         font-size: 19px; line-height: 1.8; color: var(--ink, #2A2326);
     }
+    /* תיקון QA (סעיף 6.5: "הודעות ה-AI בטלפון: 16px, גובה שורה 1.7") */
+    @media (max-width: 1023px) {
+        .kb-ai-text { font-size: 16px; line-height: 1.7; }
+    }
     .kb-ai-text p { margin: 0 0 14px; }
     .kb-ai-text p:last-child { margin-bottom: 0; }
     /* אגודל למעלה/למטה (סעיף 3.5): קו דק, בלי רקע, בלי אימוג'י; בלחיצה - בורדו */
@@ -771,27 +796,22 @@
         width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
         border: 10px solid #fff; box-shadow: var(--shadow-card, 0 18px 40px rgba(42,35,38,.16));
     }
-    /* בטלפון/טאבלט (<1024px): רצועה קבועה עם תמונות ממוזערות (76x57,
-       מסגרת לבנה 3px) - הקשה פותחת לייטבוקס (ר' JS kbOpenLightbox).
-       לא עוד קלפים גדולים בגלילת-scroll-snap. */
+    /* תיקון QA (סעיף 6.5, "רצועה אחת קבועה"): בטלפון/טאבלט (<1024px)
+       התמונות הממוזערות (52x39, מסגרת לבנה 2px) יושבות בתוך הרצועה
+       הקומפקטית, לא בשורה נפרדת וגדולה משלהן - הקשה פותחת לייטבוקס
+       (ר' JS kbOpenLightbox). היה 76x57/3px בשורה נפרדת בגלילה אופקית. */
     @media (max-width: 1023px) {
         .kb-card-row {
             display: flex; grid-template-columns: none; overflow-x: auto; flex-wrap: nowrap;
-            justify-content: flex-start; gap: 10px; padding-bottom: 2px;
+            justify-content: flex-start; gap: 6px; padding-bottom: 0;
         }
-        .kb-card-row .card-item { flex: 0 0 76px; width: 76px; }
+        .kb-card-row .card-item { flex: 0 0 52px; width: 52px; }
         .kb-card-row .card-display {
-            width: 76px; height: 57px; aspect-ratio: auto;
-            border: 3px solid #fff; box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
+            width: 52px; height: 39px; aspect-ratio: auto;
+            border: 2px solid #fff; box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
             cursor: pointer;
         }
     }
-    .kb-card-dots { display: none; justify-content: center; gap: 6px; margin-top: 10px; }
-    @media (max-width: 1023px) {
-        .kb-card-dots { display: flex; }
-    }
-    .kb-card-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong, #D9C9CD); }
-    .kb-card-dots span.kb-dot-active { width: 22px; height: 8px; border-radius: 4px; background: var(--bordeaux, #7D2E46); }
 
     /* שינוי UX (#3): אנימציית טעינה - שלוש נקודות פועמות, במקום הטקסט
        הסטטי "הקורא בקלפים מתמקד...". אותו בורדו כמו .btn-main/.card-back
@@ -1015,6 +1035,48 @@
     #kb-reading-side-question:empty { display: none; }
     #kb-reading-side-question { margin-bottom: 20px; }
     #kb-reading-side .actions-block { margin-top: 24px; }
+    /* תיקון QA (סעיף 6.5, "בטלפון: כל פיקסל לשיחה") - מהקלף הראשון ואילך
+       (kb-chat-mode, ר' JS kbSetChatStripMode), הרצועה העליונה הופכת
+       לרצועה קבועה אחת וקומפקטית (~64px): תמונות ממוזערות מימין (RTL,
+       סדר-המקור) והשאלה משמאלן, עד 2 שורות עם חץ ⌄. בלי תוויות "השאלה
+       שלך"/"הקלפים שלך" (ברור מההקשר), ובלי המסגרת/הצל הכבדים ששימשו
+       לשלב הערבוב (שם עדיין יש רק את השאלה, לפני קלף ראשון - סעיף 6.4). */
+    @media (max-width: 1023px) {
+        #kb-reading-side.kb-chat-mode {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+            min-height: 64px;
+            border-bottom: 1px solid var(--line, #E6DCDE);
+            box-shadow: none;
+            padding-bottom: 0;
+        }
+        #kb-reading-side.kb-chat-mode .cards-block,
+        #kb-reading-side.kb-chat-mode #kb-reading-side-question {
+            margin-bottom: 0;
+        }
+        #kb-reading-side.kb-chat-mode .cards-block { flex-shrink: 0; }
+        #kb-reading-side.kb-chat-mode .cards-block .kb-field-label { display: none; }
+        #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; }
+        #kb-reading-side.kb-chat-mode #kb-question-display .kb-field-label { display: none; }
+        #kb-reading-side.kb-chat-mode #kb-question-display {
+            display: flex; align-items: flex-start; gap: 4px;
+        }
+        #kb-reading-side.kb-chat-mode .kb-question-text {
+            font-size: 15px; flex: 1; min-width: 0;
+        }
+        #kb-reading-side.kb-chat-mode .kb-question-clamped .kb-question-text {
+            -webkit-line-clamp: 2;
+        }
+        #kb-reading-side.kb-chat-mode #kb-question-display::after {
+            content: '⌄'; flex-shrink: 0; color: var(--muted, #6E6266);
+            font-size: 13px; line-height: 1.6; transition: transform .2s;
+        }
+        #kb-reading-side.kb-chat-mode #kb-question-display:not(.kb-question-clamped)::after {
+            transform: rotate(180deg);
+        }
+    }
     /* "אחד מתחת לשני, כל אחד ברוחב מלא" - קבוצת הכפתורים הראשית הייתה
        flex-wrap אופקי (מתאים לטלפון, שם block-5 עובר לסוף השיחה - ר'
        kbPlaceActionsBlock); בעמודת הצד במחשב צריך טור, לא שורה. */
@@ -1279,12 +1341,15 @@
             <div class="cards-block" id="block-3">
                 <div class="kb-field-label">הקלפים שלך</div>
                 <div id="cards-container" class="kb-card-row"></div>
-                <div id="cards-dots" class="kb-card-dots" aria-hidden="true"></div>
-                <!-- סעיף 6.5: "קלף נוסף" מוצנע בכוונה - קישור טקסט קטן בלבד, בלי
-                     מסגרת/קופסה/מקום שמור בשורת הקלפים עצמה. מוצג רק אחרי תשובה
-                     ראשונה בשיחה (chatModeActive) ונעלם לגמרי אחרי הקלף השלישי - ר' JS. -->
-                <button type="button" class="kb-link-extra-card" id="btn-extra-card" style="display:none;">צריך עוד קלף?</button>
             </div>
+
+            <!-- סעיף 6.5: "קלף נוסף" מוצנע בכוונה - קישור טקסט קטן בלבד, בלי
+                 מסגרת/קופסה. מוצג רק אחרי תשובה ראשונה בשיחה (chatModeActive)
+                 ונעלם לגמרי אחרי הקלף השלישי - ר' JS. במחשב נשאר כאן, מתחת
+                 לקלפים (עמודת הצד); תיקון QA (סעיף 6.5, בטלפון): ברצועה
+                 הקבועה הקומפקטית אין לו מקום - kbPlaceExtraCardLink (JS)
+                 מעביר אותו לתוך השיחה הנגללת, ליד כפתורי הפעולות. -->
+            <button type="button" class="kb-link-extra-card" id="btn-extra-card" style="display:none;">צריך עוד קלף?</button>
 
             <!-- בלוק 5: שורת הפעולות (סעיף 6.5/6.6) - קבועה בתחתית עמודת הצד
                  במחשב; עוברת לסוף השיחה הנגללת בטלפון (kbPlaceActionsBlock, JS). -->
@@ -3805,21 +3870,11 @@
     // ר' kbRunAiTurnForCard, שמריץ את חלק הצ'אט בנפרד/במקביל. אין כפתור
     // "להמשך הקריאה" נפרד (סעיף 7.4 #8) - ממשיכים ישר לתצוגת הקלף, כמו
     // שכל שאר האפליקציה כבר עובדת (אין בכך סטייה מרשימת הבדיקות ב-7.9).
-    const cardsDots = document.getElementById('cards-dots');
     const btnExtraCard = document.getElementById('btn-extra-card');
     btnExtraCard.addEventListener('click', function () {
         btnExtraCard.disabled = true;
         maybeOfferAnotherCard('request_card_draw', true);
     });
-    // סעיף 6.5 (בטלפון): נקודה פעילה = פס בורדו, השאר נקודות רגילות.
-    function kbUpdateCardDots() {
-        cardsDots.innerHTML = '';
-        for (let i = 0; i < drawnCards.length; i++) {
-            const dot = document.createElement('span');
-            if (i === drawnCards.length - 1) dot.className = 'kb-dot-active';
-            cardsDots.appendChild(dot);
-        }
-    }
 
     // סעיף 6.5: לייטבוקס לתמונה הממוזערת של קלף בטלפון/טאבלט (<1024px) -
     // "הקשה על תמונה ממוזערת פותחת את הקלף בגדול... סגירה בהקשה או ב-×".
@@ -3856,10 +3911,26 @@
             chatHistory.appendChild(block5Actions); // תמיד כילד אחרון - בסוף השיחה
         }
     }
+    // תיקון QA (סעיף 6.5, בטלפון): ברצועה הקבועה הקומפקטית (קלפים+שאלה)
+    // אין מקום ל"צריך עוד קלף?" - במחשב הוא נשאר במקומו הסטטי (מתחת
+    // לקלפים, בעמודת הצד); בטלפון הוא עובר לתוך השיחה הנגללת, מיד לפני
+    // כפתורי הפעולות (ר' הסדר ב-kbPlaceActionsResizeTimer/kbOnCardRevealed
+    // למטה - קריאה לכאן תמיד באה לפני קריאה ל-kbPlaceActionsBlock).
+    function kbPlaceExtraCardLink() {
+        if (block3Cards.style.display === 'none') return; // עוד לא נחשף קלף ראשון
+        const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+        const kbReadingSide = document.getElementById('kb-reading-side');
+        if (isDesktop) {
+            if (btnExtraCard.parentElement !== kbReadingSide) kbReadingSide.appendChild(btnExtraCard);
+        } else if (btnExtraCard.parentElement !== chatHistory || btnExtraCard.nextSibling) {
+            chatHistory.appendChild(btnExtraCard); // תמיד כילד אחרון (לפני שמוסיפים את block5Actions)
+        }
+    }
     let kbPlaceActionsResizeTimer = null;
     window.addEventListener('resize', function () {
         clearTimeout(kbPlaceActionsResizeTimer);
         kbPlaceActionsResizeTimer = setTimeout(function () {
+            kbPlaceExtraCardLink();
             kbPlaceActionsBlock();
             kbPlaceQuestionBlock();
         }, 150);
@@ -3875,14 +3946,40 @@
         const target = isDesktop ? kbReadingQuestion : kbReadingSideQuestion;
         if (kbQuestionDisplay.parentElement !== target) target.appendChild(kbQuestionDisplay);
         kbQuestionDisplay.classList.toggle('kb-question-clamped', !isDesktop);
+        // תיקון QA (סעיף 6.5, בטלפון: "הקשה פותחת... החץ מתהפך, ו-aria-expanded
+        // מתעדכן") - רק בטלפון השאלה בכלל לחיצה; במחשב היא קבועה ומלאה תמיד.
+        if (isDesktop) {
+            kbQuestionDisplay.removeAttribute('role');
+            kbQuestionDisplay.removeAttribute('tabindex');
+            kbQuestionDisplay.removeAttribute('aria-expanded');
+        } else {
+            kbQuestionDisplay.setAttribute('role', 'button');
+            kbQuestionDisplay.setAttribute('tabindex', '0');
+            kbQuestionDisplay.setAttribute('aria-expanded', 'false');
+        }
     }
-    // תיקון QA (סעיף 6.4, מסך הערבוב בטלפון): "18px, עד 3 שורות... והקשה
-    // עליה פותחת וסוגרת אותה" - במחשב קבוע (אף פעם לא clamped), כך שההקשה
-    // שם לא עושה דבר.
-    kbQuestionDisplay.addEventListener('click', function () {
+    // תיקון QA (סעיף 6.4/6.5, בטלפון): "הקשה עליה פותחת וסוגרת אותה" - לפני
+    // קלף ראשון (6.4: 18px/3 שורות) ואחריו (6.5: רצועה קומפקטית, 15px/2
+    // שורות + חץ) - אותו מנגנון הקשה, רק העיצוב (CSS) משתנה. במחשב קבוע
+    // (אף פעם לא clamped), כך שההקשה שם לא עושה דבר.
+    function kbToggleQuestionExpand() {
         if (window.matchMedia('(min-width: 1024px)').matches) return;
-        kbQuestionDisplay.classList.toggle('kb-question-clamped');
+        const nowClamped = kbQuestionDisplay.classList.toggle('kb-question-clamped');
+        kbQuestionDisplay.setAttribute('aria-expanded', String(!nowClamped));
+    }
+    kbQuestionDisplay.addEventListener('click', kbToggleQuestionExpand);
+    kbQuestionDisplay.addEventListener('keydown', function (e) {
+        if ('Enter' !== e.key && ' ' !== e.key) return;
+        e.preventDefault();
+        kbToggleQuestionExpand();
     });
+    // תיקון QA (סעיף 6.5, בטלפון): מהקלף הראשון ואילך - הרצועה העליונה
+    // הופכת מתצוגת-שאלה-בלבד (שלב הערבוב, סעיף 6.4) לרצועה קבועה קומפקטית
+    // אחת (תמונות ממוזערות + שאלה, סעיף 6.5) - ר' CSS kb-chat-mode. חד-
+    // כיווני: אין חזרה לאחור במהלך אותה קריאה.
+    function kbSetChatStripMode() {
+        document.getElementById('kb-reading-side').classList.add('kb-chat-mode');
+    }
 
     function kbOnCardRevealed(card) {
         const cardWrapper = document.createElement('div');
@@ -3902,7 +3999,6 @@
         cardWrapper.appendChild(imgElement);
 
         cardsContainer.appendChild(cardWrapper);
-        kbUpdateCardDots();
 
         // סעיף 6.5: קישור "צריך עוד קלף?" הוא אלמנט קבוע אחד (ב-HTML, לא
         // קלף-grid שנוצר/נהרס) - מוצג רק אחרי תשובה ראשונה בשיחה
@@ -3918,7 +4014,9 @@
         block3Cards.style.display = 'block';
         block4Chat.classList.add('kb-visible');
         block5Actions.style.display = 'flex';
+        kbPlaceExtraCardLink();
         kbPlaceActionsBlock();
+        kbSetChatStripMode(); // סעיף 6.5 (בטלפון): מהקלף הראשון ואילך - רצועה קומפקטית
 
         if (drawnCards.length < MAX_CARDS) {
             appState = 'drawn';
@@ -4511,6 +4609,10 @@
     function kbAutoGrowReply() {
         chatInput.style.height = 'auto';
         chatInput.style.height = chatInput.scrollHeight + 'px';
+        // תיקון QA (בטלפון בעיקר, תיבה קטנה-יותר שגדלה מהר): כשהתיבה תופסת
+        // עוד גובה, אזור ההודעות מצטמק (flex: 0 1 auto) - בלי זה ההודעה
+        // האחרונה הייתה נעלמת מתחת לתיבה שגדלה, במקום להישאר גלויה מעליה.
+        chatHistory.scrollTop = chatHistory.scrollHeight;
     }
     chatInput.addEventListener('input', kbAutoGrowReply);
 

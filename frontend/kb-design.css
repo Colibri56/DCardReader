@@ -169,14 +169,19 @@
   font-size: 20px;
 }
 
-@media (max-width: 768px) {
-  .kb-header-brand { font-size: 18px; }
+/* תיקון QA (סעיף 6.5, "בטלפון: כל פיקסל לשיחה") - 52px, בלי padding
+   עליון; לוגו 22px, שם 16px, כפתור ☰ 40px. ר' ההערה המלאה במקור
+   (elementor-code.html). */
+@media (max-width: 1023px) {
+  .kb-header { height: 52px; padding: 0 4px; }
+  .kb-header-brand { font-size: 16px; }
+  .kb-header-menu-btn { width: 40px; height: 40px; }
 }
 
 /* ---------- 4. לוגו: מניפה של שלושה קלפים ---------- */
 .kb-logo { display: inline-flex; width: 30px; height: 26px; }
-@media (max-width: 768px) {
-  .kb-logo { width: 26px; height: 22px; }
+@media (max-width: 1023px) {
+  .kb-logo { width: 22px; height: 19px; }
 }
 
 /* ============================================================
@@ -493,6 +498,10 @@
 .kb-ai-icon svg { width: 16px; height: 14px; }
 .kb-ai-label { font-size: 15px; color: var(--muted, #6E6266); font-weight: 500; }
 .kb-ai-text { font-size: 19px; line-height: 1.8; color: var(--ink, #2A2326); }
+/* תיקון QA (סעיף 6.5: "הודעות ה-AI בטלפון: 16px, גובה שורה 1.7") */
+@media (max-width: 1023px) {
+  .kb-ai-text { font-size: 16px; line-height: 1.7; }
+}
 .kb-ai-text p { margin: 0 0 14px; }
 .kb-ai-text p:last-child { margin-bottom: 0; }
 .dcard-feedback-pill { display: flex; width: fit-content; gap: 10px; margin-top: 10px; align-items: center; border: none; }
@@ -522,26 +531,21 @@
   width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
   border: 10px solid #fff; box-shadow: var(--shadow-card, 0 18px 40px rgba(42,35,38,.16));
 }
-/* בטלפון/טאבלט (<1024px): תמונות ממוזערות (76x57, מסגרת לבנה 3px) -
-   הקשה פותחת לייטבוקס. */
+/* תיקון QA (סעיף 6.5, "רצועה אחת קבועה"): תמונות ממוזערות (52x39, מסגרת
+   לבנה 2px) בתוך הרצועה הקומפקטית - הקשה פותחת לייטבוקס. היה 76x57/3px
+   בשורה נפרדת בגלילה אופקית. */
 @media (max-width: 1023px) {
   .kb-card-row {
     display: flex; grid-template-columns: none; overflow-x: auto; flex-wrap: nowrap;
-    justify-content: flex-start; gap: 10px; padding-bottom: 2px;
+    justify-content: flex-start; gap: 6px; padding-bottom: 0;
   }
-  .kb-card-row .card-item { flex: 0 0 76px; width: 76px; }
+  .kb-card-row .card-item { flex: 0 0 52px; width: 52px; }
   .kb-card-row .card-display {
-    width: 76px; height: 57px; aspect-ratio: auto;
-    border: 3px solid #fff; box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
+    width: 52px; height: 39px; aspect-ratio: auto;
+    border: 2px solid #fff; box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
     cursor: pointer;
   }
 }
-.kb-card-dots { display: none; justify-content: center; gap: 6px; margin-top: 10px; }
-@media (max-width: 1023px) {
-  .kb-card-dots { display: flex; }
-}
-.kb-card-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong, #D9C9CD); }
-.kb-card-dots span.kb-dot-active { width: 22px; height: 8px; border-radius: 4px; background: var(--bordeaux, #7D2E46); }
 
 /* ============================================================
    מסך הקריאה כמסך-צ'אט קבוע (סעיף 6.5) - ר' ההערה המלאה ב-
@@ -588,6 +592,34 @@ body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px);
 }
 #kb-reading-side-question:empty { display: none; }
 #kb-reading-side-question { margin-bottom: 20px; }
+/* תיקון QA (סעיף 6.5, "בטלפון: כל פיקסל לשיחה") - מהקלף הראשון ואילך
+   (kb-chat-mode, JS kbSetChatStripMode), הרצועה העליונה הופכת לרצועה
+   קבועה קומפקטית אחת (~64px): תמונות ממוזערות + שאלה (עד 2 שורות + חץ),
+   בלי תוויות. לפני כן (שלב הערבוב, סעיף 6.4) יש רק את השאלה, 18px/3
+   שורות - ר' ההערה המלאה במקור. */
+@media (max-width: 1023px) {
+  #kb-reading-side.kb-chat-mode {
+    display: flex; flex-direction: row; align-items: center; gap: 10px;
+    min-height: 64px; border-bottom: 1px solid var(--line, #E6DCDE);
+    box-shadow: none; padding-bottom: 0;
+  }
+  #kb-reading-side.kb-chat-mode .cards-block,
+  #kb-reading-side.kb-chat-mode #kb-reading-side-question { margin-bottom: 0; }
+  #kb-reading-side.kb-chat-mode .cards-block { flex-shrink: 0; }
+  #kb-reading-side.kb-chat-mode .cards-block .kb-field-label { display: none; }
+  #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; }
+  #kb-reading-side.kb-chat-mode #kb-question-display .kb-field-label { display: none; }
+  #kb-reading-side.kb-chat-mode #kb-question-display { display: flex; align-items: flex-start; gap: 4px; }
+  #kb-reading-side.kb-chat-mode .kb-question-text { font-size: 15px; flex: 1; min-width: 0; }
+  #kb-reading-side.kb-chat-mode .kb-question-clamped .kb-question-text { -webkit-line-clamp: 2; }
+  #kb-reading-side.kb-chat-mode #kb-question-display::after {
+    content: '⌄'; flex-shrink: 0; color: var(--muted, #6E6266);
+    font-size: 13px; line-height: 1.6; transition: transform .2s;
+  }
+  #kb-reading-side.kb-chat-mode #kb-question-display:not(.kb-question-clamped)::after {
+    transform: rotate(180deg);
+  }
+}
 /* סעיף 6.5 (מתוקן): השאלה כטקסט רגיל, לא תיבת קלט נעולה - ר' ההערה
    המלאה במקור (elementor-code.html). */
 .kb-question-text {
