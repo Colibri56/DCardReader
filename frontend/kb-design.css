@@ -308,6 +308,13 @@
 .kb-home-greeting { font-size: 20px; color: var(--muted); margin: 0 0 4px; }
 .kb-home-title { font-size: 52px; font-weight: 500; line-height: 1.15; margin: 0 0 14px; }
 .kb-home-paragraph { font-size: 18px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 28px !important; max-width: 520px; }
+/* סעיף 6.3 (עדכון, בדיקת קבלה 390x740) - ר' ההערה המלאה במקור. */
+@media (max-width: 1023px) {
+  #kb-main-content:not(.kb-reading-active) { gap: 16px; padding-top: 12px; }
+  .kb-home-greeting { font-size: 15px; }
+  .kb-home-title { font-size: 28px; line-height: 1.2; margin: 0 0 8px; }
+  .kb-home-paragraph { font-size: 15px; line-height: 1.55; margin: 0 0 16px !important; }
+}
 .kb-btn-sub { display: block; font-size: 14px; font-weight: 400; color: var(--muted); margin-top: 2px; }
 .btn-main .kb-btn-sub { color: #F3E7EA; }
 .path-choice-block .btn-main,
@@ -629,6 +636,13 @@ body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px);
   }
   #kb-reading-side.kb-chat-mode #kb-question-display:not(.kb-question-clamped)::after {
     transform: rotate(180deg);
+  }
+  /* סעיף 6.5 (עדכון): מצב kb-kbd-open (מקלדת פתוחה, JS kbUpdateReadingHeight)
+     - ר' ההערה המלאה במקור. */
+  #kb-main-content.kb-kbd-open #kb-reading-side.kb-chat-mode { min-height: 0; }
+  #kb-main-content.kb-kbd-open #kb-reading-side.kb-chat-mode .kb-link-extra-card { display: none; }
+  #kb-main-content.kb-kbd-open #kb-reading-side.kb-chat-mode .kb-question-text {
+    display: -webkit-box; -webkit-line-clamp: 1; overflow: hidden;
   }
 }
 /* סעיף 6.5 (מתוקן): השאלה כטקסט רגיל, לא תיבת קלט נעולה - ר' ההערה
