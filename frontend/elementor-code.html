@@ -4177,17 +4177,26 @@
     });
 
     // סעיף 6.5: בטלפון/טאבלט (<1024px) כפתורי הפעולות (block-5) מופיעים
-    // בסוף השיחה הנגללת, לא קבועים ברצועה העליונה; במחשב הם קבועים
-    // בתחתית עמודת הצד (kb-reading-side, המיקום הסטטי שלהם ב-HTML).
-    // נקרא בכל חשיפת קלף (כש-block-5 נהיה גלוי לראשונה) ובכל שינוי רוחב.
+    // בסוף מסך השיחה (אחרי תיבת התשובה - רצועה, הודעות, תיבה, כפתורים),
+    // לא קבועים ברצועה העליונה; במחשב הם קבועים בתחתית עמודת הצד
+    // (kb-reading-side, המיקום הסטטי שלהם ב-HTML). נקרא בכל חשיפת קלף
+    // (כש-block-5 נהיה גלוי לראשונה) ובכל שינוי רוחב.
+    //
+    // תיקון QA (דווח בפועל, אחרי ביטול הגלילה הפנימית בטלפון - סעיף 6.5):
+    // היעד הקודם היה chatHistory עצמו (תמיד כילד אחרון *שלו*) - זה היה
+    // נכון כשה-chat-history היה הקופסה הנגללת וה-chat-input-area ישב
+    // מתחתיה כקבוע; עכשיו שהעמוד כולו נגלל, זה גרם לכפתורים להופיע
+    // *לפני* תיבת התשובה (היא block4Chat.children[1], אחרי chat-history).
+    // היעד עכשיו הוא block4Chat (chat-block) עצמו - כילד אחרון *שלו*,
+    // כלומר אחרי גם chat-history וגם chat-input-area.
     function kbPlaceActionsBlock() {
         if (block5Actions.style.display === 'none') return; // עוד לא נחשף קלף ראשון
         const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
         const kbReadingSide = document.getElementById('kb-reading-side');
         if (isDesktop) {
             if (block5Actions.parentElement !== kbReadingSide) kbReadingSide.appendChild(block5Actions);
-        } else if (block5Actions.parentElement !== chatHistory || block5Actions.nextSibling) {
-            chatHistory.appendChild(block5Actions); // תמיד כילד אחרון - בסוף השיחה
+        } else if (block5Actions.parentElement !== block4Chat || block5Actions.nextSibling) {
+            block4Chat.appendChild(block5Actions); // תמיד כילד אחרון - אחרי תיבת התשובה
         }
     }
     let kbPlaceActionsResizeTimer = null;
