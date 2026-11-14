@@ -2731,17 +2731,33 @@
     // מוסרת כליל) כי קריאה ל-showPopup על document שעדיין לא נרשם
     // באלמנטור מוכחת כקורסת (תיקון באג 3 למעלה) - ויתור מלא על הבדיקה
     // הזו היה מחזיר קריסה ישירה, לא רק "לא נפתח".
-    function openPopupById(popupId) {
-        if (!elementorPopupModuleReady(popupId)) {
-            console.warn('[DCard Popup] popup document (id=' + popupId + ') not registered yet by Elementor - skipping open (no retry loop).');
+    // תיקון (דווח בפועל: "לחיצה על 'קבלת מסר אישי' אחרי שהמכסה האנונימית
+    // נגמרה - שום דבר לא קורה") - הגרסה הקודמת ויתרה מיד אם הפופאפ עדיין
+    // לא נרשם ע"י Elementor, בלי שום ניסיון חוזר ובלי שום משוב למשתמש -
+    // בפועל זה נראה בדיוק כמו "לחצתי ולא קרה כלום". עכשיו: כמה ניסיונות
+    // חזרה במרווחים גדלים (אותו דפוס כמו populateUserFieldsWithRetries
+    // למעלה - לא לולאה אינסופית, מספר קבוע של ניסיונות), ואם גם אחריהם
+    // הפופאפ עדיין לא מוכן - לפחות הודעה למשתמש במקום שתיקה מוחלטת.
+    function openPopupById(popupId, retryDelaysMs) {
+        if (elementorPopupModuleReady(popupId)) {
+            console.log('[DCard Popup] calling showPopup({id:' + popupId + '}) once');
+            try {
+                elementorProFrontend.modules.popup.showPopup({ id: popupId });
+            } catch (err) {
+                console.warn('[DCard Popup] showPopup threw despite readiness check (id=' + popupId + '):', err);
+            }
             return;
         }
-        console.log('[DCard Popup] calling showPopup({id:' + popupId + '}) once');
-        try {
-            elementorProFrontend.modules.popup.showPopup({ id: popupId });
-        } catch (err) {
-            console.warn('[DCard Popup] showPopup threw despite readiness check (id=' + popupId + '):', err);
+        const delays = retryDelaysMs || [300, 800, 1500];
+        if (delays.length === 0) {
+            console.warn('[DCard Popup] popup document (id=' + popupId + ') never became ready after retries - showing fallback message.');
+            alert('מצטערים, קרתה תקלה זמנית בטעינת החלון. נסו לרענן את הדף ולנסות שוב.');
+            return;
         }
+        console.warn('[DCard Popup] popup document (id=' + popupId + ') not registered yet by Elementor - retrying in ' + delays[0] + 'ms.');
+        setTimeout(function () {
+            openPopupById(popupId, delays.slice(1));
+        }, delays[0]);
     }
 
     // דגל ל-submit_success (ר' תיקון באג 10 למטה) - מסמן שהשליחה האחרונה
@@ -4821,7 +4837,11 @@
     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     // כפתור: שליחת הדיאלוג במייל
-    endSessionBtns[1].addEventListener('click', async () => {
+    // תיקון (דווח בפועל: ReferenceError בקונסול בכל טעינת דף) - שאריות
+    // מהשינוי ב-commit 2492fad ("שלב 4"), ששינה שם מ-endSessionBtns[0/1]
+    // (NodeList לפי אינדקס) ל-btnEndSession/btnEmailChat (שמות ייעודיים) -
+    // כל המופעים חוץ מהזה עודכנו; endSessionBtns עצמו לא קיים יותר בכלל.
+    btnEmailChat.addEventListener('click', async () => {
         // אין כאן פופאפ אמיתי - prompt() הדפדפן, שתומך בערך ברירת מחדל
         // כפרמטר שני. אם כבר נשמרה כתובת מפעם קודמת, היא מוצגת מוכנה בתיבה.
         const savedEmail = dcardGetLS(DCARD_LS_KEYS.email) || '';

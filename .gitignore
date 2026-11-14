@@ -1,1 +1,5 @@
 ﻿_Firebase/*.json
+
+# Playwright test screenshots
+screenshots/
+.playwright-mcp/
