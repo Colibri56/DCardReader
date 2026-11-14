@@ -1344,6 +1344,10 @@
                 <button class="btn-main" id="btn-path-chat">דיאלוג מכוון<span class="kb-btn-sub">שיחה מעמיקה, צעד אחר צעד, עד שמגיעים לתובנה</span></button>
                 <button class="btn-outline" id="btn-path-message">קבלת מסר אישי<span class="kb-btn-sub">מסר אחד קצר על השאלה והתמונה</span></button>
             </div>
+            <!-- סעיף 3.5א: "אין חלונות של הדפדפן" - שורת התראה במקום alert(),
+                 למקרה שבו קיר ההרשמה (4749)/התשלום (4753) נכשל לגמרי גם אחרי
+                 ניסיונות חוזרים (ר' JS openPopupGiveUpBanner). -->
+            <div class="kb-alert-banner" id="kb-popup-wall-error" style="display:none;"></div>
         </div>
 
         <!-- גבי קלפים דקורטיביים (סעיף 3.3: עומד, 2:3) - רק ≥1024px (ר' CSS).
@@ -1560,6 +1564,24 @@
         </div>
     </div>
 
+    <!-- סעיף 7.2א/3.5א/8: "נגמרו השימושים לתקופת הניסיון" - למשתמש רשום
+         שנגמרו לו הקרדיטים בזמן שחלון התשלום כבוי (KB_PAYWALL_ENABLED).
+         modal רגיל שלנו, לא Elementor popup - בכוונה: כל קירות ה-Elementor
+         (4749/4753) סבלו מתזמון רישום לא אמין (ר' openPopupById/
+         elementorPopupModuleReady למעלה); חלון בשליטה מלאה שלנו נמנע
+         מכל אותה בעיה. -->
+    <div id="kb-credits-exhausted-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-credits-exhausted-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-credits-exhausted-title" style="text-align:center;">נגמרו השימושים לתקופת הניסיון</h2>
+            <p class="kb-modal-text" id="kb-credits-exhausted-text" style="text-align:center;"></p>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-main" id="kb-credits-exhausted-contact">כתבו לנו</button>
+                <button type="button" class="kb-btn kb-btn--quiet" id="kb-credits-exhausted-close" style="align-self:center;">סגירה</button>
+            </div>
+        </div>
+    </div>
+
     <!-- חלון "שליחת השיחה במייל" (סעיף 6.7) - מחליף את window.prompt. -->
     <div id="kb-email-modal" class="kb-modal-scrim" hidden>
         <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-email-title">
@@ -1679,6 +1701,19 @@
         if (content.indexOf('interactive-widget') === -1) {
             meta.setAttribute('content', content + (content ? ', ' : '') + 'interactive-widget=resizes-content');
         }
+    })();
+
+    // סעיף 8: "מחוון למנהל בלבד" - כשהתשלום כבוי (KB_PAYWALL_ENABLED,
+    // ר' DCard_Quotas), מנהל מחובר רואה תווית קטנה בפינה. משתמשים רגילים
+    // (isAdminViewing=false) לא רואים כלום - נבדק רק פה, לא בשרת.
+    (function kbShowTestModeBadgeIfAdmin() {
+        if (!window.dcardSettings || !dcardSettings.isAdminViewing || dcardSettings.paywallEnabled) return;
+        const badge = document.createElement('div');
+        badge.textContent = 'מצב בדיקות: תשלום כבוי';
+        badge.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:9999;' +
+            'background:#2A2326;color:#FBF8F6;font-family:Rubik,sans-serif;' +
+            'font-size:12px;padding:4px 10px;border-radius:999px;opacity:.85;pointer-events:none;';
+        document.body.appendChild(badge);
     })();
 
     // --- הגדרות משתמש ו-API ---
@@ -1945,7 +1980,13 @@
         // עושה כלום אם אין עדיין ערך שמור (ר' ה-guard הראשון שבתוכה),
         // אז קריאה לה כאן בטוחה בכל מקרה (למשל חזרה לקיר הזה בפעם שנייה).
         populateUserFieldsWithRetries(REGISTRATION_WALL_POPUP_ID, true);
-        openPopupById(REGISTRATION_WALL_POPUP_ID);
+        openPopupById(REGISTRATION_WALL_POPUP_ID, function () {
+            // סעיף 3.5א: שורת התראה במקום alert() - מוצגת ליד כפתורי
+            // המסלול, שם המשתמש בדיוק לחץ (מסך הבית, לפני נעילת השאלה).
+            kbShowAlertBanner(pathChoiceBlock, 'kb-popup-wall-error',
+                'קרתה תקלה זמנית בטעינת החלון. אפשר לנסות שוב.',
+                function () { triggerRegistrationWall(); });
+        });
         populateUserFieldsWithRetries(REGISTRATION_WALL_POPUP_ID, false);
     }
 
@@ -2067,6 +2108,72 @@
         populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, true);
         openPopupById(PAYMENT_WALL_POPUP_ID);
         populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, false);
+    }
+
+    // סעיף 7.2א/3.5א/8: "נגמרו השימושים לתקופת הניסיון" - למשתמש רשום,
+    // כש-KB_PAYWALL_ENABLED כבוי (ברירת המחדל בתקופת הבדיקות). modal
+    // רגיל שלנו (ר' ההערה המלאה ב-HTML, ליד kb-credits-exhausted-modal) -
+    // לא Elementor popup, אז אין כאן שום תלות ב-elementorPopupModuleReady/
+    // ניסיונות חוזרים כמו ב-triggerPaymentWall/triggerRegistrationWall.
+    const kbCreditsExhaustedModal = document.getElementById('kb-credits-exhausted-modal');
+    const kbCreditsExhaustedText = document.getElementById('kb-credits-exhausted-text');
+    const kbCreditsExhaustedContactBtn = document.getElementById('kb-credits-exhausted-contact');
+    const kbCreditsExhaustedCloseBtn = document.getElementById('kb-credits-exhausted-close');
+    function kbShowCreditsExhaustedModal() {
+        kbCreditsExhaustedText.textContent = ( 'female' === userGender )
+            ? 'נשמח להוסיף לך עוד. אפשר לכתוב לנו, ונחזור אלייך.'
+            : 'נשמח להוסיף לך עוד. אפשר לכתוב לנו, ונחזור אליך.';
+        kbCreditsExhaustedModal.hidden = false;
+        kbCreditsExhaustedCloseBtn.focus();
+    }
+    function kbCloseCreditsExhaustedModal() {
+        kbCreditsExhaustedModal.hidden = true;
+    }
+    kbCreditsExhaustedCloseBtn.addEventListener('click', kbCloseCreditsExhaustedModal);
+    kbCreditsExhaustedModal.addEventListener('click', function (e) {
+        if (e.target === kbCreditsExhaustedModal) kbCloseCreditsExhaustedModal();
+    });
+    kbCreditsExhaustedContactBtn.addEventListener('click', function () {
+        window.location.href = 'mailto:doar@nuriteldar.co.il?subject=' + encodeURIComponent('** הקורא בקלפים ** - נגמרו לי השימושים');
+        kbCloseCreditsExhaustedModal();
+    });
+
+    // תיקון QA (סעיף 7.2א/8): נקודת-קריאה אחת ל"נגמרו הקרדיטים" - בלי
+    // KB_PAYWALL_ENABLED מוגדר (למשל דף ישן בקאש, dcardSettings חסר)
+    // נשארים עם ההתנהגות הקודמת (חלון תשלום), לא פותחים חלון לא-צפוי.
+    function kbHandleCreditsExhausted() {
+        const paywallOn = !!(window.dcardSettings && dcardSettings.paywallEnabled);
+        if (paywallOn) {
+            triggerPaymentWall();
+        } else {
+            kbShowCreditsExhaustedModal();
+        }
+    }
+
+    // סעיף 7.2א: "לפני שמסך הערבוב נפתח... שואלים את השרת אם נשאר למשתמש
+    // קרדיט לסוג השימוש הזה" - רק לרשומים (אנונימי ממשיך להיבדק מקומית,
+    // ר' הבדיקות הקיימות ב-btnPathMessage/btnPathChat). מחזיר true =
+    // מותר להמשיך; false = נחסם (כבר טיפלנו, פתחנו את החלון המתאים).
+    // כשל ברשת בבדיקה המקדימה הזו לא חוסם בעצמו - משאירים את האכיפה
+    // האמיתית לבקשת השליפה/הצ'אט עצמה (draw-card/turn כבר אוכפים קרדיטים
+    // בלי קשר לבדיקה הזו).
+    async function kbHasCreditsOrHandleExhausted(mode) {
+        if (!dcardIsRegistered()) return true;
+        try {
+            const res = await fetch('/wp-json/dcard/v1/account/status', {
+                method: 'GET',
+                headers: dcardHeaders()
+            });
+            const data = await res.json();
+            if (!data || !data.success) return true;
+            const remaining = ( 'message' === mode ) ? data.current_credits_msg : data.current_credits_chat;
+            if (remaining > 0) return true;
+            kbHandleCreditsExhausted();
+            return false;
+        } catch (err) {
+            console.warn('[DCard Quota] pre-shuffle credits check failed (non-fatal):', err);
+            return true;
+        }
     }
 
     // ברירת מחדל - משמשת רק אם אין עדיין ערכים שמורים ב-localStorage (ר' למטה)
@@ -2481,6 +2588,7 @@
         else if (!kbEndSessionModal.hidden) kbEndSessionModal.hidden = true;
         else if (!kbEmailModal.hidden) kbEmailModal.hidden = true;
         else if (!kbFeedbackModal.hidden) kbFeedbackModal.hidden = true;
+        else if (!kbCreditsExhaustedModal.hidden) kbCreditsExhaustedModal.hidden = true;
         // kb-onboarding-modal לא נסגר ב-Esc בכוונה - המידע חובה לפני שממשיכים.
     });
 
@@ -2738,7 +2846,7 @@
     // חזרה במרווחים גדלים (אותו דפוס כמו populateUserFieldsWithRetries
     // למעלה - לא לולאה אינסופית, מספר קבוע של ניסיונות), ואם גם אחריהם
     // הפופאפ עדיין לא מוכן - לפחות הודעה למשתמש במקום שתיקה מוחלטת.
-    function openPopupById(popupId, retryDelaysMs) {
+    function openPopupById(popupId, onGiveUp, retryDelaysMs) {
         if (elementorPopupModuleReady(popupId)) {
             console.log('[DCard Popup] calling showPopup({id:' + popupId + '}) once');
             try {
@@ -2750,13 +2858,15 @@
         }
         const delays = retryDelaysMs || [300, 800, 1500];
         if (delays.length === 0) {
-            console.warn('[DCard Popup] popup document (id=' + popupId + ') never became ready after retries - showing fallback message.');
-            alert('מצטערים, קרתה תקלה זמנית בטעינת החלון. נסו לרענן את הדף ולנסות שוב.');
+            console.warn('[DCard Popup] popup document (id=' + popupId + ') never became ready after retries.');
+            // סעיף 3.5א: "אין חלונות של הדפדפן" - לא alert(), אלא שורת התראה
+            // שה-caller אחראי להציג במקום המתאים להקשר שלו (ר' triggerRegistrationWall).
+            if (onGiveUp) onGiveUp();
             return;
         }
         console.warn('[DCard Popup] popup document (id=' + popupId + ') not registered yet by Elementor - retrying in ' + delays[0] + 'ms.');
         setTimeout(function () {
-            openPopupById(popupId, delays.slice(1));
+            openPopupById(popupId, onGiveUp, delays.slice(1));
         }, delays[0]);
     }
 
@@ -3779,7 +3889,15 @@
             } catch (e) {
                 chosen = null; phase = 'flow'; A.push(id); render();
                 setCardsTabIndex(0);
-                opts.onHint('error'); opts.onBusyChange(false);
+                opts.onBusyChange(false);
+                // סעיף 7.2א: "אם מגיעה תשובת נגמרו הקרדיטים ברגע השליפה:
+                // עוצרים את הזרימה... בלי 'ניסיון חוזר'" - kbFetchCard כבר
+                // הציג את החלון/הבאנר הנכון (credits_exhausted/daily_limit/
+                // סשן פג, ר' ה-throw של 'kb_handled' שם) - לא מציגים גם את
+                // "תקלה בחיבור" הגנרית, ולא ממשיכים להניע קלפים ברקע מאחורי
+                // מסך שבפועל חסום. "ניסיון חוזר" נשאר רק לתקלות אמיתיות.
+                if ((e instanceof Error) && 'kb_handled' === e.message) return;
+                opts.onHint('error');
                 if (!reduce) flowTimer = setInterval(step, P.FLOW);
             }
         }
@@ -3889,7 +4007,12 @@
     });
     function kbOnHint(key) {
         if ('error' === key) {
-            // סעיף 7.2: שורת השגיאה כוללת כפתור "ניסיון חוזר" אמיתי (לא רק
+            // סעיף 7.2: "כפתור 'שליפת קלף' חוזר להופיע" - לא רק שורת השגיאה
+            // מקבלת כפתור "ניסיון חוזר" משלה (למטה); הכפתור הראשי עצמו
+            // (btnDeckAction) חייב לחזור לטקסט הרגיל, אחרת הוא נשאר תקוע
+            // על "רגע, מערבבים…" לנצח אחרי תקלה (דווח בפועל).
+            btnDeckAction.innerText = 'שליפת קלף';
+            // שורת השגיאה כוללת כפתור "ניסיון חוזר" אמיתי (לא רק
             // טקסט) שעושה בדיוק את מה ש"שליפת קלף" עושה.
             kbStageStatus.innerHTML = '';
             kbStageStatus.appendChild(document.createTextNode('הקלף לא נשלף בגלל תקלה בחיבור. '));
@@ -3936,7 +4059,11 @@
                     if (userQuestion && userQuestion.value && userQuestion.value.trim()) {
                         dcardSetLS(DCARD_LS_KEYS.pendingQuestion, userQuestion.value.trim());
                     }
-                    triggerPaymentWall();
+                    // סעיף 7.2א: "אם בכל זאת מגיעה תשובת נגמרו הקרדיטים ברגע
+                    // השליפה: עוצרים... בלי 'ניסיון חוזר'" - kb_handled כאן
+                    // מסמן ל-pick() (קוד הערבוב, ר' ה-catch שלו) לא להציג
+                    // בנוסף את שורת "תקלה בחיבור" הגנרית.
+                    kbHandleCreditsExhausted();
                     throw new Error('kb_handled');
                 }
                 if (403 === drawRes.status && 'daily_limit_reached' === drawData.code) {
@@ -3980,8 +4107,13 @@
     // "להמשך הקריאה" נפרד (סעיף 7.4 #8) - ממשיכים ישר לתצוגת הקלף, כמו
     // שכל שאר האפליקציה כבר עובדת (אין בכך סטייה מרשימת הבדיקות ב-7.9).
     const btnExtraCard = document.getElementById('btn-extra-card');
-    btnExtraCard.addEventListener('click', function () {
+    btnExtraCard.addEventListener('click', async function () {
         btnExtraCard.disabled = true;
+        // סעיף 7.2א: בדיקה לפני שמסך הערבוב נפתח גם כאן ("צריך עוד קלף?").
+        if (!(await kbHasCreditsOrHandleExhausted(chatModeActive ? 'chat' : 'message'))) {
+            btnExtraCard.disabled = false;
+            return;
+        }
         maybeOfferAnotherCard('request_card_draw', true);
     });
 
@@ -4403,8 +4535,11 @@
         if (!(await ensureSessionReady(btnDeckAction))) return;
 
         if (appState === 'drawn') {
-            // קלף נוסף (לא הראשון) - השאלה כבר ננעלה מזמן. סעיף 7.6:
-            // skipRiffle ל"קלף נוסף" - ישר לשלב flow, בלי רצף הערבוב המלא.
+            // קלף נוסף (לא הראשון) - השאלה כבר ננעלה מזמן. סעיף 7.2א: בדיקה
+            // לפני שמסך הערבוב נפתח, גם כאן.
+            if (!(await kbHasCreditsOrHandleExhausted(chatModeActive ? 'chat' : 'message'))) return;
+            // סעיף 7.6: skipRiffle ל"קלף נוסף" - ישר לשלב flow, בלי רצף
+            // הערבוב המלא.
             kbShowStage();
             appState = 'shuffling';
             btnDeckAction.innerText = 'רגע, מערבבים…';
@@ -4523,6 +4658,7 @@
             triggerRegistrationWall();
             return;
         }
+        if (!(await kbHasCreditsOrHandleExhausted('chat'))) return;
 
         if (!(await ensureSessionReady(btnPathChat))) return;
         if (!lockQuestionAndStartShuffling()) return; // שאלה ריקה - נשארים על מסך בחירת המסלול
@@ -4549,6 +4685,7 @@
             triggerRegistrationWall();
             return;
         }
+        if (!(await kbHasCreditsOrHandleExhausted('message'))) return;
 
         if (!(await ensureSessionReady(btnPathMessage))) return;
         if (!lockQuestionAndStartShuffling()) return;
@@ -4636,7 +4773,7 @@
                 if (text) {
                     dcardSetLS(DCARD_LS_KEYS.pendingQuestion, text);
                 }
-                triggerPaymentWall();
+                kbHandleCreditsExhausted();
                 return;
             }
 

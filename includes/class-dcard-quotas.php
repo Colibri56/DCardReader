@@ -38,6 +38,14 @@ class DCard_Quotas {
 	const OPTION_DAILY_AI_CALL_LIMIT = 'dcard_daily_ai_call_limit';
 	const OPTION_MONTHLY_AI_BUDGET   = 'dcard_monthly_ai_budget_usd';
 
+	// סעיף 8 (design-spec): "חלון ההרשמה בתשלום מבוטל זמנית לנסיינים" - מתג
+	// בעמוד הזה, לא קבוע בקוד. כבוי כברירת מחדל בתקופת הבדיקות - משתמש
+	// רשום שנגמרו לו הקרדיטים רואה "נגמרו השימושים לתקופת הניסיון" (חלון
+	// שלנו) במקום חלון התשלום (triggerPaymentWall/4753). ר' שימוש ב-JS
+	// (dcardSettings.paywallEnabled) ב-elementor-code.html.
+	const OPTION_PAYWALL_ENABLED = 'dcard_paywall_enabled';
+	const DEFAULT_PAYWALL_ENABLED = false;
+
 	// קרדיטים לכל מסלול בתשלום, מפוצלים מסר/שיחה מפתחת (ר' הערת ה-class
 	// למעלה). 999999 ומעלה = ללא הגבלה (זהה ל-DCard_Plans::UNLIMITED_
 	// CREDITS - לא מפנים לקבוע של מחלקה אחרת כאן כדי לא להסתמך על סדר
@@ -121,6 +129,21 @@ class DCard_Quotas {
 			},
 			'default'           => self::DEFAULT_MONTHLY_AI_BUDGET,
 		) );
+
+		// checkbox בודד - ר' render_page: hidden input עם value=0 מודבק
+		// *לפני* ה-checkbox באותו name, כך שתיבה לא-מסומנת עדיין שולחת 0
+		// (לא משאירה את הערך הישן - התקלה הקלאסית של checkbox ב-Settings
+		// API, ש"נעלם" מה-$_POST כשהוא לא מסומן).
+		register_setting( self::OPTION_GROUP, self::OPTION_PAYWALL_ENABLED, array(
+			'sanitize_callback' => function ( $value ) {
+				return $value ? 1 : 0;
+			},
+			'default'           => self::DEFAULT_PAYWALL_ENABLED ? 1 : 0,
+		) );
+	}
+
+	public static function is_paywall_enabled() {
+		return (bool) get_option( self::OPTION_PAYWALL_ENABLED, self::DEFAULT_PAYWALL_ENABLED ? 1 : 0 );
 	}
 
 	public static function get_daily_ai_call_limit() {
@@ -285,6 +308,14 @@ class DCard_Quotas {
 							<p class="description">סכום כולל (כל המשתמשים וכל המודלים יחד) לחודש קלנדרי. בחציית 80% ו-100% נשלחת התראת מייל אחת לכתובת הניהול (admin_email) - <strong>בלי חסימה אוטומטית של שימוש</strong> (נבחר במכוון כצעד ראשון זהיר). 0 = בלי מעקב/התראה.</p>
 						</td>
 					</tr>
+					<tr>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>">חלון התשלום פעיל</label></th>
+						<td>
+							<input type="hidden" name="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>" value="0" />
+							<input type="checkbox" id="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>" name="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>" value="1" <?php checked( self::is_paywall_enabled() ); ?> />
+							<p class="description">כשכבוי (ברירת המחדל בתקופת הבדיקות): משתמש רשום שנגמרו לו הקרדיטים יראה "נגמרו השימושים לתקופת הניסיון" במקום חלון התשלום. כשפעיל: משתמש כזה רואה את חלון התשלום הרגיל.</p>
+						</td>
+					</tr>
 				</table>
 				<?php submit_button( 'שמירה' ); ?>
 			</form>
@@ -306,8 +337,13 @@ class DCard_Quotas {
 		wp_register_script( 'dcard-quotas-stub', '', array(), null, false );
 		wp_enqueue_script( 'dcard-quotas-stub' );
 		wp_localize_script( 'dcard-quotas-stub', 'dcardSettings', array(
-			'anonMsgLimit'  => (int) get_option( self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT ),
-			'anonChatLimit' => (int) get_option( self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT ),
+			'anonMsgLimit'   => (int) get_option( self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT ),
+			'anonChatLimit'  => (int) get_option( self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT ),
+			// סעיף 7.2א/8: ר' ההערה המלאה ליד OPTION_PAYWALL_ENABLED למעלה.
+			// isAdminViewing - רק כדי להציג את תווית "מצב בדיקות" למנהל
+			// מחובר (סעיף 8) - לעולם לא נבדק בשרת לאכיפה אמיתית.
+			'paywallEnabled' => self::is_paywall_enabled(),
+			'isAdminViewing' => current_user_can( 'manage_options' ),
 		) );
 	}
 }
