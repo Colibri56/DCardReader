@@ -614,6 +614,12 @@
         .chat-input-area textarea { min-height: 48px; max-height: 180px; }
         .kb-reply-box .btn-mic, .btn-send { width: 40px; height: 40px; }
         .btn-send { left: 62px; } /* 14px + 40px + 8px רווח */
+        /* סעיף 6.5 (עדכון): "התשובה שלך" מוסתרת ויזואלית בטלפון בלבד -
+           התיבה קבועה ומובנת מעצמה; נשארת לקוראי מסך. במחשב התווית גלויה. */
+        .kb-reply-label {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
     }
     .btn-send:hover {
         background-color: var(--bordeaux-hover, #692539);
@@ -797,7 +803,7 @@
         border: 10px solid #fff; box-shadow: var(--shadow-card, 0 18px 40px rgba(42,35,38,.16));
     }
     /* תיקון QA (סעיף 6.5, "רצועה אחת קבועה"): בטלפון/טאבלט (<1024px)
-       התמונות הממוזערות (52x39, מסגרת לבנה 2px) יושבות בתוך הרצועה
+       התמונות הממוזערות (64x48, מסגרת לבנה 2px) יושבות בתוך הרצועה
        הקומפקטית, לא בשורה נפרדת וגדולה משלהן - הקשה פותחת לייטבוקס
        (ר' JS kbOpenLightbox). היה 76x57/3px בשורה נפרדת בגלילה אופקית. */
     @media (max-width: 1023px) {
@@ -805,9 +811,9 @@
             display: flex; grid-template-columns: none; overflow-x: auto; flex-wrap: nowrap;
             justify-content: flex-start; gap: 6px; padding-bottom: 0;
         }
-        .kb-card-row .card-item { flex: 0 0 52px; width: 52px; }
+        .kb-card-row .card-item { flex: 0 0 64px; width: 64px; }
         .kb-card-row .card-display {
-            width: 52px; height: 39px; aspect-ratio: auto;
+            width: 64px; height: 48px; aspect-ratio: auto;
             border: 2px solid #fff; box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
             cursor: pointer;
         }
@@ -1056,8 +1062,14 @@
         #kb-reading-side.kb-chat-mode #kb-reading-side-question {
             margin-bottom: 0;
         }
-        #kb-reading-side.kb-chat-mode .cards-block { flex-shrink: 0; }
+        /* "צריך עוד קלף?" (סעיף 6.5 מעודכן) יושב כאן, מתחת לתמונות
+           הממוזערות, בתוך אותה עמודה - לא עוד בתוך השיחה הנגללת. */
+        #kb-reading-side.kb-chat-mode .cards-block {
+            flex-shrink: 0; display: flex; flex-direction: column;
+            align-items: center; gap: 12px;
+        }
         #kb-reading-side.kb-chat-mode .cards-block .kb-field-label { display: none; }
+        #kb-reading-side.kb-chat-mode .kb-link-extra-card { margin: 0; font-size: 12px; }
         #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; }
         #kb-reading-side.kb-chat-mode #kb-question-display .kb-field-label { display: none; }
         #kb-reading-side.kb-chat-mode #kb-question-display {
@@ -1337,19 +1349,17 @@
             </div>
 
             <!-- בלוק 3: אזור הצגת הקלפים שנשלפו (סעיף 6.5: עד 3 קלפים, 4:3,
-                 זה מתחת לזה בעמודת הצד; בטלפון תמונות ממוזערות עם לייטבוקס). -->
+                 זה מתחת לזה בעמודת הצד; בטלפון תמונות ממוזערות עם לייטבוקס).
+                 "קלף נוסף" (btn-extra-card) יושב כאן בתוך הבלוק, מיד מתחת
+                 לתמונות - גם במחשב (עמודת הצד) וגם בטלפון (רצועה קומפקטית,
+                 ר' CSS kb-chat-mode) - מיקום סטטי אחד, בלי צורך להזיז אותו
+                 ב-JS בין מסכים. מוצג רק אחרי תשובה ראשונה בשיחה
+                 (chatModeActive) ונעלם לגמרי אחרי הקלף השלישי - ר' JS. -->
             <div class="cards-block" id="block-3">
                 <div class="kb-field-label">הקלפים שלך</div>
                 <div id="cards-container" class="kb-card-row"></div>
+                <button type="button" class="kb-link-extra-card" id="btn-extra-card" style="display:none;">צריך עוד קלף?</button>
             </div>
-
-            <!-- סעיף 6.5: "קלף נוסף" מוצנע בכוונה - קישור טקסט קטן בלבד, בלי
-                 מסגרת/קופסה. מוצג רק אחרי תשובה ראשונה בשיחה (chatModeActive)
-                 ונעלם לגמרי אחרי הקלף השלישי - ר' JS. במחשב נשאר כאן, מתחת
-                 לקלפים (עמודת הצד); תיקון QA (סעיף 6.5, בטלפון): ברצועה
-                 הקבועה הקומפקטית אין לו מקום - kbPlaceExtraCardLink (JS)
-                 מעביר אותו לתוך השיחה הנגללת, ליד כפתורי הפעולות. -->
-            <button type="button" class="kb-link-extra-card" id="btn-extra-card" style="display:none;">צריך עוד קלף?</button>
 
             <!-- בלוק 5: שורת הפעולות (סעיף 6.5/6.6) - קבועה בתחתית עמודת הצד
                  במחשב; עוברת לסוף השיחה הנגללת בטלפון (kbPlaceActionsBlock, JS). -->
@@ -1389,7 +1399,7 @@
                 <div class="chat-history" id="chat-history">
                 </div>
                 <div class="chat-input-area">
-                    <label class="kb-field-label" for="ai-reply-input">התשובה שלך</label>
+                    <label class="kb-field-label kb-reply-label" for="ai-reply-input">התשובה שלך</label>
                     <!-- סעיף 3.2: מיקרופון וכפתור שליחה בתוך התיבה עצמה, לא בשורה
                          נפרדת לצידה - kb-reply-box הוא הקונטיינר היחסי שמחזיק את
                          שניהם ממוקמים absolute בפינה (ר' CSS). -->
@@ -1615,6 +1625,20 @@
 </div>
 
 <script>
+    // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
+    // הקובץ הזה הוא קטע HTML בלבד (מודבק לווידג'ט ב-Elementor), בלי <head>
+    // משלו - אי אפשר להוסיף כאן ישירות <meta name="viewport">. במקום זאת,
+    // מוסיפים ל-meta הקיים (מגיע מהתבנית) את interactive-widget=resizes-content,
+    // כדי שבכרום לאנדרואיד הדף יתכווץ כשהמקלדת נפתחת, במקום שהמקלדת תכסה אותו.
+    (function kbPatchViewportMeta() {
+        const meta = document.querySelector('meta[name="viewport"]');
+        if (!meta) return;
+        const content = meta.getAttribute('content') || '';
+        if (content.indexOf('interactive-widget') === -1) {
+            meta.setAttribute('content', content + (content ? ', ' : '') + 'interactive-widget=resizes-content');
+        }
+    })();
+
     // --- הגדרות משתמש ו-API ---
     // הנתיב היחסי ל-REST API של וורדפרס
     const API_BASE = '/wp-json/dcard/v1/session';
@@ -3363,6 +3387,11 @@
     // אחרת הוא ימשיך לרוץ ברקע לנצח גם אחרי שהחיווי כבר הוסר מה-DOM.
     let typingModeInterval = null;
     let kbAiHasReplied = false;
+    // סעיף 6.5 (עדכון): "בזמן שהקורא כותב, אי אפשר לשלוף קלף נוסף ואי אפשר
+    // לשלוח הודעה... הבלוק [כפתורי הפעולות] מוסתר". נזכרים אם אנחנו אלה
+    // שהסתרנו/נטרלנו כדי להחזיר בדיוק למה שהיה (לא "לדרוס" מצב אחר).
+    let kbActionsHiddenForTyping = false;
+    let kbExtraCardHiddenForTyping = false;
     // סעיף 6.5: "אם עוברות 20 שניות בלי תשובה, השורה מתחלפת בשורת השגיאה...
     // עם 'ניסיון חוזר'" - רשת ביטחון עצמאית מה-fetch/catch של כל קורא
     // (שלהם יש טיפול שגיאה משלהם); זו רק תופסת מקרה שבו הבקשה נתקעת בלי
@@ -3379,6 +3408,15 @@
         kbTypingTimeoutTimer = null;
         const typingInd = document.getElementById('typing-indicator');
         if (typingInd) typingInd.remove();
+        if (kbActionsHiddenForTyping) {
+            block5Actions.style.display = 'flex';
+            kbActionsHiddenForTyping = false;
+        }
+        if (kbExtraCardHiddenForTyping) {
+            btnExtraCard.style.display = 'block';
+            kbExtraCardHiddenForTyping = false;
+        }
+        btnSend.disabled = chatInput.value.trim() === '';
     }
 
     // מחליף את מחלקת המצב של נקודות ההמתנה (ר' CSS: stage-vertical / stage-horizontal).
@@ -3389,6 +3427,19 @@
 
     function showTyping(retryFn) {
         stopTyping(); // מנקה חיווי/סבב קודם אם קיים, לפני שמתחילים חדש
+
+        // סעיף 6.5 (עדכון): בזמן שהקורא כותב - אי אפשר לשלוף קלף נוסף,
+        // אי אפשר לשלוח הודעה, ובלוק הכפתורים לא תקוע על המסך. חוזרים
+        // בדיוק למה שהיה (stopTyping) ברגע שהתשובה מגיעה.
+        if (block5Actions.style.display === 'flex') {
+            block5Actions.style.display = 'none';
+            kbActionsHiddenForTyping = true;
+        }
+        if (btnExtraCard.style.display === 'block') {
+            btnExtraCard.style.display = 'none';
+            kbExtraCardHiddenForTyping = true;
+        }
+        btnSend.disabled = true;
 
         const msgDiv = document.createElement('div');
         msgDiv.id = "typing-indicator";
@@ -3911,26 +3962,10 @@
             chatHistory.appendChild(block5Actions); // תמיד כילד אחרון - בסוף השיחה
         }
     }
-    // תיקון QA (סעיף 6.5, בטלפון): ברצועה הקבועה הקומפקטית (קלפים+שאלה)
-    // אין מקום ל"צריך עוד קלף?" - במחשב הוא נשאר במקומו הסטטי (מתחת
-    // לקלפים, בעמודת הצד); בטלפון הוא עובר לתוך השיחה הנגללת, מיד לפני
-    // כפתורי הפעולות (ר' הסדר ב-kbPlaceActionsResizeTimer/kbOnCardRevealed
-    // למטה - קריאה לכאן תמיד באה לפני קריאה ל-kbPlaceActionsBlock).
-    function kbPlaceExtraCardLink() {
-        if (block3Cards.style.display === 'none') return; // עוד לא נחשף קלף ראשון
-        const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
-        const kbReadingSide = document.getElementById('kb-reading-side');
-        if (isDesktop) {
-            if (btnExtraCard.parentElement !== kbReadingSide) kbReadingSide.appendChild(btnExtraCard);
-        } else if (btnExtraCard.parentElement !== chatHistory || btnExtraCard.nextSibling) {
-            chatHistory.appendChild(btnExtraCard); // תמיד כילד אחרון (לפני שמוסיפים את block5Actions)
-        }
-    }
     let kbPlaceActionsResizeTimer = null;
     window.addEventListener('resize', function () {
         clearTimeout(kbPlaceActionsResizeTimer);
         kbPlaceActionsResizeTimer = setTimeout(function () {
-            kbPlaceExtraCardLink();
             kbPlaceActionsBlock();
             kbPlaceQuestionBlock();
         }, 150);
@@ -4014,7 +4049,6 @@
         block3Cards.style.display = 'block';
         block4Chat.classList.add('kb-visible');
         block5Actions.style.display = 'flex';
-        kbPlaceExtraCardLink();
         kbPlaceActionsBlock();
         kbSetChatStripMode(); // סעיף 6.5 (בטלפון): מהקלף הראשון ואילך - רצועה קומפקטית
 
@@ -4290,6 +4324,10 @@
         const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
         const top = kbMainContent.getBoundingClientRect().top;
         kbMainContent.style.height = Math.max(0, vh - top) + 'px';
+        // גיבוי JS לסעיף 6.5 (לספארי באייפון ולדפדפנים שלא תומכים
+        // ב-interactive-widget): כך הרצועה העליונה, השיחה והתיבה נכנסים
+        // כולם בחלק הגלוי כשהמקלדת פתוחה, ולא נדחקים מתחתיה.
+        window.scrollTo(0, 0);
     }
     window.addEventListener('resize', kbUpdateReadingHeight);
     if (window.visualViewport) window.visualViewport.addEventListener('resize', kbUpdateReadingHeight);

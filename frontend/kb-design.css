@@ -110,6 +110,14 @@
   color: var(--ink-soft);
   margin-bottom: 6px;
 }
+/* סעיף 6.5 (עדכון): "התשובה שלך" מוסתרת ויזואלית בטלפון בלבד - התיבה
+   קבועה ומובנת מעצמה; נשארת לקוראי מסך. במחשב התווית גלויה. */
+@media (max-width: 1023px) {
+  .kb-reply-label {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+}
 
 /* כפתור מיקרופון בתוך שדה הטקסט (סעיף 3.2) */
 .kb-mic-btn {
@@ -539,9 +547,9 @@
     display: flex; grid-template-columns: none; overflow-x: auto; flex-wrap: nowrap;
     justify-content: flex-start; gap: 6px; padding-bottom: 0;
   }
-  .kb-card-row .card-item { flex: 0 0 52px; width: 52px; }
+  .kb-card-row .card-item { flex: 0 0 64px; width: 64px; }
   .kb-card-row .card-display {
-    width: 52px; height: 39px; aspect-ratio: auto;
+    width: 64px; height: 48px; aspect-ratio: auto;
     border: 2px solid #fff; box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,.16));
     cursor: pointer;
   }
@@ -605,8 +613,11 @@ body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px);
   }
   #kb-reading-side.kb-chat-mode .cards-block,
   #kb-reading-side.kb-chat-mode #kb-reading-side-question { margin-bottom: 0; }
-  #kb-reading-side.kb-chat-mode .cards-block { flex-shrink: 0; }
+  #kb-reading-side.kb-chat-mode .cards-block {
+    flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
   #kb-reading-side.kb-chat-mode .cards-block .kb-field-label { display: none; }
+  #kb-reading-side.kb-chat-mode .kb-link-extra-card { margin: 0; font-size: 12px; }
   #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; }
   #kb-reading-side.kb-chat-mode #kb-question-display .kb-field-label { display: none; }
   #kb-reading-side.kb-chat-mode #kb-question-display { display: flex; align-items: flex-start; gap: 4px; }
