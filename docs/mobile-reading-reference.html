@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>הפניה: מבנה מסך השיחה בטלפון</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#FBF8F6}</style>
+</head>
+<body>
+<!--
+  קובץ הפניה למבנה מסך "דיאלוג מכוון" בטלפון (סעיף 6.5 ב-design-spec.md).
+  מה חשוב כאן:
+  1. אין שום גלילה פנימית: העמוד כולו נגלל. אין overflow:auto ואין height קבוע על אזור ההודעות.
+  2. הרצועה העליונה (תמונה ממוזערת + שאלה) היא position: sticky; top: 0.
+  3. הסדר: רצועה → הודעות → תיבת התשובה → כפתורי הפעולות → "לתת משוב". הכפתורים תמיד אחרי התיבה.
+  4. תיבת התשובה: שורה אחת (rows="1"), המיקרופון וכפתור השליחה בתוכה, 40px כל אחד.
+  5. אגודל נבחר: עיגול #7D2E46 ואייקון לבן.
+  6. אין autofocus על התיבה: המקלדת נפתחת רק כשהמשתמש נוגע בתיבה.
+  התמונות כאן הן תמונות דמה.
+-->
+<div dir="rtl" style="max-width: 430px; margin: 0 auto; min-height: 100dvh; box-sizing: border-box; background: #FBF8F6; font-family: 'Rubik', sans-serif; color: #2A2326; display: flex; flex-direction: column">
+  <header style="flex: none; height: 52px; padding: 0 12px 0 14px; display: flex; justify-content: space-between; align-items: center">
+    <a href="#" aria-label="הקורא בקלפים, מסך הבית" style="display: flex; align-items: center; gap: 7px; text-decoration: none; color: #2A2326"><svg width="22" height="19" viewBox="0 0 40 34" fill="#FBF8F6" stroke="#7D2E46" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"></rect><rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"></rect><rect x="14" y="3" width="12" height="18" rx="2"></rect><circle cx="20" cy="12" r="1.6" fill="#7D2E46" stroke="none"></circle></svg><span style="font-size: 16px; font-weight: 500">הקורא בקלפים</span></a>
+    <button aria-label="פתיחת התפריט" style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid #E6DCDE; background: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A2326" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+  </header>
+
+  <div style="position: sticky; top: 0; z-index: 2; flex: none; padding: 8px 14px 10px; border-top: 1px solid #E6DCDE; border-bottom: 1px solid #E6DCDE; background: #FBF8F6; display: flex; gap: 10px; align-items: flex-start">
+    <div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px"><div style="flex: none; display: flex; gap: 5px"><button aria-label="הגדלת קלף 1" style="flex: none; padding: 2px; border: none; background: #FFFFFF; border-radius: 6px; box-shadow: 0 2px 6px rgba(42,35,38,0.18); cursor: pointer"><img src="https://picsum.photos/seed/kb/400/300" alt="" style="display: block; width: 64px; height: 48px; object-fit: cover; border-radius: 4px"></button><button aria-label="הגדלת קלף 2" style="flex: none; padding: 2px; border: none; background: #FFFFFF; border-radius: 6px; box-shadow: 0 2px 6px rgba(42,35,38,0.18); cursor: pointer"><img src="https://picsum.photos/seed/kb/400/300" alt="" style="display: block; width: 64px; height: 48px; object-fit: cover; border-radius: 4px"></button></div><button style="min-height: 28px; padding: 0 4px; border: none; background: transparent; color: #6E6266; font-family: 'Rubik', sans-serif; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px">צריך עוד קלף?</button></div>
+    <button  aria-expanded="false" aria-label="השאלה שלך. הקשה להצגה או צמצום" style="flex: 1; min-width: 0; padding: 0; border: none; background: transparent; text-align: right; font-family: 'Rubik', sans-serif; cursor: pointer; display: flex; gap: 4px; align-items: flex-start">
+      <span style="flex: 1; min-width: 0; font-size: 15px; line-height: 1.45; font-weight: 500; color: #2A2326; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">איך לבנות לעצמי תוכנית אימונים שאוכל להתמיד בה, גם בשבועות עמוסים בעבודה ובלי לוותר על השינה?</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6E6266" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 3px"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+  </div>
+
+  <div style="padding: 14px 14px 10px; display: flex; flex-direction: column; gap: 16px">
+    <article style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6E6266"><span style="width: 26px; height: 26px; border-radius: 50%; background: #F3E7EA; display: flex; align-items: center; justify-content: center"><svg width="15" height="13" viewBox="0 0 40 34" fill="#F3E7EA" stroke="#7D2E46" stroke-width="2.6" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"></rect><rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"></rect><rect x="14" y="3" width="12" height="18" rx="2"></rect><circle cx="20" cy="12" r="1.6" fill="#7D2E46" stroke="none"></circle></svg></span>הקורא</div><p style="margin: 0; font-size: 16px; line-height: 1.7">עינב, העלה האדום שבולט בין העלים החומים מזכיר שתוכנית טובה לא חייבת להיבנות ביום אחד. היא יכולה להתחיל בצעד קטן ועקבי שמתאים לך.</p><p style="margin: 0; font-size: 16px; line-height: 1.7">מה הדבר הראשון שמשך את עינך בתמונה?</p><div style="display: flex; gap: 6px"><button aria-label="התשובה עזרה לי" aria-pressed="true" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: #7D2E46; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v9H4v-9zM7 11l4-8c1.5 0 2.5 1 2.5 2.5V9h5.5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7"></path></svg></button><button aria-label="התשובה לא עזרה לי" aria-pressed="false" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6E6266" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true" style="transform: rotate(180deg)"><path d="M7 11v9H4v-9zM7 11l4-8c1.5 0 2.5 1 2.5 2.5V9h5.5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7"></path></svg></button></div></article><div style="display: flex; justify-content: flex-end"><p style="margin: 0; background: #F3E7EA; border-radius: 16px 16px 16px 5px; padding: 10px 14px; font-size: 15px; line-height: 1.55; max-width: 82%">העלה הבודד. הוא נראה לי כמו ההתחלה שלי, צבעוני אבל עוד קטן.</p></div><article style="display: flex; flex-direction: column; gap: 6px"><div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6E6266"><span style="width: 26px; height: 26px; border-radius: 50%; background: #F3E7EA; display: flex; align-items: center; justify-content: center"><svg width="15" height="13" viewBox="0 0 40 34" fill="#F3E7EA" stroke="#7D2E46" stroke-width="2.6" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(-24 20 31)"></rect><rect x="14" y="5" width="12" height="18" rx="2" transform="rotate(24 20 31)"></rect><rect x="14" y="3" width="12" height="18" rx="2"></rect><circle cx="20" cy="12" r="1.6" fill="#7D2E46" stroke="none"></circle></svg></span>הקורא</div><p style="margin: 0; font-size: 16px; line-height: 1.7">ושלפת קלף נוסף: מדרגות לולייניות. איך המדרגה הקרובה, ולא כל הדרך למעלה, יכולה להיראות אצלך השבוע?</p><div style="display: flex; gap: 6px"><button aria-label="התשובה עזרה לי" aria-pressed="false" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6E6266" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v9H4v-9zM7 11l4-8c1.5 0 2.5 1 2.5 2.5V9h5.5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7"></path></svg></button><button aria-label="התשובה לא עזרה לי" aria-pressed="false" style="width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6E6266" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true" style="transform: rotate(180deg)"><path d="M7 11v9H4v-9zM7 11l4-8c1.5 0 2.5 1 2.5 2.5V9h5.5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7"></path></svg></button></div></article><div style="display: flex; justify-content: flex-end"><p style="margin: 0; background: #F3E7EA; border-radius: 16px 16px 16px 5px; padding: 10px 14px; font-size: 15px; line-height: 1.55; max-width: 82%">אולי שלושה אימונים קצרים בשבוע, בלי לחץ.</p></div>
+    </div>
+  </div>
+
+  <div style="flex: none; padding: 8px 10px 10px; border-top: 1px solid #E6DCDE; background: #FBF8F6">
+    <div style="display: flex; align-items: flex-end; gap: 6px; background: #FFFFFF; border: 1.5px solid #D9C9CD; border-radius: 22px; padding: 4px 4px 4px 4px">
+      <label for="mreply" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">התשובה שלך</label>
+      <textarea id="mreply" rows="1" placeholder="כתבי מה עולה בך…" style="flex: 1; min-width: 0; resize: none; border: none; outline: none; background: transparent; color: #2A2326; font-family: 'Rubik', sans-serif; font-size: 16px; line-height: 1.5; padding: 9px 10px"></textarea>
+      <button aria-label="הקלטה בקול" style="flex: none; width: 40px; height: 40px; border-radius: 50%; border: none; background: #F3E7EA; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#7D2E46" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+      <button aria-label="שליחה" style="flex: none; width: 40px; height: 40px; border-radius: 50%; border: none; background: #7D2E46; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12H4M10 6l-6 6 6 6"></path></svg></button>
+    </div>
+  </div>
+  <div style="padding: 6px 14px 24px; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 4px">
+      <button style="height: 44px; border-radius: 999px; border: 2px solid #7D2E46; background: #FFFFFF; color: #7D2E46; font-family: 'Rubik', sans-serif; font-weight: 500; font-size: 15px; cursor: pointer; grid-column: span 2">שאלה חדשה</button>
+      <button style="height: 44px; padding: 0 8px; border-radius: 999px; border: 1.5px solid #D9C9CD; background: #FFFFFF; color: #2A2326; font-family: 'Rubik', sans-serif; font-size: 15px; cursor: pointer">שליחה במייל</button>
+      <button style="height: 44px; padding: 0 8px; border-radius: 999px; border: 1.5px solid #D9C9CD; background: #FFFFFF; color: #2A2326; font-family: 'Rubik', sans-serif; font-size: 15px; cursor: pointer">סיום השיחה</button>
+    </div>
+    <div style="display: flex; justify-content: center; gap: 18px">
+      <button style="min-height: 44px; padding: 0 6px; border: none; background: transparent; color: #7D2E46; font-family: 'Rubik', sans-serif; font-size: 14px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px">לתת משוב</button>
+  </div>
+</div>
+
+</body>
+</html>
