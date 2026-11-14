@@ -567,13 +567,17 @@
    frontend/elementor-code.html (#kb-main-content.kb-reading-active).
    ============================================================ */
 #kb-main-content.kb-reading-active {
-  height: 100dvh; overflow: hidden; gap: 0; padding-bottom: 0;
+  gap: 0; padding-bottom: 0;
+}
+/* תיקון QA (ר' ההערה המלאה במקור) - "מסך-צ'אט קבוע בגובה 100dvh" הוא
+   מבנה המחשב בלבד; בטלפון העמוד עצמו נגלל, בלי גובה קבוע. */
+@media (min-width: 1024px) {
+  #kb-main-content.kb-reading-active { height: 100dvh; overflow: hidden; }
 }
 /* גובה המסך מחושב לפי מה שבאמת נשאר (סעיף 6.5) - פיצוי לסרגל הניהול
    הקבוע של וורדפרס (#wpadminbar), שדוחף את ה-html למטה ב-margin-top קבוע. */
-body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px); }
-@media (max-width: 782px) {
-  body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 46px); }
+@media (min-width: 1024px) {
+  body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px); }
 }
 #kb-main-content.kb-reading-active .kb-header { flex-shrink: 0; }
 #kb-reading-screen { display: none; flex-direction: column; min-height: 0; }
@@ -587,6 +591,10 @@ body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px);
   padding-bottom: 14px; margin-bottom: 10px;
 }
 #kb-reading-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* תיקון QA (קובץ הפניה, "הרצועה (sticky)") - ר' ההערה המלאה במקור. */
+@media (max-width: 1023px) {
+  #kb-reading-side { position: sticky; top: 0; z-index: 2; background: var(--paper, #FBF8F6); }
+}
 /* סעיף 6.5 (מתוקן): השאלה בראש העמודה הרחבה (מחשב בלבד) - טקסט רגיל,
    קבוע, בלי מסגרת ובלי גלילה - ר' ההערה המלאה במקור. ריקה/לא מוצגת
    בטלפון (kbPlaceQuestionBlock, JS). */

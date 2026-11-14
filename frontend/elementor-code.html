@@ -556,6 +556,17 @@
         margin-bottom: 0;
         padding: 20px 4px 15px;
     }
+    /* תיקון QA (ר' ההערה המלאה ליד #kb-main-content.kb-reading-active
+       למעלה) - בטלפון אין גלילה פנימית: העמוד עצמו נגלל, לא הקופסה
+       הזו. בלי זה, overflow-y:auto כאן היה ממשיך "לנסות" להגביל גובה
+       גם בלי הורה מוגבל-גובה, בתלות בדפדפן/גרסה - מבטלים אותו במפורש. */
+    @media (max-width: 1023px) {
+        .chat-history {
+            flex: none;
+            min-height: auto;
+            overflow-y: visible;
+        }
+    }
     /* סעיף 3.2: "כפתור המיקרופון... יושב בתוך התיבה, בפינה התחתונה בצד
        שמאל" ו"כפתור שליחה: עיגול 44px, רקע בורדו וחץ לבן שמצביע שמאלה" -
        שניהם position:absolute בתוך קונטיינר יחסי (kb-reply-box) שעוטף
@@ -782,7 +793,10 @@
     /* הגודל (18px באזור לחיצה 38-40px, סעיף 3.2א) נקבע ע"י kb-icon--sm
        שעל ה-svg עצמו ב-HTML (ר' KB_THUMB_UP_SVG/KB_THUMB_DOWN_SVG ב-JS) -
        לא כאן, כדי לעמוד בפני כללי התבנית שמקטינים/מותחים SVG. */
-    .dcard-feedback-btn.kb-feedback-active { color: var(--bordeaux, #7D2E46); }
+    /* תיקון QA (קובץ הפניה - docs/mobile-reading-reference.html): אגודל
+       נבחר הוא עיגול בורדו מלא עם אייקון לבן, לא רק צביעת הקו על רקע
+       שקוף. */
+    .dcard-feedback-btn.kb-feedback-active { background: var(--bordeaux, #7D2E46); color: #FFFFFF; }
 
     /* סעיף 6.6: אזור "רוצה להעמיק?" */
     .kb-deepen-box {
@@ -970,19 +984,30 @@
        ומוסתר, ולא משפיע על מסך הבית/דף הכניסה.
        ============================================================ */
     #kb-main-content.kb-reading-active {
-        height: 100dvh;
-        overflow: hidden;
         gap: 0;
         padding-bottom: 0;
     }
+    /* תיקון QA (דווח בפועל: "השיחה בטלפון בתוך קופסה עם גלילה פנימית
+       שמתכווצת לשורה אחת") - "מסך-צ'אט קבוע בגובה 100dvh עם גלילה
+       פנימית" הוא מבנה *המחשב* בלבד (סעיף 6.5, שתי עמודות) - בטלפון
+       העמוד כולו נגלל, בלי שום גובה קבוע (ר' docs/mobile-reading-
+       reference.html). height:100dvh;overflow:hidden היו ללא הגבלת
+       רוחב, אז גם בטלפון #kb-main-content נדחס לגובה המסך - וה-flex
+       שבתוכו (chat-history, flex:0 1 auto) נדחק לכ-250px. מוגבל עכשיו
+       ל-1024px ומעלה (וה-inline height שה-JS kbUpdateReadingHeight קובע
+       מוגבל לאותו תנאי בדיוק - ר' שם). */
+    @media (min-width: 1024px) {
+        #kb-main-content.kb-reading-active {
+            height: 100dvh;
+            overflow: hidden;
+        }
+    }
     /* תיקון QA (סעיף 6.5: "גובה המסך מחושב לפי מה שבאמת נשאר") - 100dvh
        לבדו לא מספיק: כש-WP מציג את סרגל הניהול (#wpadminbar, position:fixed),
-       הוא דוחף את ה-html כולו למטה ב-margin-top קבוע (32px במחשב, 46px
-       בטלפון עד 782px - ערכי הליבה של וורדפרס עצמו), ובלעדיי הפיצול הזה
-       100dvh היה גולש מתחת לתחתית המסך הנראית באותו גובה בדיוק. */
-    body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px); }
-    @media (max-width: 782px) {
-        body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 46px); }
+       הוא דוחף את ה-html כולו למטה ב-margin-top קבוע (32px במחשב - הערך
+       היחיד שרלוונטי כאן, כי הכלל כולו מוגבל למחשב). */
+    @media (min-width: 1024px) {
+        body.admin-bar #kb-main-content.kb-reading-active { height: calc(100dvh - 32px); }
     }
     #kb-main-content.kb-reading-active .kb-header { flex-shrink: 0; }
     #kb-reading-screen { display: none; flex-direction: column; min-height: 0; }
@@ -1004,6 +1029,19 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
+    }
+    /* תיקון QA (קובץ הפניה, "הרצועה (sticky)") - בטלפון, עם העמוד עצמו
+       נגלל (ר' ההערה המלאה ליד #kb-main-content.kb-reading-active
+       למעלה), הרצועה (תמונות+שאלה) צריכה להישאר למעלה בזמן שההודעות
+       עוברות מתחתיה - position:sticky, לא flex-shrink:0 בתוך קופסה
+       שנגללת כמו קודם. */
+    @media (max-width: 1023px) {
+        #kb-reading-side {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--paper, #FBF8F6);
+        }
     }
     /* סעיף 6.5 (מתוקן): השאלה בראש העמודה הרחבה (מחשב בלבד - ר' media
        query למטה) - קבועה (flex: none, לא ילד של chat-block שנגלל), עם קו
@@ -4511,16 +4549,33 @@
     // נשאר fallback לרגע הקצר לפני שה-JS הזה רץ.
     function kbUpdateReadingHeight() {
         if (!kbMainContent.classList.contains('kb-reading-active')) return;
-        const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-        const top = kbMainContent.getBoundingClientRect().top;
-        kbMainContent.style.height = Math.max(0, vh - top) + 'px';
-        // גיבוי JS לסעיף 6.5 (לספארי באייפון ולדפדפנים שלא תומכים
-        // ב-interactive-widget): כך הרצועה העליונה, השיחה והתיבה נכנסים
-        // כולם בחלק הגלוי כשהמקלדת פתוחה, ולא נדחקים מתחתיה.
-        window.scrollTo(0, 0);
+        // תיקון QA (דווח בפועל: "השיחה בטלפון בתוך קופסה עם גלילה פנימית
+        // שמתכווצת לשורה אחת") - "מסך-צ'אט קבוע בגובה 100dvh" הוא מבנה
+        // *המחשב* בלבד (סעיף 6.5, שתי עמודות - ר' ה-CSS המקביל, שהוגבל
+        // כעת לאותו תנאי). inline style דורס CSS בלי קשר למדיה-קוורי, אז
+        // חובה לבדוק את הרוחב כאן גם כן - אחרת ה-height שנקבע פעם אחת
+        // במחשב היה נשאר דבוק גם אחרי שהחלון מצטמצם לטלפון (או ההפך).
+        // נבדק מחדש בכל קריאה (resize/visualViewport.resize), כך שגם
+        // סיבוב מסך/שינוי גודל חלון שחוצה את ה-breakpoint מתעדכן נכון.
+        const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+        if (isDesktop) {
+            const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            const top = kbMainContent.getBoundingClientRect().top;
+            kbMainContent.style.height = Math.max(0, vh - top) + 'px';
+            // גיבוי JS לסעיף 6.5 (לספארי באייפון ולדפדפנים שלא תומכים
+            // ב-interactive-widget): כך הרצועה העליונה, השיחה והתיבה
+            // נכנסים כולם בחלק הגלוי כשהמקלדת פתוחה, ולא נדחקים מתחתיה.
+            // רק במחשב - בטלפון העמוד עצמו נגלל, ואין טעם/נכון לכפות
+            // scrollTo(0,0) בכל resize בזמן שהמשתמש מקליד למטה בשיחה.
+            window.scrollTo(0, 0);
+        } else {
+            kbMainContent.style.height = '';
+        }
         // סעיף 6.5 (עדכון): "כשהמקלדת פתוחה, מפנים מקום לשיחה" - מזהים
         // לפי visualViewport.height מול innerHeight (לא תקף במחשב/בלי
         // visualViewport, ר' kb-kbd-open ב-CSS - בלי המחלקה הזו אין שינוי).
+        // רלוונטי גם בטלפון (הרצועה הדביקה מצטמצמת), אז נשאר ללא תלות
+        // ב-isDesktop.
         const isKbdOpen = !!window.visualViewport && window.visualViewport.height < window.innerHeight * 0.75;
         kbMainContent.classList.toggle('kb-kbd-open', isKbdOpen);
     }
@@ -4636,7 +4691,9 @@
                     : 'בוא נעמיק. מה הדבר הראשון שמשך את עינך בתמונה?';
                 appendMessage('ai', openingText);
                 chatInputArea.style.display = '';
-                chatInput.focus();
+                // סעיף 6.5: "בלי autofocus" - המקלדת לא נפתחת לבד אחרי
+                // המעבר ממסר לדיאלוג מכוון; רק הקשה ישירה של המשתמש על
+                // התיבה פותחת אותה.
                 chatHistory.scrollTop = chatHistory.scrollHeight;
             }, KB_DEEPEN_OPENING_DELAY_MS);
         });
