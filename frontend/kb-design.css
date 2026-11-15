@@ -525,11 +525,12 @@
 .kb-ai-icon svg { width: 16px; height: 14px; }
 .kb-ai-label { font-size: 15px; color: var(--muted, #6E6266); font-weight: 500; }
 .kb-ai-text { font-size: 19px; line-height: 1.8; color: var(--ink, #2A2326); }
+/* סעיף 6.5 (עדכון): "השאלה הפתוחה של הקורא מודגשת... במשקל 500... גם
+   במחשב" - ר' JS kbLastOpenAiTextEl. */
+.kb-ai-text.kb-ai-question-open { font-weight: 500; }
 /* תיקון QA (סעיף 6.5: "הודעות ה-AI בטלפון: 16px, גובה שורה 1.7") */
 @media (max-width: 1023px) {
   .kb-ai-text { font-size: 16px; line-height: 1.7; }
-  /* סעיף 6.5: "השאלה הפתוחה של הקורא מודגשת... במשקל 500" - ר' JS kbLastOpenAiTextEl. */
-  .kb-ai-text.kb-ai-question-open { font-weight: 500; }
 }
 .kb-ai-text p { margin: 0 0 14px; }
 .kb-ai-text p:last-child { margin-bottom: 0; }

@@ -823,12 +823,13 @@
     .kb-ai-text {
         font-size: 19px; line-height: 1.8; color: var(--ink, #2A2326);
     }
+    /* סעיף 6.5 (עדכון): "השאלה הפתוחה של הקורא מודגשת... במשקל 500... גם
+       במחשב" - לא עוד רק בטלפון. ה-JS (kbLastOpenAiTextEl) כבר הוסיף/הסיר
+       את המחלקה בכל הרוחבים; רק ה-CSS הגביל את האפקט למובייל. */
+    .kb-ai-text.kb-ai-question-open { font-weight: 500; }
     /* תיקון QA (סעיף 6.5: "הודעות ה-AI בטלפון: 16px, גובה שורה 1.7") */
     @media (max-width: 1023px) {
         .kb-ai-text { font-size: 16px; line-height: 1.7; }
-        /* סעיף 6.5: "השאלה הפתוחה של הקורא מודגשת... במשקל 500. כשהמשתמש
-           שולח תשובה, היא חוזרת למשקל רגיל" - ר' JS kbLastOpenAiTextEl. */
-        .kb-ai-text.kb-ai-question-open { font-weight: 500; }
     }
     .kb-ai-text p { margin: 0 0 14px; }
     .kb-ai-text p:last-child { margin-bottom: 0; }
@@ -1683,6 +1684,20 @@
         </div>
     </div>
 
+    <!-- סעיף 3.5א/7.2א: "הגעה למגבלה היומית" (daily_limit, 40 פניות) - modal
+         רגיל שלנו, כמו kb-credits-exhausted-modal למעלה. בכוונה בלי "נסה
+         שוב": זו לא תקלה, וניסיון חוזר לא יעזור - רק כפתור "הבנתי". -->
+    <div id="kb-daily-limit-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-daily-limit-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-daily-limit-title" style="text-align:center;">להיום זה מספיק</h2>
+            <p class="kb-modal-text" id="kb-daily-limit-text" style="text-align:center;"></p>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-main" id="kb-daily-limit-close">הבנתי</button>
+            </div>
+        </div>
+    </div>
+
     <!-- חלון "שליחת השיחה במייל" (סעיף 6.7) - מחליף את window.prompt. -->
     <div id="kb-email-modal" class="kb-modal-scrim" hidden>
         <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-email-title">
@@ -2082,11 +2097,13 @@
         // אז קריאה לה כאן בטוחה בכל מקרה (למשל חזרה לקיר הזה בפעם שנייה).
         populateUserFieldsWithRetries(REGISTRATION_WALL_POPUP_ID, true);
         openPopupById(REGISTRATION_WALL_POPUP_ID, function () {
-            // סעיף 3.5א: שורת התראה במקום alert() - מוצגת ליד כפתורי
-            // המסלול, שם המשתמש בדיוק לחץ (מסך הבית, לפני נעילת השאלה).
+            // סעיף 3.5א ("חלון אלמנטור לא נטען"): שורת התראה במקום alert() -
+            // מוצגת ליד כפתורי המסלול, שם המשתמש בדיוק לחץ (מסך הבית, לפני
+            // נעילת השאלה). "זה באג, לא מצב של משתמש" - טקסט/כפתורים קבועים
+            // מהטבלה, לא "תקלה זמנית" כללית.
             kbShowAlertBanner(pathChoiceBlock, 'kb-popup-wall-error',
-                'קרתה תקלה זמנית בטעינת החלון. אפשר לנסות שוב.',
-                function () { triggerRegistrationWall(); });
+                'החלון לא נפתח. אפשר לנסות שוב, או לכתוב לנו.',
+                function () { triggerRegistrationWall(); }, true);
         });
         populateUserFieldsWithRetries(REGISTRATION_WALL_POPUP_ID, false);
     }
@@ -2217,9 +2234,11 @@
         populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, true);
         openPopupById(PAYMENT_WALL_POPUP_ID, function () {
             if (!anchorEl) return;
+            // סעיף 3.5א ("חלון אלמנטור לא נטען") - אותו טקסט/כפתורים קבועים
+            // כמו ב-triggerRegistrationWall (ר' ההערה שם).
             kbShowAlertBanner(anchorEl, 'kb-popup-wall-error',
-                'קרתה תקלה זמנית בטעינת החלון. אפשר לנסות שוב.',
-                function () { triggerPaymentWall(anchorEl); });
+                'החלון לא נפתח. אפשר לנסות שוב, או לכתוב לנו.',
+                function () { triggerPaymentWall(anchorEl); }, true);
         });
         populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, false);
     }
@@ -2250,6 +2269,28 @@
     kbCreditsExhaustedContactBtn.addEventListener('click', function () {
         window.location.href = 'mailto:doar@nuriteldar.co.il?subject=' + encodeURIComponent('** הקורא בקלפים ** - נגמרו לי השימושים');
         kbCloseCreditsExhaustedModal();
+    });
+
+    // סעיף 3.5א/7.2א: "הגעה למגבלה היומית" (daily_limit, 40 פניות) - עד כה
+    // טופל רק ע"י lockChatInput() (הודעה מוטבעת בתוך השיחה, בלי "נסה שוב"
+    // כי זה כבר לא היה שם) - אבל הטבלה ב-3.5א דורשת חלון ייעודי, בדיוק
+    // כמו kb-credits-exhausted-modal למעלה, עם כותרת/טקסט/כפתור קבועים.
+    const kbDailyLimitModal = document.getElementById('kb-daily-limit-modal');
+    const kbDailyLimitText = document.getElementById('kb-daily-limit-text');
+    const kbDailyLimitCloseBtn = document.getElementById('kb-daily-limit-close');
+    function kbShowDailyLimitModal(message) {
+        kbDailyLimitText.textContent = message || ( ( 'female' === userGender )
+            ? 'הגעת למספר השאלות היומי. נשמח לראות אותך שוב מחר.'
+            : 'הגעת למספר השאלות היומי. נשמח לראות אותך שוב מחר.' );
+        kbDailyLimitModal.hidden = false;
+        kbDailyLimitCloseBtn.focus();
+    }
+    function kbCloseDailyLimitModal() {
+        kbDailyLimitModal.hidden = true;
+    }
+    kbDailyLimitCloseBtn.addEventListener('click', kbCloseDailyLimitModal);
+    kbDailyLimitModal.addEventListener('click', function (e) {
+        if (e.target === kbDailyLimitModal) kbCloseDailyLimitModal();
     });
 
     // תיקון QA (סעיף 7.2א/8): נקודת-קריאה אחת ל"נגמרו הקרדיטים" - בלי
@@ -2990,7 +3031,18 @@
         }
         const delays = retryDelaysMs || [300, 800, 1500];
         if (delays.length === 0) {
-            console.warn('[DCard Popup] popup document (id=' + popupId + ') never became ready after retries.');
+            // סעיף 3.5א ("חלון אלמנטור לא נטען"): "לרשום ב-console את מזהה
+            // הפופאפ ואת הסיבה" - מפרט כאן *איזה* תנאי מתוך
+            // elementorPopupModuleReady בדיוק נכשל, לא רק "לא מוכן".
+            let reason;
+            if (!window.elementorProFrontend || !elementorProFrontend.modules || !elementorProFrontend.modules.popup) {
+                reason = 'elementorProFrontend.modules.popup לא נטען (Elementor Pro JS)';
+            } else if (!window.elementorFrontend || !elementorFrontend.documentsManager || !elementorFrontend.documentsManager.documents) {
+                reason = 'elementorFrontend.documentsManager לא נטען';
+            } else {
+                reason = 'documentsManager.documents[' + popupId + '] חסר - הפופאפ לא שויך/נרשם לעמוד הזה';
+            }
+            console.warn('[DCard Popup] popup document (id=' + popupId + ') never became ready after retries. reason: ' + reason);
             // סעיף 3.5א: "אין חלונות של הדפדפן" - לא alert(), אלא שורת התראה
             // שה-caller אחראי להציג במקום המתאים להקשר שלו (ר' triggerRegistrationWall).
             if (onGiveUp) onGiveUp();
@@ -4241,7 +4293,11 @@
                     throw new Error('kb_handled');
                 }
                 if (403 === drawRes.status && 'daily_limit_reached' === drawData.code) {
-                    lockChatInput(drawData.error || 'הגעת להיום למספר הפניות המרבי. נשמח לפגוש אותך שוב מחר.');
+                    // סעיף 3.5א: חלון "להיום זה מספיק" ייעודי, לא עוד הודעה
+                    // מוטבעת בתוך השיחה - lockChatInput() בלי message רק
+                    // נועל את התיבה, בלי להוסיף טקסט כפול מתחתיה.
+                    lockChatInput();
+                    kbShowDailyLimitModal(drawData.error);
                     throw new Error('kb_handled');
                 }
                 if (404 === drawRes.status) {
@@ -4551,7 +4607,10 @@
     // סעיף 3.5א: "שורת התראה" - רקע --blush, בלי בועה, עם כפתור "נסה שוב"
     // אופציונלי. נוצרת דינמית (לא ב-HTML מראש) ומוכנסת מיד אחרי afterEl -
     // ר' שימוש ב-attachVoiceButton (שגיאות מיקרופון) למעלה.
-    function kbShowAlertBanner(afterEl, id, message, retryFn) {
+    // showContact (סעיף 3.5א, שורת "חלון אלמנטור לא נטען"): מוסיף כפתור
+    // "כתבו לנו" נוסף, לצד "נסה שוב" - פותח mailto, בלי לסגור את השורה
+    // (למקרה שהמשתמש רוצה גם לנסות שוב אחרי).
+    function kbShowAlertBanner(afterEl, id, message, retryFn, showContact) {
         let el = document.getElementById(id);
         if (!el) {
             el = document.createElement('div');
@@ -4572,6 +4631,15 @@
                 retryFn();
             });
             el.appendChild(retryBtn);
+        }
+        if (showContact) {
+            const contactBtn = document.createElement('button');
+            contactBtn.type = 'button';
+            contactBtn.textContent = 'כתבו לנו';
+            contactBtn.addEventListener('click', function () {
+                window.location.href = 'mailto:doar@nuriteldar.co.il?subject=' + encodeURIComponent('** הקורא בקלפים ** - החלון לא נפתח');
+            });
+            el.appendChild(contactBtn);
         }
         el.style.display = 'flex';
     }
@@ -4987,7 +5055,8 @@
             // ר' ההערה המקבילה והמלאה ב-runCardAI - אותו עיקרון, בלי קיר תשלום.
             if (403 === res.status && 'daily_limit_reached' === data.code) {
                 stopTyping();
-                lockChatInput(data.error || 'הגעת להיום למספר הפניות המרבי. נשמח לפגוש אותך שוב מחר.');
+                lockChatInput();
+                kbShowDailyLimitModal(data.error);
                 return;
             }
 
