@@ -13,7 +13,10 @@
 */
 
 /* ---------- 1. משתני צבע (סעיף 1) ---------- */
+/* סעיף 0.5: "אסור שתהיה גלילה אופקית בעמוד" - ר' ההערה המלאה במקור. */
 .kb-app {
+  overflow-x: clip;
+  max-width: 100vw;
   --paper:        #FBF8F6; /* רקע כללי */
   --surface:      #FFFFFF; /* תיבות, כרטיסים, מסגרת קלף */
   --ink:          #2A2326; /* טקסט ראשי */
@@ -516,6 +519,8 @@
 /* תיקון QA (סעיף 6.5: "הודעות ה-AI בטלפון: 16px, גובה שורה 1.7") */
 @media (max-width: 1023px) {
   .kb-ai-text { font-size: 16px; line-height: 1.7; }
+  /* סעיף 6.5: "השאלה הפתוחה של הקורא מודגשת... במשקל 500" - ר' JS kbLastOpenAiTextEl. */
+  .kb-ai-text.kb-ai-question-open { font-weight: 500; }
 }
 .kb-ai-text p { margin: 0 0 14px; }
 .kb-ai-text p:last-child { margin-bottom: 0; }
@@ -629,14 +634,17 @@
   #kb-reading-side.kb-chat-mode .cards-block,
   #kb-reading-side.kb-chat-mode #kb-reading-side-question { margin-bottom: 0; }
   #kb-reading-side.kb-chat-mode .cards-block {
-    flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 12px;
+    flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
   }
   #kb-reading-side.kb-chat-mode .cards-block .kb-field-label { display: none; }
-  #kb-reading-side.kb-chat-mode .kb-link-extra-card { margin: 0; font-size: 12px; }
+  #kb-reading-side.kb-chat-mode .kb-link-extra-card { margin: 0; font-size: 12px; text-align: center; width: 100%; }
   #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; }
   #kb-reading-side.kb-chat-mode #kb-question-display .kb-field-label { display: none; }
   #kb-reading-side.kb-chat-mode #kb-question-display { display: flex; align-items: flex-start; gap: 4px; }
-  #kb-reading-side.kb-chat-mode .kb-question-text { font-size: 15px; flex: 1; min-width: 0; }
+  #kb-reading-side.kb-chat-mode .kb-question-text {
+    font-size: 15px; flex: 1; min-width: 0;
+    background: var(--blush, #F3E7EA); border-radius: 12px; padding: 8px 10px;
+  }
   #kb-reading-side.kb-chat-mode .kb-question-clamped .kb-question-text { -webkit-line-clamp: 2; }
   #kb-reading-side.kb-chat-mode #kb-question-display::after {
     content: '⌄'; flex-shrink: 0; color: var(--muted, #6E6266);

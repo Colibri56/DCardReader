@@ -4,7 +4,12 @@
        מערכת העיצוב החדשה (kb-) - שלב 1, ר' docs/design-spec.md
        ומקור הייחוס frontend/kb-design.css (לשינויים, לעדכן שם גם).
        ============================================================ */
+    /* סעיף 0.5: "אסור שתהיה גלילה אופקית בעמוד, בשום מסך, וגם לא אחרי
+       גלילה למטה" - רשת ביטחון על השורש, לפי הנוסח המדויק בסעיף, בנוסף
+       ל-overflow-x:hidden שכבר קיים על #card-reader-app. */
     .kb-app {
+        overflow-x: clip;
+        max-width: 100vw;
         --paper:        #FBF8F6;
         --surface:      #FFFFFF;
         --ink:          #2A2326;
@@ -777,6 +782,9 @@
     /* תיקון QA (סעיף 6.5: "הודעות ה-AI בטלפון: 16px, גובה שורה 1.7") */
     @media (max-width: 1023px) {
         .kb-ai-text { font-size: 16px; line-height: 1.7; }
+        /* סעיף 6.5: "השאלה הפתוחה של הקורא מודגשת... במשקל 500. כשהמשתמש
+           שולח תשובה, היא חוזרת למשקל רגיל" - ר' JS kbLastOpenAiTextEl. */
+        .kb-ai-text.kb-ai-question-open { font-weight: 500; }
     }
     .kb-ai-text p { margin: 0 0 14px; }
     .kb-ai-text p:last-child { margin-bottom: 0; }
@@ -1100,21 +1108,27 @@
         #kb-reading-side.kb-chat-mode #kb-reading-side-question {
             margin-bottom: 0;
         }
-        /* "צריך עוד קלף?" (סעיף 6.5 מעודכן) יושב כאן, מתחת לתמונות
-           הממוזערות, בתוך אותה עמודה - לא עוד בתוך השיחה הנגללת. */
+        /* "צריך עוד קלף?" (סעיף 6.5 מעודכן: "צמוד לתמונה, 2px, ממורכז
+           וברוחב שלה") יושב כאן, מתחת לתמונות הממוזערות, בתוך אותה עמודה -
+           לא עוד בתוך השיחה הנגללת. */
         #kb-reading-side.kb-chat-mode .cards-block {
             flex-shrink: 0; display: flex; flex-direction: column;
-            align-items: center; gap: 12px;
+            align-items: center; gap: 2px;
         }
         #kb-reading-side.kb-chat-mode .cards-block .kb-field-label { display: none; }
-        #kb-reading-side.kb-chat-mode .kb-link-extra-card { margin: 0; font-size: 12px; }
+        #kb-reading-side.kb-chat-mode .kb-link-extra-card {
+            margin: 0; font-size: 12px; text-align: center; width: 100%;
+        }
         #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; }
         #kb-reading-side.kb-chat-mode #kb-question-display .kb-field-label { display: none; }
         #kb-reading-side.kb-chat-mode #kb-question-display {
             display: flex; align-items: flex-start; gap: 4px;
         }
+        /* סעיף 6.5: "השאלה ברצועה העליונה: בתיבה עם רקע F3E7EA, פינות
+           12px וריווח 8px 10px" - מדגישה שזו שאלת המשתמש. */
         #kb-reading-side.kb-chat-mode .kb-question-text {
             font-size: 15px; flex: 1; min-width: 0;
+            background: var(--blush, #F3E7EA); border-radius: 12px; padding: 8px 10px;
         }
         #kb-reading-side.kb-chat-mode .kb-question-clamped .kb-question-text {
             -webkit-line-clamp: 2;
@@ -3437,6 +3451,13 @@
             msgDiv.className = 'dcard-bubble kb-user-bubble';
             textContainer = msgDiv;
             appendTextParagraphs(textContainer, text);
+            // סעיף 6.5 (בטלפון): "השאלה הפתוחה של הקורא... כשהמשתמש שולח
+            // תשובה, היא חוזרת למשקל רגיל" - ברגע שהמשתמש עונה, השאלה
+            // האחרונה של הקורא מפסיקה להיות "פתוחה".
+            if (kbLastOpenAiTextEl) {
+                kbLastOpenAiTextEl.classList.remove('kb-ai-question-open');
+                kbLastOpenAiTextEl = null;
+            }
         } else {
             // סעיף 6.5: "לפני התשובה הראשונה"/"בהמשך השיחה" - ר' showTyping,
             // שמחליט לפי הדגל הזה איזה טקסט המתנה להציג.
@@ -3462,6 +3483,12 @@
             textContainer.className = 'kb-ai-text';
             appendTextParagraphs(textContainer, text);
             msgDiv.appendChild(textContainer);
+            // סעיף 6.5 (בטלפון): "השאלה הפתוחה של הקורא מודגשת... במשקל
+            // 500" - כל עוד המשתמש לא ענה. ההודעה הקודמת (אם עדיין "פתוחה")
+            // מאבדת את ההדגשה כשמגיעה הודעה חדשה מהקורא.
+            if (kbLastOpenAiTextEl) kbLastOpenAiTextEl.classList.remove('kb-ai-question-open');
+            textContainer.classList.add('kb-ai-question-open');
+            kbLastOpenAiTextEl = textContainer;
         }
 
         wrapper.appendChild(msgDiv);
@@ -3536,17 +3563,41 @@
         // הסוף. הפתרון: למדוד הפרש מיקום אמיתי על המסך בין תחילת הבועה
         // לתחילת chatHistory (getBoundingClientRect, לא offsetTop), ללא
         // תלות בשרשרת ה-offsetParent.
-        if ( 'ai' === role ) {
+        // סעיף 6.5 (בטלפון/טאבלט): כפתורי הפעולות נגללים בסוף השיחה - אחרי
+        // כל הודעה חדשה הם זזים מחדש לסוף (kbPlaceActionsBlock מוגדר למטה,
+        // ור' קוד הייחוס שלה - לא עושה כלום אם block-5 עדיין מוסתר). לפני
+        // הגלילה, כדי שהיא תחשב נכון את גובה העמוד הסופי.
+        if ('function' === typeof kbPlaceActionsBlock) kbPlaceActionsBlock();
+
+        if (window.matchMedia('(max-width: 1023px)').matches) {
+            // סעיף 6.5 (עדכון, בטלפון): "אחרי כל הודעה חדשה... תיבת התשובה
+            // בתחתית המסך, ומעליה שאלת הקורא" (כולל מעבר ממסר לדיאלוג
+            // מכוון - אותה appendMessage בדיוק). גלילת *העמוד*, לא עוד
+            // chatHistory - אין לו גלילה פנימית בטלפון. לא עושה כלום אם
+            // chatInputArea עדיין מוסתר (מצב מסר, לפני דיאלוג/העמקה).
+            chatInputArea.scrollIntoView({ block: 'end', behavior: 'smooth' });
+        } else if ( 'ai' === role ) {
+            // תיקון QA ("בתשובה ארוכה מגלגל לסוף הטקסט, המשתמש רואה קודם את
+            // המשפט האחרון ולא יכול לגלול מההתחלה") - להודעת AI מגלילים
+            // לתחילת הבועה החדשה, לא ל-scrollHeight (=הסוף). הודעת משתמש
+            // עצמה נשארת עם גלילה לסוף כרגיל - היא קצרה, ורוצים לראות אותה
+            // מיד ליד תיבת הקלט.
+            //
+            // תיקון (הניסיון הקודם לא עבד בפועל: "עדיין מגלגל לסוף") - wrapper.
+            // offsetTop לא מודד מרחק מתחילת chatHistory אלא מתחילת ה-offsetParent
+            // (האב הממוקם הקרוב ביותר - position:relative/absolute/fixed) - וכאן
+            // ל-chat-history אין position מוגדר, אז offsetParent הוא אב גבוה
+            // בהרבה בעץ (למשל כל העמוד), כך ש-offsetTop יצא גדול בהרבה מגובה
+            // התוכן של chat-history עצמו (שה-CSS מגביל ל-max-height:300px) -
+            // וההשמה ל-scrollTop פשוט נחתכת (clamp) למקסימום האפשרי, שהוא...
+            // הסוף. הפתרון: למדוד הפרש מיקום אמיתי על המסך בין תחילת הבועה
+            // לתחילת chatHistory (getBoundingClientRect, לא offsetTop), ללא
+            // תלות בשרשרת ה-offsetParent.
             const deltaFromTop = wrapper.getBoundingClientRect().top - chatHistory.getBoundingClientRect().top;
             chatHistory.scrollTop = chatHistory.scrollTop + deltaFromTop;
         } else {
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
-
-        // סעיף 6.5 (בטלפון/טאבלט): כפתורי הפעולות נגללים בסוף השיחה - אחרי
-        // כל הודעה חדשה הם זזים מחדש לסוף (kbPlaceActionsBlock מוגדר למטה,
-        // ור' קוד הייחוס שלה - לא עושה כלום אם block-5 עדיין מוסתר).
-        if ('function' === typeof kbPlaceActionsBlock) kbPlaceActionsBlock();
 
         // מחזיר את ה-bubble עצמו (לא ה-wrapper) - נדרש כדי שקוד אחר (מעבר
         // חלק למצב "שיחה פתוחה" אחרי הודעת "קבלת מסר", ר' runCardAI למטה)
@@ -3593,6 +3644,9 @@
     // אחרת הוא ימשיך לרוץ ברקע לנצח גם אחרי שהחיווי כבר הוסר מה-DOM.
     let typingModeInterval = null;
     let kbAiHasReplied = false;
+    // סעיף 6.5 (בטלפון): "השאלה הפתוחה של הקורא מודגשת" - אלמנט הטקסט
+    // (kb-ai-text) של הודעת ה-AI האחרונה, כל עוד המשתמש עדיין לא ענה לה.
+    let kbLastOpenAiTextEl = null;
     // סעיף 6.5 (עדכון): "בזמן שהקורא כותב, אי אפשר לשלוף קלף נוסף ואי אפשר
     // לשלוח הודעה... הבלוק [כפתורי הפעולות] מוסתר". נזכרים אם אנחנו אלה
     // שהסתרנו/נטרלנו כדי להחזיר בדיוק למה שהיה (לא "לדרוס" מצב אחר).
@@ -4698,12 +4752,15 @@
                 const openingText = ( 'female' === userGender )
                     ? 'בואי נעמיק. מה הדבר הראשון שמשך את עינך בתמונה?'
                     : 'בוא נעמיק. מה הדבר הראשון שמשך את עינך בתמונה?';
-                appendMessage('ai', openingText);
+                // תיקון QA (סעיף 6.5, "מעבר ממסר לדיאלוג מכוון... תיבת
+                // התשובה נראית בתחתית המסך") - התיבה חייבת להיות גלויה
+                // (display, לא עוד none) *לפני* appendMessage, אחרת גלילת
+                // העמוד שלה (ר' שם) לא עושה כלום על אלמנט מוסתר.
                 chatInputArea.style.display = '';
+                appendMessage('ai', openingText);
                 // סעיף 6.5: "בלי autofocus" - המקלדת לא נפתחת לבד אחרי
                 // המעבר ממסר לדיאלוג מכוון; רק הקשה ישירה של המשתמש על
                 // התיבה פותחת אותה.
-                chatHistory.scrollTop = chatHistory.scrollHeight;
             }, KB_DEEPEN_OPENING_DELAY_MS);
         });
     }
@@ -4926,6 +4983,14 @@
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
     chatInput.addEventListener('input', kbAutoGrowReply);
+
+    // סעיף 6.5 (בטלפון): "כשהמקלדת נפתחת, התיבה נגללת לתוך המסך" - הקשה
+    // ישירה של המשתמש (לא autofocus - זה מאוחר יותר, רק בלחיצה אמיתית).
+    chatInput.addEventListener('focus', function () {
+        if (window.matchMedia('(max-width: 1023px)').matches) {
+            chatInputArea.scrollIntoView({ block: 'end', behavior: 'smooth' });
+        }
+    });
 
     // סעיף 3.5א: "תשובה ריקה בשיחה -> כפתור מושבת (אין הודעה)" - כפתור
     // השליחה מושבת כל עוד התיבה ריקה, בלי שום הודעה.
