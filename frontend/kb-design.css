@@ -85,6 +85,12 @@
 .kb-btn--emphasis  { background: var(--surface); color: var(--bordeaux); border: 2px solid var(--bordeaux); } /* "שאלה חדשה" */
 .kb-btn--link      { background: none; border: none; color: var(--bordeaux); text-decoration: underline; text-underline-offset: 4px; padding: 0 6px; min-height: auto; } /* "לתת משוב" */
 .kb-btn:disabled   { background: var(--line); color: var(--muted); border: none; cursor: default; }
+/* תיקון באג: hello-elementor/reset.css צובע כל button:focus/:hover באדום
+   (rgb(204,51,102)) - !important כדי לנצח את כלל התבנית, חוזרים ל-hover
+   העדין של כל כפתור גם ב-:focus/:active (ר' §3.1: "אף כפתור לא נצבע
+   בוורוד או באדום, בשום מצב"). */
+.kb-btn--secondary:focus, .kb-btn--secondary:active { background: var(--blush) !important; color: var(--ink, #2A2326) !important; }
+.kb-btn--quiet:focus, .kb-btn--quiet:active { color: var(--ink, #2A2326) !important; background: none !important; }
 
 /* כפתור ראשי גדול (פעולה מרכזית במסך) */
 .kb-btn--large { min-height: 56px; font-size: 18px; padding: 0 28px; }
@@ -501,6 +507,9 @@
   text-underline-offset: 4px; padding: 0 6px; min-height: auto; display: inline-flex;
   align-items: center; gap: 6px; font-size: 15px; font-weight: 400;
 }
+/* תיקון באג (אותה תקלה - ר' ההערה המלאה למעלה ליד .kb-btn--secondary:focus) */
+.kb-btn--emphasis:focus, .kb-btn--emphasis:active { background: var(--blush) !important; color: var(--bordeaux, #7D2E46) !important; }
+.kb-btn--link:focus, .kb-btn--link:active { background: none !important; color: var(--bordeaux-hover, #692539) !important; }
 
 /* סעיף 3.5: הודעת משתמש - בועה blush. הודעת AI - בלי בועה. */
 .kb-user-bubble {
@@ -637,8 +646,8 @@
     flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px;
   }
   #kb-reading-side.kb-chat-mode .cards-block .kb-field-label { display: none; }
-  #kb-reading-side.kb-chat-mode .kb-link-extra-card { margin: 0; font-size: 12px; text-align: center; width: 100%; }
-  #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; }
+  #kb-reading-side.kb-chat-mode .kb-link-extra-card { margin: 0; font-size: 12px; text-align: start; width: 100%; }
+  #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; align-self: center; }
   #kb-reading-side.kb-chat-mode #kb-question-display .kb-field-label { display: none; }
   #kb-reading-side.kb-chat-mode #kb-question-display { display: flex; align-items: flex-start; gap: 4px; }
   #kb-reading-side.kb-chat-mode .kb-question-text {

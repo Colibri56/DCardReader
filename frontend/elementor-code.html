@@ -474,6 +474,20 @@
         background-color: var(--bordeaux-hover, #692539);
         box-shadow: var(--shadow-small, 0 4px 10px rgba(42,35,38,0.16));
     }
+    /* תיקון באג (דווח בפועל, שוחזר ב-Playwright: "הכפתור נצבע באדום") -
+       hello-elementor/reset.css מגדיר באופן גורף "button:focus, button:hover
+       { background-color: rgb(204, 51, 102); color: #fff; }" על כל <button>
+       בעמוד. ל-:hover יש כאן כבר override (למעלה), אבל ל-:focus לא היה
+       בכלל - וכפתור נשאר במצב :focus גם אחרי שעוזבים אותו (קליק/מגע),
+       כך שהצבע האדום של התבנית "נתקע". סעיף 3.1: "אף כפתור לא נצבע
+       בוורוד או באדום, בשום מצב" - !important כדי לנצח את כלל התבנית. */
+    .btn-main:focus, .btn-main:active {
+        background-color: var(--bordeaux, #7D2E46) !important;
+        color: #fff !important;
+    }
+    .btn-main:hover:focus {
+        background-color: var(--bordeaux-hover, #692539) !important;
+    }
 
     /* בלוק 3: תצוגת הקלפים (מותאם ל-3 קלפים גדולים) */
     .cards-block {
@@ -698,6 +712,19 @@
     .btn-outline:hover .kb-btn-sub {
         color: #F3E7EA;
     }
+    /* תיקון באג (אותה תקלה כמו .btn-main:focus למעלה - ר' ההערה שם) -
+       hello-elementor/reset.css צובע :focus באדום של התבנית. כאן :active
+       מצטרף ל-:focus, כי ל-.btn-outline *יש* מילוי מכוון ב-:hover (בורדו),
+       אז ה-:focus/:active צריכים להמשיך לאותו מילוי מכוון, לא להישאר
+       בצבע התבנית. */
+    .btn-outline:focus, .btn-outline:active {
+        background: var(--bordeaux, #7D2E46) !important;
+        border-color: var(--bordeaux, #7D2E46) !important;
+        color: #fff !important;
+    }
+    .btn-outline:focus .kb-btn-sub, .btn-outline:active .kb-btn-sub {
+        color: #F3E7EA !important;
+    }
     /* תיקון QA (סעיף 3.1: "'ביטול' בחלונות הוא תמיד כפתור שקט... בלי רקע
        ובלי מסגרת. אסור שיהיה מלא או צבעוני"; וגם "אף כפתור לא נצבע בוורוד
        או באדום, בשום מצב") - כפתורי "ביטול" בפועל (סיום שיחה/מייל/משוב)
@@ -732,6 +759,23 @@
         background: none; border: none; color: var(--bordeaux); text-decoration: underline;
         text-underline-offset: 4px; padding: 0 6px; min-height: auto; display: inline-flex;
         align-items: center; gap: 6px; font-size: 15px; font-weight: 400;
+    }
+    /* תיקון באג (אותה תקלה כמו .btn-main/.btn-outline:focus למעלה - ר'
+       ההערה המלאה שם: hello-elementor/reset.css צובע כל button:focus/
+       :hover באדום של התבנית) - גם ארבעת סוגי הכפתורים כאן הם <button>,
+       אז אותו כלל חל עליהם. כל אחד חוזר ל-:hover העדין שלו גם ב-:focus/
+       :active, לא לאדום של התבנית. */
+    .kb-btn--secondary:focus, .kb-btn--secondary:active {
+        background: var(--blush) !important; color: var(--ink, #2A2326) !important;
+    }
+    .kb-btn--emphasis:focus, .kb-btn--emphasis:active {
+        background: var(--blush) !important; color: var(--bordeaux, #7D2E46) !important;
+    }
+    .kb-btn--quiet:focus, .kb-btn--quiet:active {
+        color: var(--ink, #2A2326) !important; background: none !important;
+    }
+    .kb-btn--link:focus, .kb-btn--link:active {
+        background: none !important; color: var(--bordeaux-hover, #692539) !important;
     }
 
     /* מסגרת "קבלת מסר אישי" בבורדו כמו שאר האתר, לא באפור כמו שאר כפתורי ה-outline */
@@ -1116,10 +1160,15 @@
             align-items: center; gap: 2px;
         }
         #kb-reading-side.kb-chat-mode .cards-block .kb-field-label { display: none; }
+        /* סעיף 6.5 (עדכון): "מיושר לקצה הימני של התמונה (text-align: start,
+           בלי מרכוז) - הקצה הימני של הטקסט והקצה הימני של התמונה על אותו
+           קו", לא ממורכז כמו קודם. */
         #kb-reading-side.kb-chat-mode .kb-link-extra-card {
-            margin: 0; font-size: 12px; text-align: center; width: 100%;
+            margin: 0; font-size: 12px; text-align: start; width: 100%;
         }
-        #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; }
+        /* סעיף 6.5 (עדכון): "תיבת השאלה ממורכזת אנכית מול התמונה הממוזערת
+           (align-self: center), ולא מיושרת לראש הרצועה". */
+        #kb-reading-side.kb-chat-mode #kb-reading-side-question { flex: 1; min-width: 0; align-self: center; }
         #kb-reading-side.kb-chat-mode #kb-question-display .kb-field-label { display: none; }
         #kb-reading-side.kb-chat-mode #kb-question-display {
             display: flex; align-items: flex-start; gap: 4px;
@@ -2148,7 +2197,15 @@
         );
     }
 
-    function triggerPaymentWall() {
+    // תיקון באג (דווח בפועל - "קבלת מסר אישי לא עושה כלום, הכפתור נצבע
+    // באדום"): בניגוד ל-triggerRegistrationWall, הקריאה כאן ל-openPopupById
+    // לא העבירה כלל onGiveUp - כשה-popup (4753) לא נרשם ע"י Elementor
+    // (שוחזר ב-Playwright: "popup document (id=4753) never became ready
+    // after retries"), הפונקציה פשוט ויתרה בשקט, בלי שום משוב למשתמש -
+    // בניגוד ישיר לסעיף 7.2א ("אסור שלחיצה לא תעשה כלום"). anchorEl הוא
+    // האלמנט שה-caller מעביר (למשל הכפתור שנלחץ) - קובע איפה שורת ההתראה
+    // (קיימת/חדשה) מוצגת, כי triggerPaymentWall נקרא מכמה מסכים שונים.
+    function triggerPaymentWall(anchorEl) {
         const now = Date.now();
         if (now - paymentWallLastShownAt < PAYMENT_WALL_COOLDOWN_MS) {
             console.log('[DCard Quota] triggerPaymentWall() called again within cooldown - ignoring.');
@@ -2158,7 +2215,12 @@
 
         console.log('[DCard Quota] Credits exhausted (server) - opening payment wall (4753).');
         populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, true);
-        openPopupById(PAYMENT_WALL_POPUP_ID);
+        openPopupById(PAYMENT_WALL_POPUP_ID, function () {
+            if (!anchorEl) return;
+            kbShowAlertBanner(anchorEl, 'kb-popup-wall-error',
+                'קרתה תקלה זמנית בטעינת החלון. אפשר לנסות שוב.',
+                function () { triggerPaymentWall(anchorEl); });
+        });
         populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, false);
     }
 
@@ -2193,10 +2255,10 @@
     // תיקון QA (סעיף 7.2א/8): נקודת-קריאה אחת ל"נגמרו הקרדיטים" - בלי
     // KB_PAYWALL_ENABLED מוגדר (למשל דף ישן בקאש, dcardSettings חסר)
     // נשארים עם ההתנהגות הקודמת (חלון תשלום), לא פותחים חלון לא-צפוי.
-    function kbHandleCreditsExhausted() {
+    function kbHandleCreditsExhausted(anchorEl) {
         const paywallOn = !!(window.dcardSettings && dcardSettings.paywallEnabled);
         if (paywallOn) {
-            triggerPaymentWall();
+            triggerPaymentWall(anchorEl);
         } else {
             kbShowCreditsExhaustedModal();
         }
@@ -2209,8 +2271,20 @@
     // כשל ברשת בבדיקה המקדימה הזו לא חוסם בעצמו - משאירים את האכיפה
     // האמיתית לבקשת השליפה/הצ'אט עצמה (draw-card/turn כבר אוכפים קרדיטים
     // בלי קשר לבדיקה הזו).
-    async function kbHasCreditsOrHandleExhausted(mode) {
+    // תיקון (סעיף 7.2א: "לחיצה על כפתור מסלול תמיד נותנת תגובה גלויה תוך
+    // שנייה... בזמן הבדיקה מול השרת, הכפתור מציג 'רגע…' ומושבת") - עד כה
+    // הבדיקה הזו לא נתנה שום משוב ויזואלי בזמן ההמתנה לשרת, אותו דפוס
+    // בדיוק כמו ensureSessionReady למטה. triggerBtn אופציונלי (ר' הקריאות
+    // הקיימות שכבר מנהלות disabled בעצמן, כמו btnExtraCard - שם לא מעבירים
+    // אותו, כדי לא "להתנגש" עם הניהול הידני שלהן). anchorEl - איפה להציג
+    // את שורת ההתראה אם triggerPaymentWall נכשל; ברירת מחדל ל-triggerBtn.
+    async function kbHasCreditsOrHandleExhausted(mode, triggerBtn, anchorEl) {
         if (!dcardIsRegistered()) return true;
+        const originalText = triggerBtn ? triggerBtn.innerText : null;
+        if (triggerBtn) triggerBtn.disabled = true;
+        const slowTimer = triggerBtn ? setTimeout(function () {
+            triggerBtn.innerText = 'רגע…';
+        }, 1000) : null;
         try {
             const res = await fetch('/wp-json/dcard/v1/account/status', {
                 method: 'GET',
@@ -2220,11 +2294,17 @@
             if (!data || !data.success) return true;
             const remaining = ( 'message' === mode ) ? data.current_credits_msg : data.current_credits_chat;
             if (remaining > 0) return true;
-            kbHandleCreditsExhausted();
+            kbHandleCreditsExhausted(anchorEl || triggerBtn);
             return false;
         } catch (err) {
             console.warn('[DCard Quota] pre-shuffle credits check failed (non-fatal):', err);
             return true;
+        } finally {
+            if (slowTimer) clearTimeout(slowTimer);
+            if (triggerBtn) {
+                triggerBtn.disabled = false;
+                triggerBtn.innerText = originalText;
+            }
         }
     }
 
@@ -4154,8 +4234,10 @@
                     // סעיף 7.2א: "אם בכל זאת מגיעה תשובת נגמרו הקרדיטים ברגע
                     // השליפה: עוצרים... בלי 'ניסיון חוזר'" - kb_handled כאן
                     // מסמן ל-pick() (קוד הערבוב, ר' ה-catch שלו) לא להציג
-                    // בנוסף את שורת "תקלה בחיבור" הגנרית.
-                    kbHandleCreditsExhausted();
+                    // בנוסף את שורת "תקלה בחיבור" הגנרית. kbStage - הבמה
+                    // גלויה כרגע (זה קורה בזמן שליפת הקלף), אז זה העוגן
+                    // הנכון להתראה אם triggerPaymentWall ייכשל.
+                    kbHandleCreditsExhausted(kbStage);
                     throw new Error('kb_handled');
                 }
                 if (403 === drawRes.status && 'daily_limit_reached' === drawData.code) {
@@ -4202,7 +4284,7 @@
     btnExtraCard.addEventListener('click', async function () {
         btnExtraCard.disabled = true;
         // סעיף 7.2א: בדיקה לפני שמסך הערבוב נפתח גם כאן ("צריך עוד קלף?").
-        if (!(await kbHasCreditsOrHandleExhausted(chatModeActive ? 'chat' : 'message'))) {
+        if (!(await kbHasCreditsOrHandleExhausted(chatModeActive ? 'chat' : 'message', null, btnExtraCard))) {
             btnExtraCard.disabled = false;
             return;
         }
@@ -4655,7 +4737,7 @@
         if (appState === 'drawn') {
             // קלף נוסף (לא הראשון) - השאלה כבר ננעלה מזמן. סעיף 7.2א: בדיקה
             // לפני שמסך הערבוב נפתח, גם כאן.
-            if (!(await kbHasCreditsOrHandleExhausted(chatModeActive ? 'chat' : 'message'))) return;
+            if (!(await kbHasCreditsOrHandleExhausted(chatModeActive ? 'chat' : 'message', null, btnDeckAction))) return;
             // סעיף 7.6: skipRiffle ל"קלף נוסף" - ישר לשלב flow, בלי רצף
             // הערבוב המלא.
             kbShowStage();
@@ -4781,7 +4863,7 @@
             triggerRegistrationWall();
             return;
         }
-        if (!(await kbHasCreditsOrHandleExhausted('chat'))) return;
+        if (!(await kbHasCreditsOrHandleExhausted('chat', btnPathChat))) return;
 
         if (!(await ensureSessionReady(btnPathChat))) return;
         if (!lockQuestionAndStartShuffling()) return; // שאלה ריקה - נשארים על מסך בחירת המסלול
@@ -4808,7 +4890,7 @@
             triggerRegistrationWall();
             return;
         }
-        if (!(await kbHasCreditsOrHandleExhausted('message'))) return;
+        if (!(await kbHasCreditsOrHandleExhausted('message', btnPathMessage))) return;
 
         if (!(await ensureSessionReady(btnPathMessage))) return;
         if (!lockQuestionAndStartShuffling()) return;
@@ -4896,7 +4978,9 @@
                 if (text) {
                     dcardSetLS(DCARD_LS_KEYS.pendingQuestion, text);
                 }
-                kbHandleCreditsExhausted();
+                // chatInputArea - גלוי כרגע (זה קורה בזמן שיחה), עוגן
+                // סביר להתראה אם triggerPaymentWall ייכשל.
+                kbHandleCreditsExhausted(chatInputArea);
                 return;
             }
 
