@@ -242,6 +242,21 @@ class DCard_REST_Controller {
 			),
 		) );
 
+		// סעיף 6.10.4: "כתבו לנו" - קריאה מהפרונטאנד שלנו עצמו (לא webhook
+		// חוץ), אז verify_nonce_if_present הרגיל מתאים כאן (בניגוד ל-/register/
+		// /webhook/ipn-update למעלה).
+		register_rest_route( self::NAMESPACE_, '/contact', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'contact_message' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+			'args'                => array(
+				'email'    => array( 'required' => true ),
+				'message'  => array( 'required' => true ),
+				'gender'   => array( 'required' => false ),
+				'platform' => array( 'required' => false ),
+			),
+		) );
+
 		// Webhook (IPN) מקארדקום. תיקון: הנתיב הקודם - /webhook/payment -
 		// חזר 404 לקארדקום גם אחרי רענון Permalinks. המילה "payment"
 		// בנתיב עצמו כנראה מזוהה ע"י WAF/תוסף אבטחה בשרת כטריגר חסימה
@@ -1415,9 +1430,60 @@ class DCard_REST_Controller {
 			'deviceToken'  => $result['device_token'], // ר' הערת השם ב-class-dcard-users.php - לא אותו דבר כמו session_token של קריאת קלפים
 			'currentPlan'  => $result['current_plan'],
 			'credits'      => $result['credits'],
+			// סעיף 6.10.1: מוחזר כדי שה-JS (kb-register-modal) ישמור אותו
+			// ב-localStorage - בדיוק כמו dcardEmail שה-hook של אלמנטור
+			// (on_new_record) מחזיר היום לטופס ה-webhook הישן.
+			'email'        => $email,
 			'regMsgLimit'  => (int) get_option( DCard_Quotas::OPTION_REG_MSG_LIMIT, DCard_Quotas::DEFAULT_REG_MSG_LIMIT ),
 			'regChatLimit' => (int) get_option( DCard_Quotas::OPTION_REG_CHAT_LIMIT, DCard_Quotas::DEFAULT_REG_CHAT_LIMIT ),
 		), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// POST /contact
+	// ---------------------------------------------------------------
+	public function contact_message( WP_REST_Request $request ) {
+		return $this->safely( 'contact_message', function () use ( $request ) {
+			return $this->contact_message_inner( $request );
+		} );
+	}
+
+	/**
+	 * סעיף 6.10.4: שולחת את תוכן חלון "כתבו לנו" (DCard_Mailer::
+	 * send_contact_message) - עד 5 הודעות בשעה לפי IP (ר' DCard_Rate_Limiter).
+	 * device token אופציונלי - גם מבקר אנונימי יכול לפתוח את החלון הזה.
+	 */
+	private function contact_message_inner( WP_REST_Request $request ) {
+		$ip = DCard_Rate_Limiter::client_ip();
+		if ( ! DCard_Rate_Limiter::check_contact( $ip ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'יותר מדי בקשות. נסו שוב בעוד קצת.' ), 429 );
+		}
+
+		$email_raw = (string) $request->get_param( 'email' );
+		$email     = $email_raw ? sanitize_email( $email_raw ) : '';
+		$message   = sanitize_textarea_field( (string) $request->get_param( 'message' ) );
+		$gender    = (string) $request->get_param( 'gender' );
+		$platform  = sanitize_text_field( (string) $request->get_param( 'platform' ) );
+
+		if ( ! $email || ! is_email( $email ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'הכתובת לא נראית תקינה' ), 400 );
+		}
+		if ( '' === trim( $message ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'ההודעה לא יכולה להיות ריקה' ), 400 );
+		}
+
+		$device_token    = $request->get_header( 'X-Dcard-Device-Token' );
+		$registered_user = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+		$user_name       = $registered_user ? $registered_user['name'] : '';
+		$plan_label      = $registered_user ? DCard_Plans::label_for_plan( $registered_user['current_plan'] ) : '';
+		$user_id         = $registered_user ? $registered_user['id'] : null;
+
+		$sent = DCard_Mailer::send_contact_message( $email, $user_name, $message, $gender, $plan_label, $user_id, $platform );
+		if ( ! $sent ) {
+			DCard_Logger::warning( 'wp_mail() returned false for /contact', array( 'email' => $email ) );
+		}
+
+		return new WP_REST_Response( array( 'success' => (bool) $sent ), $sent ? 200 : 500 );
 	}
 
 	// ---------------------------------------------------------------

@@ -1618,6 +1618,40 @@
         </div>
     </div>
 
+    <!-- חלון הרשמה עם מייל (סעיף 6.10.1, במקום פופאפ אלמנטור 4749) - נפתח
+         מ-triggerRegistrationWall(), במקום שבו משתמש אנונימי נגמרו לו
+         השימושים (הודעה/שיחה פתוחה/קלף נוסף). אחרי הצלחה נסגר לבד ומריץ
+         את הפעולה שנחסמה (ר' kbRegisterModalContinueFn ב-JS). -->
+    <div id="kb-register-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-register-title">
+            <div class="kb-modal-handle"></div>
+            <div id="kb-register-form-state">
+                <h2 class="kb-modal-title" id="kb-register-title" style="text-align:center;"></h2>
+                <p class="kb-modal-text" style="text-align:center;">אני ממש אוהב את השיחות שלנו, ואני יודע שהן עוזרות לך <strong>לקבל תשובות ולהתקדם</strong>. אני מזמין אותך להמשיך ולהשתמש באפליקציה.</p>
+                <p class="kb-modal-text" style="text-align:center;">רק נא למלא את הפרטים שלך, לצורכי בקרה ושיפור השירות.</p>
+                <label class="kb-field-label" for="kb-register-name">שם</label>
+                <input type="text" id="kb-register-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
+                <div class="kb-field-error" id="kb-register-name-error" style="display:none;" role="alert">השם יכול לכלול רק אותיות, רווחים ומקפים.</div>
+                <label class="kb-field-label" for="kb-register-email" style="margin-top:12px;">כתובת מייל</label>
+                <input type="email" id="kb-register-email" class="kb-field" dir="ltr" autocomplete="email" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
+                <div class="kb-field-error" id="kb-register-email-error" style="display:none;" role="alert">הכתובת לא נראית תקינה. כדאי לבדוק שוב.</div>
+                <p class="kb-modal-text" style="margin-top:10px;">לא נשלח לך דיוור שיווקי. המייל משמש רק לשמירת השימושים שלך.</p>
+                <div class="kb-alert-banner" id="kb-register-send-error" style="display:none;"></div>
+                <div class="kb-modal-actions">
+                    <button type="button" class="btn-main" id="kb-register-submit">אשמח להמשיך</button>
+                    <button type="button" class="kb-btn kb-btn--quiet" id="kb-register-cancel" style="align-self:center;">לא עכשיו</button>
+                </div>
+                <p class="kb-modal-text" style="text-align:center;margin-top:16px;margin-bottom:0;font-size:13px;">בהמשך את/ה מאשר/ת את <a href="#">תנאי השימוש</a> ואת <a href="#">מדיניות הפרטיות</a>.</p>
+            </div>
+            <div id="kb-register-success-state" style="display:none;text-align:center;">
+                <div class="kb-onboarding-icon kb-success-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                </div>
+                <h2 class="kb-modal-title">נרשמת, אפשר להמשיך</h2>
+            </div>
+        </div>
+    </div>
+
     <!-- תפריט ☰ (סעיף 5) -->
     <div id="kb-menu-overlay" class="kb-menu-overlay" hidden>
         <div class="kb-menu-panel" role="dialog" aria-modal="true" aria-label="תפריט">
@@ -1798,6 +1832,48 @@
 
             <div class="kb-modal-actions">
                 <button type="button" class="btn-outline" id="kb-guidelines-close">סגירה</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- חלון "כתבו לנו" (סעיף 6.10.4) - מחליף את כל קישורי ה-mailto
+         (תפריט ☰, שורת "החלון לא נפתח", חלון "נגמרו השימושים"). -->
+    <div id="kb-contact-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-contact-title">
+            <div class="kb-modal-handle"></div>
+            <div id="kb-contact-form-state">
+                <h2 class="kb-modal-title" id="kb-contact-title" style="text-align:center;">כתבו לנו</h2>
+                <p class="kb-modal-text" id="kb-contact-text" style="text-align:center;"></p>
+                <label class="kb-field-label" for="kb-contact-email">המייל שלך, לתשובה</label>
+                <input type="email" id="kb-contact-email" class="kb-field" dir="ltr" autocomplete="email" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
+                <div class="kb-field-error" id="kb-contact-email-error" style="display:none;" role="alert">הכתובת לא נראית תקינה. כדאי לבדוק שוב.</div>
+                <label class="kb-field-label" for="kb-contact-text-field" style="margin-top:12px;">ההודעה</label>
+                <div style="position:relative;">
+                    <textarea id="kb-contact-text-field" class="kb-field" rows="5" style="width:100%;box-sizing:border-box;padding:12px 14px;"></textarea>
+                    <button type="button" class="btn-mic" id="btn-mic-contact-modal" title="הכתבה קולית" aria-label="הכתבה קולית" style="display:none;position:absolute;bottom:14px;left:14px;">
+                        <svg class="kb-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                        </svg>
+                        <span class="mic-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                    </button>
+                </div>
+                <div class="kb-field-error" id="kb-contact-text-error" style="display:none;" role="alert">אפשר לכתוב כמה מילים על מה שקרה.</div>
+                <div class="kb-alert-banner" id="kb-contact-send-error" style="display:none;"></div>
+                <div class="kb-modal-actions">
+                    <button type="button" class="btn-main" id="kb-contact-submit">שליחה</button>
+                    <button type="button" class="kb-btn kb-btn--quiet" id="kb-contact-cancel" style="align-self:center;">ביטול</button>
+                </div>
+            </div>
+            <div id="kb-contact-success-state" style="display:none;text-align:center;">
+                <div class="kb-onboarding-icon kb-success-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                </div>
+                <h2 class="kb-modal-title">ההודעה נשלחה</h2>
+                <p class="kb-modal-text" id="kb-contact-success-text"></p>
+                <div class="kb-modal-actions">
+                    <button type="button" class="btn-main" id="kb-contact-close-success">סגירה</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2056,28 +2132,26 @@
         return !!(dcardGetLS(DCARD_LS_KEYS.userId) && dcardGetLS(DCARD_LS_KEYS.deviceToken));
     }
 
-    // Freemium PLG, שלב 1: קיר הרשמה. כרגע רק לוג + ניסיון פתיחת פופאפ -
-    // בכוונה (per request) שלב ראשוני, לא זרימת הרשמה מלאה עדיין.
-    //
-    // *** TODO לפני עלייה לאוויר: למלא כאן את ה-ID האמיתי של פופאפ ההרשמה
-    // באלמנטור (0 הוא placeholder בלבד ולעולם לא יתאים לאף פופאפ אמיתי -
-    // ר' התקרית הקודמת בפרויקט הזה עם מספר מזהה שגוי של פופאפ 4729). ***
-    const REGISTRATION_WALL_POPUP_ID = 4749;
+    // סעיף 6.10.1: קיר הרשמה - נפתח כש"משתמש אנונימי שנגמרו לו השימושים"
+    // (הודעה/שיחה פתוחה/קלף נוסף). במקום פופאפ אלמנטור 4749 (לא נמחק
+    // בשלב הזה, ר' סעיף 6.10 - רק מפסיקים לקרוא לו). continueFn - הפעולה
+    // שנחסמה; אם ההרשמה מצליחה, החלון נסגר ו-continueFn רץ לבד תוך שנייה
+    // (ר' kbRegisterModalContinueFn ליד kb-register-modal). "לא עכשיו"
+    // או סגירה בלי הרשמה - continueFn פשוט לא רץ.
 
     // תיקון לולאה אינסופית: triggerRegistrationWall() נקרא שוב ושוב ברצף
-    // מהיר (דווח בפועל) - פותח את הפופאפ, וממשיך לנסות שוב ושוב בלי
+    // מהיר (דווח בפועל) - פותח את החלון, וממשיך לנסות שוב ושוב בלי
     // שהמשתמש עשה שום דבר. אין כאן fetch בכלל (הבדיקה ב-btnPathMessage/
     // btnSend רצה *לפני* כל קריאת רשת, אז שום בקשה לא נשלחת בענף הזה) -
-    // אז "הניסיון החוזר" הוא פתיחת הפופאפ עצמה, לא בקשת HTTP. לא משנה מה
-    // בדיוק גרם להפעלה הכפולה/חזרתית (listener כפול, trigger של הפופאפ
-    // עצמו וכו') - המנעול הזה עוצר כל הפעלה חזרה בטווח קצר, בלי תלות
-    // בסיבה. עדיין לא "חד-כיווני" לצמיתות: אחרי שה-cooldown חולף, לחיצה
-    // *חדשה* ואמיתית של המשתמש (למשל ניסיון נוסף אחרי שסגר את הפופאפ)
-    // עדיין פותחת אותו שוב כרגיל - רק מונע את הלולאה הצפופה.
+    // אז "הניסיון החוזר" הוא פתיחת החלון עצמה, לא בקשת HTTP. המנעול הזה
+    // עוצר כל הפעלה חזרה בטווח קצר, בלי תלות בסיבה. עדיין לא "חד-כיווני"
+    // לצמיתות: אחרי שה-cooldown חולף, לחיצה *חדשה* ואמיתית של המשתמש
+    // (למשל ניסיון נוסף אחרי שסגר את החלון) עדיין פותחת אותו שוב כרגיל -
+    // רק מונע את הלולאה הצפופה.
     let registrationWallLastShownAt = 0;
     const REGISTRATION_WALL_COOLDOWN_MS = 3000;
 
-    function triggerRegistrationWall() {
+    function triggerRegistrationWall(continueFn) {
         const now = Date.now();
         if (now - registrationWallLastShownAt < REGISTRATION_WALL_COOLDOWN_MS) {
             console.log('[DCard Quota] triggerRegistrationWall() called again within cooldown - ignoring (stopping potential loop), waiting for the user.');
@@ -2085,27 +2159,8 @@
         }
         registrationWallLastShownAt = now;
 
-        console.log('Limit reached');
-        if (!REGISTRATION_WALL_POPUP_ID) {
-            console.warn('[DCard Quota] REGISTRATION_WALL_POPUP_ID not set yet - cannot open the registration popup.');
-            return;
-        }
-        // השם כבר ידוע (נאסף ב-onboarding, 4723) - מוצג מוכן, לא מבוקש
-        // מחדש. האימייל לרוב עדיין לא ידוע בפעם הראשונה בקיר הזה (זה
-        // בדיוק מה שהטופס הזה אוסף) - populateEmailFieldInPopup פשוט לא
-        // עושה כלום אם אין עדיין ערך שמור (ר' ה-guard הראשון שבתוכה),
-        // אז קריאה לה כאן בטוחה בכל מקרה (למשל חזרה לקיר הזה בפעם שנייה).
-        populateUserFieldsWithRetries(REGISTRATION_WALL_POPUP_ID, true);
-        openPopupById(REGISTRATION_WALL_POPUP_ID, function () {
-            // סעיף 3.5א ("חלון אלמנטור לא נטען"): שורת התראה במקום alert() -
-            // מוצגת ליד כפתורי המסלול, שם המשתמש בדיוק לחץ (מסך הבית, לפני
-            // נעילת השאלה). "זה באג, לא מצב של משתמש" - טקסט/כפתורים קבועים
-            // מהטבלה, לא "תקלה זמנית" כללית.
-            kbShowAlertBanner(pathChoiceBlock, 'kb-popup-wall-error',
-                'החלון לא נפתח. אפשר לנסות שוב, או לכתוב לנו.',
-                function () { triggerRegistrationWall(); }, true);
-        });
-        populateUserFieldsWithRetries(REGISTRATION_WALL_POPUP_ID, false);
+        console.log('[DCard Quota] Limit reached - opening kb-register-modal.');
+        kbOpenRegisterModal(continueFn);
     }
 
     // תיקון (דווח בפועל - שם/אימייל עדיין לא נטענים ל-4749/4753 אחרי
@@ -2267,8 +2322,8 @@
         if (e.target === kbCreditsExhaustedModal) kbCloseCreditsExhaustedModal();
     });
     kbCreditsExhaustedContactBtn.addEventListener('click', function () {
-        window.location.href = 'mailto:doar@nuriteldar.co.il?subject=' + encodeURIComponent('** הקורא בקלפים ** - נגמרו לי השימושים');
         kbCloseCreditsExhaustedModal();
+        kbOpenContactModal(); // סעיף 6.10.4 - מחליף mailto
     });
 
     // סעיף 3.5א/7.2א: "הגעה למגבלה היומית" (daily_limit, 40 פניות) - עד כה
@@ -2306,8 +2361,12 @@
     }
 
     // סעיף 7.2א: "לפני שמסך הערבוב נפתח... שואלים את השרת אם נשאר למשתמש
-    // קרדיט לסוג השימוש הזה" - רק לרשומים (אנונימי ממשיך להיבדק מקומית,
-    // ר' הבדיקות הקיימות ב-btnPathMessage/btnPathChat). מחזיר true =
+    // קרדיט לסוג השימוש הזה" - לרשומים. למשתמש אנונימי (ר' תיקון "קלף
+    // נוסף" למטה) בודקים במקום זאת את המכסה האנונימית המקומית - עד לתיקון
+    // הזה "קלף נוסף" (btnExtraCard) היה היחיד מבין שלושת המסלולים שלא
+    // נבדק כלל לאנונימי (קפץ ישר ל-return true), ואף פעם לא פתח את קיר
+    // ההרשמה. continueFn - מה להריץ אחרי שההרשמה (אם בכלל נפתחה) הסתיימה
+    // בהצלחה; מועבר כפי שהוא ל-triggerRegistrationWall. מחזיר true =
     // מותר להמשיך; false = נחסם (כבר טיפלנו, פתחנו את החלון המתאים).
     // כשל ברשת בבדיקה המקדימה הזו לא חוסם בעצמו - משאירים את האכיפה
     // האמיתית לבקשת השליפה/הצ'אט עצמה (draw-card/turn כבר אוכפים קרדיטים
@@ -2319,8 +2378,16 @@
     // הקיימות שכבר מנהלות disabled בעצמן, כמו btnExtraCard - שם לא מעבירים
     // אותו, כדי לא "להתנגש" עם הניהול הידני שלהן). anchorEl - איפה להציג
     // את שורת ההתראה אם triggerPaymentWall נכשל; ברירת מחדל ל-triggerBtn.
-    async function kbHasCreditsOrHandleExhausted(mode, triggerBtn, anchorEl) {
-        if (!dcardIsRegistered()) return true;
+    async function kbHasCreditsOrHandleExhausted(mode, triggerBtn, anchorEl, continueFn) {
+        if (!dcardIsRegistered()) {
+            const anonKey = ( 'chat' === mode ) ? DCARD_LS_KEYS.anonChatCount : DCARD_LS_KEYS.anonMsgCount;
+            const anonKind = ( 'chat' === mode ) ? 'chat' : 'msg';
+            if (dcardGetCount(anonKey) >= dcardAnonLimit(anonKind)) {
+                triggerRegistrationWall(continueFn);
+                return false;
+            }
+            return true;
+        }
         const originalText = triggerBtn ? triggerBtn.innerText : null;
         if (triggerBtn) triggerBtn.disabled = true;
         const slowTimer = triggerBtn ? setTimeout(function () {
@@ -2394,6 +2461,7 @@
     const chatInput = document.getElementById('ai-reply-input');
     const btnMicChat = document.getElementById('btn-mic-chat');
     const btnMicFeedback = document.getElementById('btn-mic-feedback-modal');
+    const btnMicContact = document.getElementById('btn-mic-contact-modal'); // סעיף 6.10.4
     const chatInputArea = document.querySelector('.chat-input-area');
     const btnSend = document.querySelector('.btn-send');
     // שורת הפעולות (סעיף 6.5) - שמות מחלקה ייעודיים, לא אינדקס מיקום.
@@ -2694,6 +2762,104 @@
         }
     });
 
+    // ============================================================
+    // סעיף 6.10.1: חלון הרשמה עם מייל (במקום פופאפ אלמנטור 4749)
+    // ============================================================
+    const kbRegisterModal = document.getElementById('kb-register-modal');
+    const kbRegisterFormState = document.getElementById('kb-register-form-state');
+    const kbRegisterSuccessState = document.getElementById('kb-register-success-state');
+    const kbRegisterTitle = document.getElementById('kb-register-title');
+    const kbRegisterName = document.getElementById('kb-register-name');
+    const kbRegisterEmail = document.getElementById('kb-register-email');
+    const kbRegisterNameError = document.getElementById('kb-register-name-error');
+    const kbRegisterEmailError = document.getElementById('kb-register-email-error');
+    const kbRegisterSubmit = document.getElementById('kb-register-submit');
+    const kbRegisterCancel = document.getElementById('kb-register-cancel');
+
+    // הפעולה שנחסמה (ר' triggerRegistrationWall) - רצה לבד תוך שנייה אחרי
+    // הרשמה מוצלחת. null אם החלון נפתח בלי פעולה להמשיך (לא קורה היום,
+    // אבל continueFn הוא פרמטר אופציונלי).
+    let kbRegisterModalContinueFn = null;
+
+    function kbOpenRegisterModal(continueFn) {
+        kbRegisterModalContinueFn = continueFn || null;
+        kbRegisterTitle.textContent = userName + ', נמשיך?';
+        kbRegisterName.value = userName;
+        kbRegisterEmail.value = dcardGetLS(DCARD_LS_KEYS.email) || '';
+        kbClearFieldError(kbRegisterName, kbRegisterNameError);
+        kbClearFieldError(kbRegisterEmail, kbRegisterEmailError);
+        kbHideAlertBanner('kb-register-send-error');
+        kbRegisterFormState.style.display = '';
+        kbRegisterSuccessState.style.display = 'none';
+        kbRegisterModal.hidden = false;
+        kbRegisterName.focus();
+    }
+    function kbCloseRegisterModal() {
+        kbRegisterModal.hidden = true;
+    }
+    kbRegisterCancel.addEventListener('click', kbCloseRegisterModal); // "לא עכשיו" - סוגר בלי לעשות כלום נוסף
+    kbRegisterModal.addEventListener('click', function (e) {
+        if (e.target === kbRegisterModal) kbCloseRegisterModal();
+    });
+
+    kbRegisterSubmit.addEventListener('click', async function () {
+        const name = kbRegisterName.value.trim();
+        const email = kbRegisterEmail.value.trim();
+        if (!name || !DCARD_NAME_PATTERN.test(name)) {
+            kbShowFieldError(kbRegisterName, kbRegisterNameError, 'השם יכול לכלול רק אותיות, רווחים ומקפים.');
+            return;
+        }
+        if (!EMAIL_REGEX.test(email)) {
+            kbShowFieldError(kbRegisterEmail, kbRegisterEmailError, 'הכתובת לא נראית תקינה. כדאי לבדוק שוב.');
+            return;
+        }
+        kbClearFieldError(kbRegisterName, kbRegisterNameError);
+        kbClearFieldError(kbRegisterEmail, kbRegisterEmailError);
+        kbHideAlertBanner('kb-register-send-error');
+        kbRegisterSubmit.disabled = true;
+
+        try {
+            const res = await fetch('/wp-json/dcard/v1/register', {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ email: email, name: name, gender: userGender })
+            });
+            const data = await res.json();
+            if (!data || !data.success) {
+                kbShowAlertBanner(kbRegisterEmail, 'kb-register-send-error', 'ההרשמה לא הצליחה בגלל תקלה בחיבור.', function () { kbRegisterSubmit.click(); });
+                return;
+            }
+
+            // אותו דפוס בדיוק כמו submit_success של טופס ההרשמה הישן
+            // באלמנטור (ר' ההערה המלאה למעלה, ליד DCARD_LS_KEYS.userId) -
+            // שומרים שם/מייל/userId/deviceToken כדי שמהרגע הזה המשתמש
+            // יחשב רשום (dcardIsRegistered).
+            if (name !== userName) {
+                userName = name;
+                kbUpdateHomeTexts();
+            }
+            dcardSetLS(DCARD_LS_KEYS.name, name);
+            dcardSetLS(DCARD_LS_KEYS.email, data.email || email);
+            dcardSetLS(DCARD_LS_KEYS.userId, String(data.user_id));
+            dcardSetLS(DCARD_LS_KEYS.deviceToken, data.deviceToken);
+
+            kbRegisterFormState.style.display = 'none';
+            kbRegisterSuccessState.style.display = '';
+            setTimeout(function () {
+                kbCloseRegisterModal();
+                if (kbRegisterModalContinueFn) {
+                    const fn = kbRegisterModalContinueFn;
+                    kbRegisterModalContinueFn = null;
+                    fn();
+                }
+            }, 1000);
+        } catch (e) {
+            kbShowAlertBanner(kbRegisterEmail, 'kb-register-send-error', 'ההרשמה לא הצליחה בגלל תקלה בחיבור.', function () { kbRegisterSubmit.click(); });
+        } finally {
+            kbRegisterSubmit.disabled = false;
+        }
+    });
+
     // תפריט ☰ (סעיף 5) - "האזור שלי" לא מוצג בשלב הזה, לפי ההנחיה.
     function kbOpenMenu() {
         kbMenuOverlay.hidden = false;
@@ -2745,12 +2911,10 @@
         if (e.target === kbGuidelinesModal) kbGuidelinesModal.hidden = true;
     });
 
-    // "כתבו לנו" - קישור mailto ישיר (סופק ע"י בעל הפרויקט), לא הטופס
-    // הקיים באלמנטור (לא ידוע לנו ה-ID שלו) - פותח את תוכנת המייל של
-    // המשתמש עם נמען/נושא ממולאים מראש.
+    // סעיף 6.10.4 - חלון kb-modal שלנו, במקום קישור mailto ישיר.
     kbMenuContact.addEventListener('click', function () {
-        window.location.href = 'mailto:doar@nuriteldar.co.il?subject=' + encodeURIComponent('** הקורא בקלפים ** - כתבו לנו');
         kbCloseMenu();
+        kbOpenContactModal();
     });
 
     document.addEventListener('keydown', function (e) {
@@ -2762,6 +2926,8 @@
         else if (!kbEmailModal.hidden) kbEmailModal.hidden = true;
         else if (!kbFeedbackModal.hidden) kbFeedbackModal.hidden = true;
         else if (!kbCreditsExhaustedModal.hidden) kbCreditsExhaustedModal.hidden = true;
+        else if (!kbRegisterModal.hidden) kbCloseRegisterModal();
+        else if (!kbContactModal.hidden) kbCloseContactModal();
         // kb-onboarding-modal לא נסגר ב-Esc בכוונה - המידע חובה לפני שממשיכים.
     });
 
@@ -3524,6 +3690,9 @@
         // סדר הכרזות.
         if (btnMicFeedback) {
             attachVoiceButton(btnMicFeedback, document.getElementById('kb-feedback-text'), 'feedback');
+        }
+        if (btnMicContact) {
+            attachVoiceButton(btnMicContact, document.getElementById('kb-contact-text-field'), 'contact');
         }
     })();
 
@@ -4339,12 +4508,20 @@
     const btnExtraCard = document.getElementById('btn-extra-card');
     btnExtraCard.addEventListener('click', async function () {
         btnExtraCard.disabled = true;
-        // סעיף 7.2א: בדיקה לפני שמסך הערבוב נפתח גם כאן ("צריך עוד קלף?").
-        if (!(await kbHasCreditsOrHandleExhausted(chatModeActive ? 'chat' : 'message', null, btnExtraCard))) {
+        // סעיף 7.2א/6.10.1: בדיקה לפני שמסך הערבוב נפתח גם כאן ("צריך עוד
+        // קלף?") - המסלול השלישי. תיקון: עד כה kbHasCreditsOrHandleExhausted
+        // דילגה על כל בדיקה למשתמש אנונימי (return true מיידי), כך ש"קלף
+        // נוסף" היה היחיד מבין שלושת המסלולים שאף פעם לא פתח את קיר
+        // ההרשמה - התיקון שם (ליד kbHasCreditsOrHandleExhausted) מטפל בזה;
+        // proceed מועבר כ-continueFn כדי שגם אם נחסם ואז נרשם, השליפה
+        // תמשיך לבד בלי שכפול קוד.
+        const mode = chatModeActive ? 'chat' : 'message';
+        const proceed = function () { maybeOfferAnotherCard('request_card_draw', true); };
+        if (!(await kbHasCreditsOrHandleExhausted(mode, null, btnExtraCard, proceed))) {
             btnExtraCard.disabled = false;
             return;
         }
-        maybeOfferAnotherCard('request_card_draw', true);
+        proceed();
     });
 
     // סעיף 6.5: לייטבוקס לתמונה הממוזערת של קלף בטלפון/טאבלט (<1024px) -
@@ -4637,7 +4814,7 @@
             contactBtn.type = 'button';
             contactBtn.textContent = 'כתבו לנו';
             contactBtn.addEventListener('click', function () {
-                window.location.href = 'mailto:doar@nuriteldar.co.il?subject=' + encodeURIComponent('** הקורא בקלפים ** - החלון לא נפתח');
+                kbOpenContactModal(); // סעיף 6.10.4 - מחליף mailto
             });
             el.appendChild(contactBtn);
         }
@@ -4921,6 +5098,26 @@
     // ליד ההסתרה הראשונית. אין יותר "בחירה אחרי השליפה" - pendingCardId
     // הוסר כליל; lockQuestionAndStartShuffling() (ר' למעלה, ליד
     // btnDeckAction) כבר מתחיל את העירבוב מיד כאן, ולא ממתין ללחיצה נוספת.
+    // סעיף 6.10.1: ההמשך המשותף לשני המסלולים (הודעה/שיחה) אחרי שהבדיקה
+    // (anonymous/קרדיטים) כבר אישרה להמשיך - מחולץ לפונקציה אחת כדי
+    // ש-kbHasCreditsOrHandleExhausted/triggerRegistrationWall יוכלו להריץ
+    // אותו שוב כ-continueFn אחרי הרשמה, בלי לשכפל את הלוגיקה.
+    async function kbProceedWithPath(mode, triggerBtn) {
+        if (!(await ensureSessionReady(triggerBtn))) return;
+        if (!lockQuestionAndStartShuffling()) return; // שאלה ריקה - נשארים על מסך בחירת המסלול
+
+        pathChosen = true;
+        pathChoiceBlock.style.display = 'none';
+        if ('chat' === mode) {
+            countSessionIfNeeded(DCARD_LS_KEYS.anonChatCount);
+            chatModeActive = true; // מכאן ואילך תיבת ההקלדה נשארת גלויה גם בקלפים נוספים
+            chatInputArea.style.display = '';
+        } else {
+            resetUserQuestionCount(); // מסלול קבלת מסר לא כולל שיחה, אבל מאפסים ליתר ביטחון
+            chatInputArea.style.display = 'none'; // נשארת מוסתרת למשך שאר הסשן - זה מסלול חד-פעמי
+        }
+    }
+
     btnPathChat.addEventListener('click', async () => {
         if (pathChosen) return; // חד-פעמי - לא רלוונטי יותר אחרי שהקופה כבר נחשפה
 
@@ -4928,19 +5125,12 @@
         // הכניסה בפועל לשיחה פתוחה, במקום על כל הודעה בתוכה (ר' btnSend).
         // אותו דפוס בדיוק כמו ב-btnPathMessage ממש למעלה.
         if (!dcardIsRegistered() && dcardGetCount(DCARD_LS_KEYS.anonChatCount) >= dcardAnonLimit('chat')) {
-            triggerRegistrationWall();
+            triggerRegistrationWall(function () { kbProceedWithPath('chat', btnPathChat); });
             return;
         }
         if (!(await kbHasCreditsOrHandleExhausted('chat', btnPathChat))) return;
 
-        if (!(await ensureSessionReady(btnPathChat))) return;
-        if (!lockQuestionAndStartShuffling()) return; // שאלה ריקה - נשארים על מסך בחירת המסלול
-
-        pathChosen = true;
-        countSessionIfNeeded(DCARD_LS_KEYS.anonChatCount);
-        chatModeActive = true; // מכאן ואילך תיבת ההקלדה נשארת גלויה גם בקלפים נוספים
-        pathChoiceBlock.style.display = 'none';
-        chatInputArea.style.display = '';
+        await kbProceedWithPath('chat', btnPathChat);
     });
 
     btnPathMessage.addEventListener('click', async () => {
@@ -4955,19 +5145,12 @@
         // לא רלוונטית בכלל (ר' ההערה על dcardIsRegistered למעלה) - מדלגים
         // עליה לחלוטין ונותנים לבקשה לצאת לשרת, שאוכף קרדיטים בעצמו.
         if (!dcardIsRegistered() && dcardGetCount(DCARD_LS_KEYS.anonMsgCount) >= dcardAnonLimit('msg')) {
-            triggerRegistrationWall();
+            triggerRegistrationWall(function () { kbProceedWithPath('message', btnPathMessage); });
             return;
         }
         if (!(await kbHasCreditsOrHandleExhausted('message', btnPathMessage))) return;
 
-        if (!(await ensureSessionReady(btnPathMessage))) return;
-        if (!lockQuestionAndStartShuffling()) return;
-
-        pathChosen = true;
-        resetUserQuestionCount(); // מסלול קבלת מסר לא כולל שיחה, אבל מאפסים ליתר ביטחון
-        pathChoiceBlock.style.display = 'none';
-        // תיבת ההקלדה נשארת מוסתרת למשך שאר הסשן - זה מסלול חד-פעמי.
-        chatInputArea.style.display = 'none';
+        await kbProceedWithPath('message', btnPathMessage);
     });
 
     // 4. שליחת הודעת טקסט רגילה בצ'אט
@@ -5472,6 +5655,87 @@
             kbShowAlertBanner(kbEmailInput, 'kb-email-send-error', 'המייל לא נשלח בגלל תקלה בחיבור.', function () { kbEmailSubmit.click(); });
         } finally {
             kbEmailSubmit.disabled = false;
+        }
+    });
+
+    // 8. חלון "כתבו לנו" (סעיף 6.10.4) - מחליף את כל קישורי ה-mailto
+    // (תפריט ☰, חלון "נגמרו השימושים", שורת "החלון לא נפתח").
+    const kbContactModal = document.getElementById('kb-contact-modal');
+    const kbContactFormState = document.getElementById('kb-contact-form-state');
+    const kbContactSuccessState = document.getElementById('kb-contact-success-state');
+    const kbContactText = document.getElementById('kb-contact-text');
+    const kbContactEmail = document.getElementById('kb-contact-email');
+    const kbContactEmailError = document.getElementById('kb-contact-email-error');
+    const kbContactTextField = document.getElementById('kb-contact-text-field');
+    const kbContactTextError = document.getElementById('kb-contact-text-error');
+    const kbContactSubmit = document.getElementById('kb-contact-submit');
+    const kbContactCancel = document.getElementById('kb-contact-cancel');
+    const kbContactCloseSuccess = document.getElementById('kb-contact-close-success');
+    const kbContactSuccessText = document.getElementById('kb-contact-success-text');
+
+    function kbOpenContactModal() {
+        kbContactText.textContent = ( 'female' === userGender )
+            ? 'שאלה, הצעה או משהו שלא עבד כמו שצריך? נשמח לשמוע, ונחזור אלייך במייל.'
+            : 'שאלה, הצעה או משהו שלא עבד כמו שצריך? נשמח לשמוע, ונחזור אליך במייל.';
+        kbContactEmail.value = dcardGetLS(DCARD_LS_KEYS.email) || '';
+        kbContactTextField.value = '';
+        kbClearFieldError(kbContactEmail, kbContactEmailError);
+        kbClearFieldError(kbContactTextField, kbContactTextError);
+        kbHideAlertBanner('kb-contact-send-error');
+        kbContactFormState.style.display = '';
+        kbContactSuccessState.style.display = 'none';
+        kbContactModal.hidden = false;
+        kbContactEmail.focus();
+    }
+    function kbCloseContactModal() {
+        kbContactModal.hidden = true;
+    }
+    kbContactCancel.addEventListener('click', kbCloseContactModal);
+    kbContactCloseSuccess.addEventListener('click', kbCloseContactModal);
+    kbContactModal.addEventListener('click', function (e) {
+        if (e.target === kbContactModal) kbCloseContactModal();
+    });
+
+    kbContactSubmit.addEventListener('click', async function () {
+        const email = kbContactEmail.value.trim();
+        const message = kbContactTextField.value.trim();
+        if (!EMAIL_REGEX.test(email)) {
+            kbShowFieldError(kbContactEmail, kbContactEmailError, 'הכתובת לא נראית תקינה. כדאי לבדוק שוב.');
+            return;
+        }
+        if (!message) {
+            kbShowFieldError(kbContactTextField, kbContactTextError, 'אפשר לכתוב כמה מילים על מה שקרה.');
+            return;
+        }
+        kbClearFieldError(kbContactEmail, kbContactEmailError);
+        kbClearFieldError(kbContactTextField, kbContactTextError);
+        kbHideAlertBanner('kb-contact-send-error');
+        kbContactSubmit.disabled = true;
+
+        // סעיף 6.10.4: "ההודעה לא נמחקת" אם השליחה נכשלה - message/email
+        // לא מנוקים כלל, לא בהצלחה ולא בכישלון (קריאה חוזרת פשוט שולחת
+        // שוב את מה שכתוב כרגע בשדות).
+        try {
+            const res = await fetch('/wp-json/dcard/v1/contact', {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ email: email, message: message, gender: userGender, platform: DCARD_PLATFORM })
+            });
+            const data = await res.json();
+            if (!data || !data.success) {
+                kbShowAlertBanner(kbContactTextField, 'kb-contact-send-error', 'ההודעה לא נשלחה בגלל תקלה בחיבור.', function () { kbContactSubmit.click(); });
+                return;
+            }
+            kbContactSuccessText.textContent = ( 'female' === userGender )
+                ? 'תודה, ' + userName + '. נחזור אלייך לכתובת ' + email + '.'
+                : 'תודה, ' + userName + '. נחזור אליך לכתובת ' + email + '.';
+            kbContactFormState.style.display = 'none';
+            kbContactSuccessState.style.display = '';
+            kbContactCloseSuccess.focus();
+        } catch (e) {
+            kbShowAlertBanner(kbContactTextField, 'kb-contact-send-error', 'ההודעה לא נשלחה בגלל תקלה בחיבור.', function () { kbContactSubmit.click(); });
+        } finally {
+            kbContactSubmit.disabled = false;
         }
     });
 </script>

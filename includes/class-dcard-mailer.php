@@ -15,6 +15,42 @@ class DCard_Mailer {
 		return wp_mail( $to_email, $subject, $body, $headers );
 	}
 
+	/**
+	 * סעיף 6.10.4: תוכן חלון "כתבו לנו" - אל doar@nuriteldar.co.il, עם
+	 * Reply-To של המשתמש כך שלחיצה על "השב" עונה לו ישירות.
+	 */
+	public static function send_contact_message( $user_email, $user_name, $message, $gender, $plan_label, $user_id, $platform ) {
+		$subject = '** כתבו לנו - הקורא בקלפים **';
+		$body    = self::render_contact_html( $user_email, $user_name, $message, $gender, $plan_label, $user_id, $platform );
+		$headers = array(
+			'Content-Type: text/html; charset=UTF-8',
+			'Reply-To: ' . $user_email,
+		);
+
+		return wp_mail( 'doar@nuriteldar.co.il', $subject, $body, $headers );
+	}
+
+	private static function render_contact_html( $user_email, $user_name, $message, $gender, $plan_label, $user_id, $platform ) {
+		$gender_label = ( 'female' === $gender ) ? 'נקבה' : ( ( 'male' === $gender ) ? 'זכר' : '-' );
+		ob_start();
+		?>
+		<div dir="rtl" style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #222;">
+			<h2>כתבו לנו</h2>
+			<p><?php echo nl2br( esc_html( $message ) ); ?></p>
+			<hr style="border: none; border-top: 1px solid #ddd; margin: 16px 0;" />
+			<p style="font-size: 13px; color: #555; line-height: 1.6;">
+				שם: <?php echo esc_html( $user_name ? $user_name : '-' ); ?><br />
+				מייל: <?php echo esc_html( $user_email ); ?><br />
+				לשון פנייה: <?php echo esc_html( $gender_label ); ?><br />
+				מסלול: <?php echo esc_html( $plan_label ? $plan_label : '-' ); ?><br />
+				מזהה משתמש: <?php echo esc_html( $user_id ? (string) $user_id : '-' ); ?><br />
+				דפדפן/מכשיר: <?php echo esc_html( $platform ? $platform : '-' ); ?>
+			</p>
+		</div>
+		<?php
+		return ob_get_clean();
+	}
+
 	private static function render_html( $user_name, array $transcript, array $card_image_urls = array(), $is_message_mode = false, $session_token = '', $user_email = '', $user_phone = '' ) {
 		$greeting = $user_name ? esc_html( $user_name ) : '';
 		$intro    = $is_message_mode ? 'מצורף המסר שהתקבל לשאלתך:' : 'מצורף תרשים השיחה שניהלת לאור שאלתך:';

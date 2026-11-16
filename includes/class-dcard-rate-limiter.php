@@ -13,6 +13,9 @@ class DCard_Rate_Limiter {
 	const MAX_SESSION_STARTS_PER_HOUR = 20;
 	const MAX_TURNS_PER_HOUR          = 120;
 	const MAX_REGISTRATIONS_PER_HOUR  = 30; // /register - ר' DCard_REST_Controller::session_register_inner()
+	// סעיף 6.10.4: "עד 5 הודעות בשעה ממכשיר אחד" - בפועל לפי IP, לא מכשיר
+	// (עקבי עם כל שאר ה-rate limiting בפלאגין, ר' הערת ה-class למעלה).
+	const MAX_CONTACT_MESSAGES_PER_HOUR = 5;
 	// /session/card-selected - אותה עלות בדיוק כמו /session/turn (קריאת AI
 	// אחת), אבל עד כה היה ה-route היחיד שקורא ל-AI בלי שום rate limit -
 	// פרצה ממשית: session_token תקף מאפשר להלחיץ את ה-endpoint הזה בלי
@@ -35,6 +38,10 @@ class DCard_Rate_Limiter {
 
 	public static function check_register( $ip ) {
 		return self::check( 'register', 'dcard_rl_register_' . md5( $ip ), self::MAX_REGISTRATIONS_PER_HOUR );
+	}
+
+	public static function check_contact( $ip ) {
+		return self::check( 'contact', 'dcard_rl_contact_' . md5( $ip ), self::MAX_CONTACT_MESSAGES_PER_HOUR );
 	}
 
 	/**
