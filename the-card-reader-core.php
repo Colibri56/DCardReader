@@ -100,6 +100,12 @@ add_action( 'admin_init', function () {
 	}
 } );
 
+add_action( 'admin_notices', function () {
+	if ( class_exists( 'DCard_Quotas' ) ) {
+		DCard_Quotas::maybe_warn_active_plan_without_product_id();
+	}
+} );
+
 // תקלה בטעינת data/ai-models.json (קובץ חסר/JSON פגום/מודל לא תקין) -
 // מוצגת כ-admin_notice גלובלי, בכל עמוד בניהול, לא רק בעמוד Settings >
 // DCard AI עצמו - כדי שהבעיה תתגלה מיידית (ר' render_model_choices_errors_notice()).
@@ -194,5 +200,8 @@ add_action( 'dcard_daily_cleanup', function () {
 	}
 	if ( class_exists( 'DCard_DB' ) ) {
 		DCard_DB::cleanup_old_sessions();
+	}
+	if ( class_exists( 'DCard_Users' ) ) {
+		DCard_Users::run_renewal_and_expiry_check();
 	}
 } );

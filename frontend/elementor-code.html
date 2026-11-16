@@ -1641,13 +1641,53 @@
                     <button type="button" class="btn-main" id="kb-register-submit">אשמח להמשיך</button>
                     <button type="button" class="kb-btn kb-btn--quiet" id="kb-register-cancel" style="align-self:center;">לא עכשיו</button>
                 </div>
-                <p class="kb-modal-text" style="text-align:center;margin-top:16px;margin-bottom:0;font-size:13px;">בהמשך את/ה מאשר/ת את <a href="#">תנאי השימוש</a> ואת <a href="#">מדיניות הפרטיות</a>.</p>
+                <p class="kb-modal-text" style="text-align:center;margin-top:16px;margin-bottom:0;font-size:13px;"><span id="kb-register-terms-lead">בהמשך את/ה מאשר/ת</span> את <a href="#">תנאי השימוש</a> ואת <a href="#">מדיניות הפרטיות</a>.</p>
             </div>
             <div id="kb-register-success-state" style="display:none;text-align:center;">
                 <div class="kb-onboarding-icon kb-success-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
                 </div>
                 <h2 class="kb-modal-title">נרשמת, אפשר להמשיך</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- §6.10.2: חלון ההצטרפות למסלול, במקום הפופאפ הישן של אלמנטור (4753).
+         כרטיסי המידע נבנים דינמית ב-JS מ-GET /plans (ר' kbOpenPaymentModal) -
+         "לא לחיצים" (§6.10.2: הבחירה נעשית בכפתורי הרדיו בעמוד קארדקום). -->
+    <div id="kb-payment-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-payment-title">
+            <div class="kb-modal-handle"></div>
+            <div id="kb-payment-admin-badge" style="display:none;text-align:center;background:#A3262A;color:#fff;border-radius:8px;padding:4px 10px;font-size:12px;margin-bottom:10px;">מצב בדיקה: חלון תשלום לאדמין בלבד</div>
+            <h2 class="kb-modal-title" id="kb-payment-title" style="text-align:center;"></h2>
+            <p class="kb-modal-text" style="text-align:center;">אמרתי לך כבר קודם שאני אוהב שהשיחות שלנו <strong>תומכות ועוזרות להתקדם בחיים</strong>. יחד עם זה, כמו הרבה דברים בחיים, אני עולה כסף, ועד עכשיו נורית שילמה עליי.</p>
+            <p class="kb-modal-text" style="text-align:center;">אני מזמין אותך להמשיך ולהשתמש באפליקציה, ואני <strong>יודע מניסיון רב</strong> שהשימוש ימשיך לתת לך ערך רב ולאורך זמן. בניתי שלושה מסלולים, ורק צריך לבחור את המתאים לך ביותר.</p>
+            <div id="kb-payment-plans" style="display:flex;flex-direction:column;gap:10px;margin:14px 0;"></div>
+            <label class="kb-field-label" for="kb-payment-name">שם</label>
+            <input type="text" id="kb-payment-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
+            <div class="kb-field-error" id="kb-payment-name-error" style="display:none;" role="alert">השם יכול לכלול רק אותיות, רווחים ומקפים.</div>
+            <label class="kb-field-label" for="kb-payment-email" style="margin-top:12px;">כתובת מייל</label>
+            <input type="email" id="kb-payment-email" class="kb-field" dir="ltr" autocomplete="email" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
+            <div class="kb-field-error" id="kb-payment-email-error" style="display:none;" role="alert">הכתובת לא נראית תקינה. כדאי לבדוק שוב.</div>
+            <p class="kb-modal-text" style="margin-top:10px;">בעמוד התשלום כדאי להשתמש באותה כתובת, כדי שהמסלול יתחבר אלייך/אליך.</p>
+            <div class="kb-alert-banner" id="kb-payment-send-error" style="display:none;"></div>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-main" id="kb-payment-submit">אשמח להירשם ולהמשיך</button>
+                <p class="kb-modal-text" style="text-align:center;font-size:13px;margin:4px 0;">בחירת המסלול והתשלום בעמוד המאובטח של קארדקום.</p>
+                <button type="button" class="kb-btn kb-btn--quiet" id="kb-payment-cancel" style="align-self:center;">אולי בפעם אחרת</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- §6.10.3: "התשלום מתעדכן" - מוצג אם account/status לא התעדכן עד 30
+         שניות אחרי החזרה מקארדקום (ר' kbWaitForPlanUpdate). -->
+    <div id="kb-payment-pending-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-payment-pending-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-payment-pending-title" style="text-align:center;">התשלום מתעדכן</h2>
+            <p class="kb-modal-text" style="text-align:center;">זה יכול לקחת עוד דקה. אם משהו לא מסתדר, <a href="#" id="kb-payment-pending-contact">כתבו לנו</a>.</p>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-outline" id="kb-payment-pending-close">סגירה</button>
             </div>
         </div>
     </div>
@@ -1912,12 +1952,13 @@
     // הנתיב היחסי ל-REST API של וורדפרס
     const API_BASE = '/wp-json/dcard/v1/session';
 
-    // כתובת הבסיס של דף התשלום בקארדקום - ה-Redirect לאחר שליחת טופס
-    // התשלום (4753) נעשה ישירות מה-JS (ר' submit_success למטה), לא
-    // מה-Action המובנה של אלמנטור - כי זה האחרון לא יודע לקרוא מ-
-    // localStorage כדי לשרשר את ReturnValue (dcard_userId, ר' תיקון
-    // מיפוי ה-SKU/זיהוי המשתמש) באופן דינמי.
-    const CARDCOM_PAYMENT_URL = 'https://secure.cardcom.solutions/EA/EA5/fxGKTgwmtUyAFyQOvObXIA/PaymentSP';
+    // כתובת הבסיס של דף התשלום בקארדקום - §6.10.2: הועברה לדף המכסות
+    // (DCard_Quotas::OPTION_CARDCOM_PAYMENT_URL), לא עוד קשיחה כאן. ה-
+    // fallback (אותה כתובת כמו קודם) הוא רק ליתר ביטחון אם dcardSettings
+    // חסר (למשל דף ישן בקאש). עדיין בשימוש גם ע"י ה-Redirect הידני
+    // (ר' submit_success למטה, פופאפ 4753 הישן - לא נמחק עדיין, ר' §6.10).
+    const CARDCOM_PAYMENT_URL = (window.dcardSettings && dcardSettings.cardcomPaymentUrl)
+        || 'https://secure.cardcom.solutions/EA/EA5/fxGKTgwmtUyAFyQOvObXIA/PaymentSP';
 
     let sessionToken = null;
     let sessionInitiated = false; // ר' תיקון באג 9 - מונע קריאה כפולה ל-initSession()
@@ -2063,7 +2104,12 @@
         // אמון פסיכולוגי: לא לחזור על אותו קלף תוך אותו סשן (כבר נבדק מול
         // drawnCards) *או* תוך עד 5 סשנים עוקבים באותו היום - ר'
         // recentCardExclusionSet/recordCardInHistory למטה.
-        recentCardHistory: 'dcard_recent_card_history'
+        recentCardHistory: 'dcard_recent_card_history',
+        // §6.10.3: נקבע ממש לפני ניווט לקארדקום (ר' kb-payment-modal submit),
+        // נבדק ב-kbHasCreditsOrHandleExhausted כשהמסלול עדיין לא התעדכן -
+        // מבדיל "בדיוק חזרנו מתשלום, אולי ה-IPN עוד בדרך" מ"סתם נגמרו
+        // הקרדיטים". מנוקה ברגע שהמסלול מתעדכן, או אחרי 30 שניות פולינג.
+        awaitingPayment: 'dcard_awaitingPayment'
     };
 
     function dcardGetLS(key) {
@@ -2194,7 +2240,6 @@
     // המקומית, שאף פעם לא רצה יותר לאחר הרשמה - ר' dcardIsRegistered).
     // Cooldown נפרד משלו, לא משתף את registrationWallLastShownAt, כדי
     // ששני הקירות לא "יחסמו" זה את זה בטעות אם שניהם קרו קרוב בזמן.
-    const PAYMENT_WALL_POPUP_ID = 4753;
     let paymentWallLastShownAt = 0;
     const PAYMENT_WALL_COOLDOWN_MS = 3000;
 
@@ -2269,15 +2314,13 @@
         );
     }
 
-    // תיקון באג (דווח בפועל - "קבלת מסר אישי לא עושה כלום, הכפתור נצבע
-    // באדום"): בניגוד ל-triggerRegistrationWall, הקריאה כאן ל-openPopupById
-    // לא העבירה כלל onGiveUp - כשה-popup (4753) לא נרשם ע"י Elementor
-    // (שוחזר ב-Playwright: "popup document (id=4753) never became ready
-    // after retries"), הפונקציה פשוט ויתרה בשקט, בלי שום משוב למשתמש -
-    // בניגוד ישיר לסעיף 7.2א ("אסור שלחיצה לא תעשה כלום"). anchorEl הוא
-    // האלמנט שה-caller מעביר (למשל הכפתור שנלחץ) - קובע איפה שורת ההתראה
-    // (קיימת/חדשה) מוצגת, כי triggerPaymentWall נקרא מכמה מסכים שונים.
-    function triggerPaymentWall(anchorEl) {
+    // §6.10.2: במקום פופאפ אלמנטור 4753 - חלון kb-payment-modal שלנו
+    // (ר' ההגדרה המלאה למטה, ליד kbOpenPaymentModal). anchorEl מועבר הלאה
+    // רק כדי לשמור על אותה חתימה כמו קודם (שימוש עתידי אפשרי, לא בשימוש
+    // היום כי kb-modal שלנו לא תלוי ב-elementorPopupModuleReady בכלל).
+    // adminTesting (ר' kbHandleCreditsExhausted) - מציג תווית "מצב בדיקה"
+    // בחלון במקום לדרוס את חלון "נגמרו השימושים לתקופת הניסיון".
+    function triggerPaymentWall(anchorEl, adminTesting) {
         const now = Date.now();
         if (now - paymentWallLastShownAt < PAYMENT_WALL_COOLDOWN_MS) {
             console.log('[DCard Quota] triggerPaymentWall() called again within cooldown - ignoring.');
@@ -2285,17 +2328,8 @@
         }
         paymentWallLastShownAt = now;
 
-        console.log('[DCard Quota] Credits exhausted (server) - opening payment wall (4753).');
-        populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, true);
-        openPopupById(PAYMENT_WALL_POPUP_ID, function () {
-            if (!anchorEl) return;
-            // סעיף 3.5א ("חלון אלמנטור לא נטען") - אותו טקסט/כפתורים קבועים
-            // כמו ב-triggerRegistrationWall (ר' ההערה שם).
-            kbShowAlertBanner(anchorEl, 'kb-popup-wall-error',
-                'החלון לא נפתח. אפשר לנסות שוב, או לכתוב לנו.',
-                function () { triggerPaymentWall(anchorEl); }, true);
-        });
-        populateUserFieldsWithRetries(PAYMENT_WALL_POPUP_ID, false);
+        console.log('[DCard Quota] Credits exhausted (server) - opening payment wall.' + (adminTesting ? ' (admin testing mode)' : ''));
+        kbOpenPaymentModal(!!adminTesting);
     }
 
     // סעיף 7.2א/3.5א/8: "נגמרו השימושים לתקופת הניסיון" - למשתמש רשום,
@@ -2353,12 +2387,54 @@
     // נשארים עם ההתנהגות הקודמת (חלון תשלום), לא פותחים חלון לא-צפוי.
     function kbHandleCreditsExhausted(anchorEl) {
         const paywallOn = !!(window.dcardSettings && dcardSettings.paywallEnabled);
-        if (paywallOn) {
-            triggerPaymentWall(anchorEl);
+        // תוספת (התבקש): מנהל מחובר (manage_options) מקבל תמיד את חלון
+        // התשלום האמיתי, גם כש"חלון התשלום פעיל" כבוי - כדי לבדוק את כל
+        // הזרימה (כולל קארדקום בפועל) ב-staging בלי לחשוף תשלום לנסיינים.
+        const adminTesting = !paywallOn && !!(window.dcardSettings && dcardSettings.adminPaymentTesting);
+        if (paywallOn || adminTesting) {
+            triggerPaymentWall(anchorEl, adminTesting);
         } else {
             kbShowCreditsExhaustedModal();
         }
     }
+
+    // §6.10.3: "אם המסלול עוד לא התעדכן ומשתמש מנסה להשתמש... בודקים שוב
+    // כל 2 שניות עד 30 שניות. אם עדיין אין עדכון: שורה 'התשלום מתעדכן'" -
+    // נקרא רק כש-DCARD_LS_KEYS.awaitingPayment מוגדר (נקבע ב-kb-payment-
+    // modal ממש לפני ניווט לקארדקום, ר' למטה) - כלומר רק אחרי שהמשתמש
+    // באמת ניסה לשלם, לא בכל "נגמרו הקרדיטים" סתמי. triggerBtn כבר מציג
+    // "רגע…" מה-caller (kbHasCreditsOrHandleExhausted) - ממשיך להציג אותו
+    // לאורך כל הפולינג. מחזיר true = הקרדיט התעדכן, אפשר להמשיך.
+    async function kbWaitForPlanUpdate(mode) {
+        const deadline = Date.now() + 30000;
+        while (Date.now() < deadline) {
+            await new Promise(function (resolve) { setTimeout(resolve, 2000); });
+            try {
+                const res = await fetch('/wp-json/dcard/v1/account/status', { method: 'GET', headers: dcardHeaders() });
+                const data = await res.json();
+                if (data && data.success) {
+                    const remaining = ( 'message' === mode ) ? data.current_credits_msg : data.current_credits_chat;
+                    if (remaining > 0) return true;
+                }
+            } catch (err) {
+                console.warn('[DCard Quota] kbWaitForPlanUpdate poll failed (non-fatal):', err);
+            }
+        }
+        return false;
+    }
+
+    const kbPaymentPendingModal = document.getElementById('kb-payment-pending-modal');
+    const kbPaymentPendingClose = document.getElementById('kb-payment-pending-close');
+    const kbPaymentPendingContact = document.getElementById('kb-payment-pending-contact');
+    kbPaymentPendingClose.addEventListener('click', function () { kbPaymentPendingModal.hidden = true; });
+    kbPaymentPendingModal.addEventListener('click', function (e) {
+        if (e.target === kbPaymentPendingModal) kbPaymentPendingModal.hidden = true;
+    });
+    kbPaymentPendingContact.addEventListener('click', function (e) {
+        e.preventDefault();
+        kbPaymentPendingModal.hidden = true;
+        kbOpenContactModal();
+    });
 
     // סעיף 7.2א: "לפני שמסך הערבוב נפתח... שואלים את השרת אם נשאר למשתמש
     // קרדיט לסוג השימוש הזה" - לרשומים. למשתמש אנונימי (ר' תיקון "קלף
@@ -2402,6 +2478,18 @@
             if (!data || !data.success) return true;
             const remaining = ( 'message' === mode ) ? data.current_credits_msg : data.current_credits_chat;
             if (remaining > 0) return true;
+
+            // §6.10.3: חזרה מקארדקום לפני שה-IPN הספיק להגיע - לא פותחים
+            // שוב את חלון התשלום, פולינג עד 30 שניות במקום זאת.
+            if (dcardGetLS(DCARD_LS_KEYS.awaitingPayment)) {
+                const updated = await kbWaitForPlanUpdate(mode);
+                try { localStorage.removeItem(DCARD_LS_KEYS.awaitingPayment); } catch (lsErr) { /* ignore */ }
+                if (updated) return true;
+                kbPaymentPendingModal.hidden = false;
+                kbPaymentPendingClose.focus();
+                return false;
+            }
+
             kbHandleCreditsExhausted(anchorEl || triggerBtn);
             return false;
         } catch (err) {
@@ -2775,6 +2863,7 @@
     const kbRegisterEmailError = document.getElementById('kb-register-email-error');
     const kbRegisterSubmit = document.getElementById('kb-register-submit');
     const kbRegisterCancel = document.getElementById('kb-register-cancel');
+    const kbRegisterTermsLead = document.getElementById('kb-register-terms-lead');
 
     // הפעולה שנחסמה (ר' triggerRegistrationWall) - רצה לבד תוך שנייה אחרי
     // הרשמה מוצלחת. null אם החלון נפתח בלי פעולה להמשיך (לא קורה היום,
@@ -2784,6 +2873,10 @@
     function kbOpenRegisterModal(continueFn) {
         kbRegisterModalContinueFn = continueFn || null;
         kbRegisterTitle.textContent = userName + ', נמשיך?';
+        // תיקון באג גנדר (דווח בפועל): השורה הייתה טקסט קבוע "את/ה מאשר/ת"
+        // בלי קשר למגדר שכבר נבחר ב"נעים להכיר" - אותו דפוס בינארי בדיוק
+        // כמו kbHomeParagraph/kbEmailExplain למטה בקובץ.
+        kbRegisterTermsLead.textContent = ( 'female' === userGender ) ? 'בהמשך את מאשרת' : 'בהמשך אתה מאשר';
         kbRegisterName.value = userName;
         kbRegisterEmail.value = dcardGetLS(DCARD_LS_KEYS.email) || '';
         kbClearFieldError(kbRegisterName, kbRegisterNameError);
@@ -2860,6 +2953,133 @@
         }
     });
 
+    // §6.10.2: חלון ההצטרפות למסלול (kb-payment-modal) - אותו דפוס מבני
+    // בדיוק כמו kb-register-modal למעלה (שם/מייל ממולאים-מראש, /register,
+    // קיר ה-cooldown כבר ב-triggerPaymentWall). ההבדל: אחרי הרשמה לא
+    // "ממשיכים לבד" פנימה - מנווטים לקארדקום.
+    const kbPaymentModal = document.getElementById('kb-payment-modal');
+    const kbPaymentAdminBadge = document.getElementById('kb-payment-admin-badge');
+    const kbPaymentTitle = document.getElementById('kb-payment-title');
+    const kbPaymentPlansEl = document.getElementById('kb-payment-plans');
+    const kbPaymentName = document.getElementById('kb-payment-name');
+    const kbPaymentEmail = document.getElementById('kb-payment-email');
+    const kbPaymentNameError = document.getElementById('kb-payment-name-error');
+    const kbPaymentEmailError = document.getElementById('kb-payment-email-error');
+    const kbPaymentSubmit = document.getElementById('kb-payment-submit');
+    const kbPaymentCancel = document.getElementById('kb-payment-cancel');
+
+    function kbPlanQuotaLine(label, value, unlimited) {
+        return '✓ ' + label + ': ' + (unlimited ? 'ללא הגבלה*' : ('עד ' + value + ' בחודש'));
+    }
+
+    // §6.10.2: "לשנה, במקום {מחיר חודשי × 12} ₪" + "חיסכון של {אחוז}%" -
+    // מחושב כאן מהמחיר של נורית (המסלול המקביל), floor כלפי מטה (אותו
+    // כלל כמו בעמוד המכסות - "לא להבטיח יותר ממה שיש").
+    function kbRenderPlanCards(plans) {
+        kbPaymentPlansEl.innerHTML = '';
+        const monthly = plans.find(function (p) { return 'nurit' === p.id; });
+        plans.forEach(function (plan) {
+            const card = document.createElement('div');
+            card.style.cssText = 'border:1px solid var(--line-strong,#D9C9CD);border-radius:14px;padding:14px 16px;';
+            let priceLine = '<strong>' + plan.label + '</strong> - ' + plan.price + ' ₪';
+            if ('nurit_yearly' === plan.id && monthly && monthly.price > 0) {
+                const monthlyEquivalent = monthly.price * 12;
+                const savingsPct = Math.max(Math.floor((1 - (plan.price / monthlyEquivalent)) * 100), 0);
+                priceLine += ' לשנה, במקום ' + monthlyEquivalent.toFixed(0) + ' ₪ <span style="background:var(--blush,#F6EFE6);border-radius:20px;padding:2px 8px;font-size:12px;">חיסכון של ' + savingsPct + '%</span>';
+            } else {
+                priceLine += ( 'שנתי' === plan.period ) ? ' לשנה' : ' לחודש';
+            }
+            card.innerHTML = '<div>' + priceLine + '</div>' +
+                '<div style="margin-top:6px;font-size:14px;color:var(--ink-soft,#4A3F43);">' + kbPlanQuotaLine('קבלת מסר', plan.credits_msg, plan.unlimited_msg) + '</div>' +
+                '<div style="font-size:14px;color:var(--ink-soft,#4A3F43);">' + kbPlanQuotaLine('דיאלוג מכוון', plan.credits_chat, plan.unlimited_chat) + '</div>';
+            kbPaymentPlansEl.appendChild(card);
+        });
+    }
+
+    let kbPaymentPlansCache = null;
+    async function kbOpenPaymentModal(adminTesting) {
+        kbPaymentAdminBadge.style.display = adminTesting ? '' : 'none';
+        kbPaymentTitle.textContent = userName + ', נמשיך יחד?';
+        kbPaymentName.value = userName;
+        kbPaymentEmail.value = dcardGetLS(DCARD_LS_KEYS.email) || '';
+        kbClearFieldError(kbPaymentName, kbPaymentNameError);
+        kbClearFieldError(kbPaymentEmail, kbPaymentEmailError);
+        kbHideAlertBanner('kb-payment-send-error');
+        kbPaymentModal.hidden = false;
+        kbPaymentName.focus();
+
+        kbPaymentPlansEl.innerHTML = '<p class="kb-modal-text">טוען מסלולים…</p>';
+        try {
+            const res = await fetch('/wp-json/dcard/v1/plans', { method: 'GET' });
+            const data = await res.json();
+            if (data && data.success && data.plans) {
+                kbPaymentPlansCache = data.plans;
+                kbRenderPlanCards(data.plans);
+            } else {
+                kbPaymentPlansEl.innerHTML = '';
+            }
+        } catch (err) {
+            console.warn('[DCard Payment] failed to load /plans (non-fatal, cards just stay empty):', err);
+            kbPaymentPlansEl.innerHTML = '';
+        }
+    }
+    function kbClosePaymentModal() {
+        kbPaymentModal.hidden = true;
+    }
+    kbPaymentCancel.addEventListener('click', kbClosePaymentModal);
+    kbPaymentModal.addEventListener('click', function (e) {
+        if (e.target === kbPaymentModal) kbClosePaymentModal();
+    });
+
+    kbPaymentSubmit.addEventListener('click', async function () {
+        const name = kbPaymentName.value.trim();
+        const email = kbPaymentEmail.value.trim();
+        if (!name || !DCARD_NAME_PATTERN.test(name)) {
+            kbShowFieldError(kbPaymentName, kbPaymentNameError, 'השם יכול לכלול רק אותיות, רווחים ומקפים.');
+            return;
+        }
+        if (!EMAIL_REGEX.test(email)) {
+            kbShowFieldError(kbPaymentEmail, kbPaymentEmailError, 'הכתובת לא נראית תקינה. כדאי לבדוק שוב.');
+            return;
+        }
+        kbClearFieldError(kbPaymentName, kbPaymentNameError);
+        kbClearFieldError(kbPaymentEmail, kbPaymentEmailError);
+        kbHideAlertBanner('kb-payment-send-error');
+        kbPaymentSubmit.disabled = true;
+
+        try {
+            const res = await fetch('/wp-json/dcard/v1/register', {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ email: email, name: name, gender: userGender })
+            });
+            const data = await res.json();
+            if (!data || !data.success) {
+                kbShowAlertBanner(kbPaymentEmail, 'kb-payment-send-error', 'ההרשמה לא הצליחה בגלל תקלה בחיבור.', function () { kbPaymentSubmit.click(); });
+                return;
+            }
+
+            if (name !== userName) {
+                userName = name;
+                kbUpdateHomeTexts();
+            }
+            dcardSetLS(DCARD_LS_KEYS.name, name);
+            dcardSetLS(DCARD_LS_KEYS.email, data.email || email);
+            dcardSetLS(DCARD_LS_KEYS.userId, String(data.user_id));
+            dcardSetLS(DCARD_LS_KEYS.deviceToken, data.deviceToken);
+
+            // §6.10.3: נקבע ממש לפני הניווט - ר' kbWaitForPlanUpdate.
+            dcardSetLS(DCARD_LS_KEYS.awaitingPayment, '1');
+
+            const cardcomRedirectUrl = CARDCOM_PAYMENT_URL + '?ReturnValue=' + encodeURIComponent(data.user_id);
+            console.log('[DCard Payment] redirecting to Cardcom:', cardcomRedirectUrl);
+            window.location.href = cardcomRedirectUrl;
+        } catch (e) {
+            kbShowAlertBanner(kbPaymentEmail, 'kb-payment-send-error', 'ההרשמה לא הצליחה בגלל תקלה בחיבור.', function () { kbPaymentSubmit.click(); });
+            kbPaymentSubmit.disabled = false;
+        }
+    });
+
     // תפריט ☰ (סעיף 5) - "האזור שלי" לא מוצג בשלב הזה, לפי ההנחיה.
     function kbOpenMenu() {
         kbMenuOverlay.hidden = false;
@@ -2927,6 +3147,8 @@
         else if (!kbFeedbackModal.hidden) kbFeedbackModal.hidden = true;
         else if (!kbCreditsExhaustedModal.hidden) kbCreditsExhaustedModal.hidden = true;
         else if (!kbRegisterModal.hidden) kbCloseRegisterModal();
+        else if (!kbPaymentModal.hidden) kbClosePaymentModal();
+        else if (!kbPaymentPendingModal.hidden) kbPaymentPendingModal.hidden = true;
         else if (!kbContactModal.hidden) kbCloseContactModal();
         // kb-onboarding-modal לא נסגר ב-Esc בכוונה - המידע חובה לפני שממשיכים.
     });

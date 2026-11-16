@@ -50,6 +50,7 @@ class DCard_Users {
 			current_credits_msg INT NOT NULL DEFAULT 0,
 			current_credits_chat INT NOT NULL DEFAULT 0,
 			plan_expires_at DATETIME NULL,
+			next_credit_reset_at DATETIME NULL,
 			session_token VARCHAR(64) NULL,
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
@@ -264,6 +265,12 @@ class DCard_Users {
 			return false;
 		}
 
+		// תיקון (todo.md, "חידוש וחליפת מסלול"): next_credit_reset_at
+		// נקבע ל-now + 30 יום בכל קריאה ל-set_plan() - כולל בכל IPN מוצלח,
+		// לא רק בהרשמה ראשונה - כך שהחידוש החודשי של מסלול שנתי נספר
+		// מתאריך התשלום בפועל, לא מתאריך קבוע. ר' run_renewal_and_expiry_
+		// check() למטה, שמשתמשת בשדה הזה בעיקר עבור מסלול שנתי (מסלול
+		// חודשי "מתאפס לבד" בכל IPN דרך קריאה זו).
 		return false !== $wpdb->update(
 			self::table(),
 			array(
@@ -271,12 +278,62 @@ class DCard_Users {
 				'current_credits_msg'  => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
 				'current_credits_chat' => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
 				'plan_expires_at'      => $expires_at,
+				'next_credit_reset_at' => gmdate( 'Y-m-d H:i:s', strtotime( '+30 days' ) ),
 				'updated_at'           => current_time( 'mysql', true ),
 			),
 			array( 'id' => $user_id ),
-			array( '%s', '%d', '%d', '%s', '%s' ),
+			array( '%s', '%d', '%d', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
+	}
+
+	/**
+	 * נקראת מ-dcard_daily_cleanup (ר' the-card-reader-core.php) - ההרחבה
+	 * שהתבקשה ב-todo.md ("חידוש וחליפת מסלול"). סדר מכוון: קודם תפוגה
+	 * (חליפה לחינמי), אחר כך איפוס חודשי - כדי שמשתמש שגם פג תוקפו וגם
+	 * הגיע תאריך איפוס לא "יתאפס" לרגע לפני שהוא יורד לחינמי.
+	 */
+	public static function run_renewal_and_expiry_check() {
+		global $wpdb;
+		self::ensure_table_exists();
+		$now = current_time( 'mysql', true );
+
+		// 1. תפוגה: plan_expires_at + 3 ימי חסד עבר ועדיין לא שולם מחדש
+		// (אחרת set_plan() מה-IPN כבר היה מעדכן plan_expires_at קדימה).
+		$expired_ids = $wpdb->get_col( $wpdb->prepare(
+			"SELECT id FROM " . self::table() . " WHERE current_plan != %s AND plan_expires_at IS NOT NULL AND DATE_ADD(plan_expires_at, INTERVAL 3 DAY) <= %s",
+			DCard_Plans::FREE,
+			$now
+		) );
+		foreach ( $expired_ids as $user_id ) {
+			self::set_plan( (int) $user_id, DCard_Plans::FREE, null );
+			DCard_Logger::info( 'dcard_daily_cleanup - plan expired (3 days grace passed), downgraded to free', array( 'user_id' => (int) $user_id ) );
+		}
+
+		// 2. איפוס חודשי: רק משתמשים שעדיין בתשלום אחרי שלב 1 (מסלול חודשי
+		// כבר "מתאפס לבד" בכל IPN דרך set_plan() - זה בעיקר רלוונטי
+		// למסלול שנתי, ר' ההערה המלאה ב-todo.md).
+		$due = $wpdb->get_results( $wpdb->prepare(
+			"SELECT id, current_plan FROM " . self::table() . " WHERE current_plan != %s AND next_credit_reset_at IS NOT NULL AND next_credit_reset_at <= %s",
+			DCard_Plans::FREE,
+			$now
+		), ARRAY_A );
+		foreach ( $due as $row ) {
+			$plan_id = $row['current_plan'];
+			$wpdb->update(
+				self::table(),
+				array(
+					'current_credits_msg'  => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
+					'current_credits_chat' => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
+					'next_credit_reset_at' => gmdate( 'Y-m-d H:i:s', strtotime( $now . ' +30 days' ) ),
+					'updated_at'           => $now,
+				),
+				array( 'id' => (int) $row['id'] ),
+				array( '%d', '%d', '%s', '%s' ),
+				array( '%d' )
+			);
+			DCard_Logger::info( 'dcard_daily_cleanup - monthly credit reset', array( 'user_id' => (int) $row['id'], 'plan_id' => $plan_id ) );
+		}
 	}
 
 	/**

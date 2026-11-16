@@ -16,32 +16,53 @@ if ( ! defined( 'ABSPATH' ) ) {
  * ר' ההסבר המלא ב-DCard_Users::deduct_credit ואיך זה מתקזז בפועל
  * ב-session_card_selected_inner/session_turn_inner.
  *
- * הרחבה למסלול נוסף = שורה אחת כאן, לא חיפוש-והחלפה בכמה קבצים.
+ * תיקון §6.10.2 (מסך "ניהול · דף המכסות"): "ללא הגבלה" הפך לתווית-תצוגה
+ * בלבד (תיבת checkbox נפרדת, OPTION_X_UNLIMITED_MSG/CHAT), לא נגזר יותר
+ * מהמספר (999999) - credits_for_plan()/has_credits()/deduct_credit()
+ * ממשיכים תמיד לאכוף את המספר האמיתי, בלי קשר לתווית. גם שם התצוגה,
+ * המחיר וה-ProductID בקארדקום עברו לשדות ב-DCard_Quotas (admin), לא קוד
+ * קשיח - כך שינוי שלהם לא דורש deploy.
+ *
+ * הרחבה למסלול נוסף = שורה אחת כאן (plan_period_days) + שורה אחת ב-
+ * DCard_Quotas (plan_fields_config), לא חיפוש-והחלפה בכמה קבצים.
  */
 class DCard_Plans {
 
 	const FREE         = 'free';
 	const NARKIS       = 'narkis';
 	const NURIT        = 'nurit';
-	const NURIT_YEARLY = 'nurit_yearly'; // מק"ט 603 - אותם קרדיטים כמו NURIT, רק תוקף 365 יום במקום 30
-
-	// ערך "ללא הגבלה" מוסכם - לא Infinity/null, כדי שאפשר לשמור אותו
-	// כ-INT רגיל בעמודות current_credits_msg/current_credits_chat (INT)
-	// מבלי טיפול מיוחד ב-DB.
-	const UNLIMITED_CREDITS = 999999;
+	const NURIT_YEARLY = 'nurit_yearly'; // אותם קרדיטים כמו NURIT, רק תוקף 365 יום במקום 30
 
 	/**
-	 * מק"טים (ExtReadInvoiceLines_ProductID) כפי שאומתו בפועל מתוך לוג
-	 * ה-IPN האמיתי של קארדקום (לא ניחוש substring כמו קודם) - כל אחד
-	 * ממופה למסלול ולמשך התוקף שלו (ימים) באותו מקום, כדי שלא יהיו שני
-	 * מקורות אמת נפרדים (אחד למסלול, אחד למשך) שיכולים להתגלגל.
+	 * משך תוקף בימים לכל מסלול בתשלום - קבוע לפי המסלול (§6.10.2: "תקופה
+	 * (טקסט קבוע, לא שדה)"), לא נגזר מה-ProductID (שהוא עצמו עכשיו שדה
+	 * ב-admin, ר' DCard_Quotas) ולא ניתן לעריכה.
 	 */
-	private static function cardcom_sku_map() {
+	private static function plan_period_days() {
 		return array(
-			'601' => array( 'plan' => self::NARKIS,       'days' => 30 ),
-			'602' => array( 'plan' => self::NURIT,        'days' => 30 ),
-			'603' => array( 'plan' => self::NURIT_YEARLY, 'days' => 365 ),
+			self::NARKIS       => 30,
+			self::NURIT        => 30,
+			self::NURIT_YEARLY => 365,
 		);
+	}
+
+	/**
+	 * "חודשי"/"שנתי" לתצוגה בלבד - אותה טבלה כמו plan_period_days, נשמרת
+	 * נפרדת כדי לא "לנחש" טקסט ממספר הימים (365 יום הוא "שנתי", אבל אין
+	 * סיבה להצמיד טקסט-תצוגה ללוגיקת ימים בקוד אחד).
+	 */
+	public static function period_label_for_plan( $plan_id ) {
+		return ( self::NURIT_YEARLY === $plan_id ) ? 'שנתי' : 'חודשי';
+	}
+
+	/**
+	 * שלושת המסלולים בתשלום שה-admin מציג/עורך (ר' DCard_Quotas::
+	 * paid_plan_ids_config) - רשימה קבועה (לא "הוספת מסלול" גנרית, ר'
+	 * ההערה ב-DCard_Quotas), אבל כל השדות שלהם (שם לתצוגה/מחיר/ProductID/
+	 * ללא-הגבלה) כן ניתנים לעריכה.
+	 */
+	public static function paid_plan_ids() {
+		return array( self::NARKIS, self::NURIT, self::NURIT_YEARLY );
 	}
 
 	/**
@@ -55,17 +76,17 @@ class DCard_Plans {
 				'credits_chat' => self::free_plan_chat_credits(),
 			),
 			self::NARKIS       => array(
-				'label'        => 'נרקיס',
+				'label'        => self::label_for_plan( self::NARKIS ),
 				'credits_msg'  => self::narkis_msg_credits(),
 				'credits_chat' => self::narkis_chat_credits(),
 			),
 			self::NURIT        => array(
-				'label'        => 'נורית',
+				'label'        => self::label_for_plan( self::NURIT ),
 				'credits_msg'  => self::nurit_msg_credits(),
 				'credits_chat' => self::nurit_chat_credits(),
 			),
 			self::NURIT_YEARLY => array(
-				'label'        => 'נורית (שנתי)',
+				'label'        => self::label_for_plan( self::NURIT_YEARLY ),
 				'credits_msg'  => self::nurit_yearly_msg_credits(),
 				'credits_chat' => self::nurit_yearly_chat_credits(),
 			),
@@ -77,24 +98,11 @@ class DCard_Plans {
 	 * current_credits=0 (ערך קשיח), שגרם לכישלון חוזר בכל פעולה ול"לופ"
 	 * של פתיחת פופאפ ההרשמה. עכשיו דינמי - נשלף מההגדרה הקיימת ב-
 	 * Settings > ניהול מכסות ("מקס' מסרים" בשורת "חינמי").
-	 *
-	 * *** שם המפתח: לא dcard_registered_msg_limit (כפי שהוצע כ-placeholder
-	 * אם לא ייזכר השם המדויק) - המפתח כבר קיים בפועל וכבר יש לו עמוד
-	 * הגדרות: DCard_Quotas::OPTION_REG_MSG_LIMIT ('dcard_reg_msg_limit',
-	 * ברירת מחדל 10 - DCard_Quotas::DEFAULT_REG_MSG_LIMIT). שימוש בשם
-	 * חדש היה מפצל את ההגדרה לשני מקומות נפרדים בלי קשר אמיתי ביניהם -
-	 * זה שכבר קיים הוא בדיוק ההגדרה שהתיאור מבקש. ***
 	 */
 	private static function free_plan_msg_credits() {
 		return (int) get_option( DCard_Quotas::OPTION_REG_MSG_LIMIT, DCard_Quotas::DEFAULT_REG_MSG_LIMIT );
 	}
 
-	/**
-	 * תיקון (אותו פיצול מסר/שיחה) - OPTION_REG_CHAT_LIMIT כבר היה קיים
-	 * בעמוד ההגדרות (לשימוש עתידי, ר' ההיסטוריה בקוד) אבל שום קוד לא
-	 * קרא לו בפועל עד כה - עכשיו זה המקור למאגר הקרדיטים של "שיחה מפתחת"
-	 * במסלול החינמי.
-	 */
 	private static function free_plan_chat_credits() {
 		return (int) get_option( DCard_Quotas::OPTION_REG_CHAT_LIMIT, DCard_Quotas::DEFAULT_REG_CHAT_LIMIT );
 	}
@@ -142,37 +150,107 @@ class DCard_Plans {
 		return (int) $plans[ self::FREE ][ $key ];
 	}
 
+	/**
+	 * תיקון §6.10.2: "ללא הגבלה" הוא תווית-תצוגה בלבד, נקבע עכשיו ע"י
+	 * תיבת checkbox ייעודית לכל מסלול בתשלום (לא עוד "credits >= 999999") -
+	 * כך שהמספר האמיתי יכול להיות קטן (למשל 100, מכסת שימוש הוגן) בלי
+	 * להיחשב בטעות "לא ללא הגבלה". free/narkis תמיד false (אין להם תיבה).
+	 */
 	public static function is_unlimited( $plan_id, $type = 'msg' ) {
-		return self::credits_for_plan( $plan_id, $type ) >= self::UNLIMITED_CREDITS;
+		$option = DCard_Quotas::unlimited_option_name( $plan_id, $type );
+		if ( ! $option ) {
+			return false;
+		}
+		return (bool) get_option( $option, DCard_Quotas::default_unlimited( $plan_id, $type ) );
 	}
 
 	public static function label_for_plan( $plan_id ) {
-		$plans = self::all();
-		return isset( $plans[ $plan_id ] ) ? $plans[ $plan_id ]['label'] : $plan_id;
+		$option = DCard_Quotas::label_option_name( $plan_id );
+		if ( $option ) {
+			$default = DCard_Quotas::default_label( $plan_id );
+			$label   = (string) get_option( $option, $default );
+			return '' !== trim( $label ) ? $label : $default;
+		}
+		$fallback = array(
+			self::FREE => 'חינמי',
+		);
+		return isset( $fallback[ $plan_id ] ) ? $fallback[ $plan_id ] : $plan_id;
+	}
+
+	public static function price_for_plan( $plan_id ) {
+		$option = DCard_Quotas::price_option_name( $plan_id );
+		return $option ? (float) get_option( $option, 0 ) : 0.0;
+	}
+
+	public static function product_id_for_plan( $plan_id ) {
+		$option = DCard_Quotas::product_id_option_name( $plan_id );
+		return $option ? trim( (string) get_option( $option, DCard_Quotas::default_product_id( $plan_id ) ) ) : '';
+	}
+
+	public static function is_plan_active( $plan_id ) {
+		$option = DCard_Quotas::active_option_name( $plan_id );
+		return $option ? (bool) get_option( $option, true ) : true;
 	}
 
 	/**
-	 * מיפוי מק"ט (Cardcom ExtReadInvoiceLines_ProductID) למסלול - מק"טים
-	 * מספריים מדויקים שאומתו מתוך לוג ה-IPN האמיתי של קארדקום (601/602/
-	 * 603), לא substring על שם מילולי כמו בניחוש הקודם. null אם המק"ט
-	 * לא מוכר - עסקת תשלום בפועל עם מק"ט לא מוכר היא מצב שצריך להיבדק,
-	 * לא להיפול אוטומטית למסלול החינמי.
+	 * מיפוי מק"ט (Cardcom ExtReadInvoiceLines_ProductID) למסלול - דינמי
+	 * עכשיו (נקרא מהשדה "ProductID בקארדקום" שה-admin מכניס בדף המכסות,
+	 * ר' DCard_Quotas), לא קבוע קשיח בקוד. null אם המק"ט לא תואם אף מסלול
+	 * (בתשלום) מוכר - עסקת תשלום בפועל עם מק"ט לא מוכר היא מצב שצריך
+	 * להיבדק, לא להיפול אוטומטית למסלול החינמי.
 	 */
 	public static function map_product_id_to_plan( $product_id ) {
-		$sku = self::cardcom_sku_map();
 		$product_id = trim( (string) $product_id );
-		return isset( $sku[ $product_id ] ) ? $sku[ $product_id ]['plan'] : null;
+		if ( '' === $product_id ) {
+			return null;
+		}
+		foreach ( self::paid_plan_ids() as $plan_id ) {
+			if ( self::product_id_for_plan( $plan_id ) === $product_id ) {
+				return $plan_id;
+			}
+		}
+		return null;
 	}
 
 	/**
-	 * משך תוקף בימים - לפי אותו מיפוי מק"ט מדויק (לא ניחוש substring
-	 * "שנתי"/"yearly" כמו קודם). 30 (ברירת מחדל סבירה) למק"ט לא מוכר -
-	 * map_product_id_to_plan() כבר דוחה את העסקה לפני שמגיעים לכאן בכלל
-	 * במקרה כזה, אז זה למעשה "לא אמור לקרות", רק הגנה.
+	 * משך תוקף בימים - לפי המסלול עצמו (לא עוד לפי ה-ProductID, ר' ההערה
+	 * ב-plan_period_days). 30 (ברירת מחדל סבירה) למסלול לא מוכר - "לא
+	 * אמור לקרות" בפועל, רק הגנה.
 	 */
-	public static function plan_duration_days( $product_id ) {
-		$sku = self::cardcom_sku_map();
-		$product_id = trim( (string) $product_id );
-		return isset( $sku[ $product_id ] ) ? (int) $sku[ $product_id ]['days'] : 30;
+	public static function plan_duration_days( $plan_id ) {
+		$days = self::plan_period_days();
+		return isset( $days[ $plan_id ] ) ? (int) $days[ $plan_id ] : 30;
+	}
+
+	/**
+	 * נתוני מסלול בתשלום מלאים, לשימוש GET /plans (ר' class-dcard-rest-
+	 * controller.php) ולדף המכסות - מקור אחד לכל השדות, לא איסוף ידני בכל
+	 * caller. ProductID לא נכלל בכוונה (לא רלוונטי ללקוח - קארדקום מזהה
+	 * מסלול לפי כפתורי הרדיו בעמוד שלהם עצמם, לא מה-URL שלנו).
+	 */
+	public static function public_plan_data( $plan_id ) {
+		return array(
+			'id'            => $plan_id,
+			'label'         => self::label_for_plan( $plan_id ),
+			'price'         => self::price_for_plan( $plan_id ),
+			'period'        => self::period_label_for_plan( $plan_id ),
+			'credits_msg'   => self::credits_for_plan( $plan_id, 'msg' ),
+			'credits_chat'  => self::credits_for_plan( $plan_id, 'chat' ),
+			'unlimited_msg' => self::is_unlimited( $plan_id, 'msg' ),
+			'unlimited_chat'=> self::is_unlimited( $plan_id, 'chat' ),
+		);
+	}
+
+	/**
+	 * @return array<int, array> רק מסלולים פעילים, לפי סדר paid_plan_ids().
+	 */
+	public static function active_public_plans() {
+		$out = array();
+		foreach ( self::paid_plan_ids() as $plan_id ) {
+			if ( self::is_plan_active( $plan_id ) ) {
+				$out[] = self::public_plan_data( $plan_id );
+			}
+		}
+		return $out;
 	}
 }

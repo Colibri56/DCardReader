@@ -5,20 +5,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Freemium PLG funnel, step 1: usage quotas for anonymous vs. registered
- * users. This class only owns the admin settings page (top-level menu,
- * "קורא בקלפים - הגדרות") and the wp_options the limits live in, plus
- * localizing the two ANONYMOUS limits to the frontend. The actual
+ * users. This class owns the admin settings page ("ניהול מכסות") and the
+ * wp_options the limits/plan metadata live in, plus localizing the
+ * ANONYMOUS limits + payment settings to the frontend. The actual
  * tracking/gatekeeping for anonymous users (localStorage counters +
  * triggerRegistrationWall()) lives in frontend/elementor-code.html; the
  * registered-user limits below ARE enforced server-side (ר' DCard_Users
  * ו-DCard_Plans).
  *
- * תיקון (התבקש: "לכל מסלול יש להגדיר כמות מקסימלית למסרים וכמות
- * מקסימלית לשיחה מפתחת... להציג את זה כטבלה ולא טור ארוך") - כל שדה
- * "קרדיטים" כאן פוצל לשני שדות נפרדים (מסר/שיחה מפתחת) לכל מסלול, ו-
- * render_page() מציג את כולם (כולל האנונימי, חינמי) כטבלה אחת עם עמודות
- * "מקס' מסרים" ו"מקס' שיחות מפתחות" - לא טור ארוך של שדות בודדים. ר'
- * ההסבר המלא ב-DCard_Plans על איך הקרדיטים האלה בפועל מנוצלים/מקוזזים.
+ * תיקון §6.10.2 ("ניהול · דף המכסות: מסלולים ומחירים") - כל מסלול בתשלום
+ * (נרקיס/נורית/נורית שנתי - עדיין 3 שורות קבועות, לא "הוספת מסלול" גנרית)
+ * מקבל עכשיו גם: פעיל, שם לתצוגה, מחיר, "להציג ללא הגבלה" (נפרד למסר/
+ * דיאלוג, ר' DCard_Plans::is_unlimited), ו-ProductID בקארדקום. "תקופה"
+ * נשארת טקסט קבוע (לא שדה) - ר' DCard_Plans::period_label_for_plan.
+ * כתובת התשלום המשותפת ("עמוד התשלום") עברה לכאן מקוד קשיח ב-JS.
  */
 class DCard_Quotas {
 
@@ -29,27 +29,22 @@ class DCard_Quotas {
 	const OPTION_REG_MSG_LIMIT   = 'dcard_reg_msg_limit';
 	const OPTION_REG_CHAT_LIMIT  = 'dcard_reg_chat_limit';
 
-	// תיקון (התבקש: "לקוח שמתמיד במשך יום X שאלות... לעצור אותו בהודעה
-	// מנומסת שמזמינה להמשיך מחר" + "להגביל את הסכום החודשי") - שתי מגבלות
-	// נפרדות: קריאות AI ביום למשתמש *רשום* בודד (ר' DCard_Usage_Logs::
-	// count_calls_today, שאוכפת את זה ב-class-dcard-rest-controller.php),
-	// ותקציב דולרי חודשי *כולל* (כל המשתמשים/המודלים יחד - ר'
-	// DCard_Usage_Logs::maybe_send_monthly_budget_alert).
 	const OPTION_DAILY_AI_CALL_LIMIT = 'dcard_daily_ai_call_limit';
 	const OPTION_MONTHLY_AI_BUDGET   = 'dcard_monthly_ai_budget_usd';
 
 	// סעיף 8 (design-spec): "חלון ההרשמה בתשלום מבוטל זמנית לנסיינים" - מתג
-	// בעמוד הזה, לא קבוע בקוד. כבוי כברירת מחדל בתקופת הבדיקות - משתמש
-	// רשום שנגמרו לו הקרדיטים רואה "נגמרו השימושים לתקופת הניסיון" (חלון
-	// שלנו) במקום חלון התשלום (triggerPaymentWall/4753). ר' שימוש ב-JS
-	// (dcardSettings.paywallEnabled) ב-elementor-code.html.
+	// בעמוד הזה, לא קבוע בקוד. כבוי כברירת מחדל בתקופת הבדיקות.
 	const OPTION_PAYWALL_ENABLED = 'dcard_paywall_enabled';
 	const DEFAULT_PAYWALL_ENABLED = false;
 
+	// §6.10.2: כתובת התשלום המשותפת - מחליפה את ה-CARDCOM_PAYMENT_URL
+	// שהיה קשיח ב-JS. שדה אחד בלבד - בחירת המסלול נעשית בכפתורי רדיו
+	// בעמוד התשלום של קארדקום עצמו, לא ב-URL.
+	const OPTION_CARDCOM_PAYMENT_URL = 'dcard_cardcom_payment_url';
+	const DEFAULT_CARDCOM_PAYMENT_URL = 'https://secure.cardcom.solutions/EA/EA5/fxGKTgwmtUyAFyQOvObXIA/PaymentSP';
+
 	// קרדיטים לכל מסלול בתשלום, מפוצלים מסר/שיחה מפתחת (ר' הערת ה-class
-	// למעלה). 999999 ומעלה = ללא הגבלה (זהה ל-DCard_Plans::UNLIMITED_
-	// CREDITS - לא מפנים לקבוע של מחלקה אחרת כאן כדי לא להסתמך על סדר
-	// טעינת הקבצים).
+	// למעלה).
 	const OPTION_NARKIS_MSG_CREDITS        = 'dcard_narkis_msg_credits';
 	const OPTION_NARKIS_CHAT_CREDITS       = 'dcard_narkis_chat_credits';
 	const OPTION_NURIT_MSG_CREDITS         = 'dcard_nurit_msg_credits';
@@ -57,31 +52,157 @@ class DCard_Quotas {
 	const OPTION_NURIT_YEARLY_MSG_CREDITS  = 'dcard_nurit_yearly_msg_credits';
 	const OPTION_NURIT_YEARLY_CHAT_CREDITS = 'dcard_nurit_yearly_chat_credits';
 
+	// §6.10.2 - שדות חדשים לכל מסלול בתשלום: פעיל / שם לתצוגה / מחיר /
+	// "להציג ללא הגבלה" (מסר, דיאלוג בנפרד) / ProductID בקארדקום.
+	const OPTION_NARKIS_ACTIVE              = 'dcard_narkis_active';
+	const OPTION_NARKIS_LABEL               = 'dcard_narkis_label';
+	const OPTION_NARKIS_PRICE               = 'dcard_narkis_price';
+	const OPTION_NARKIS_UNLIMITED_MSG       = 'dcard_narkis_unlimited_msg';
+	const OPTION_NARKIS_UNLIMITED_CHAT      = 'dcard_narkis_unlimited_chat';
+	const OPTION_NARKIS_PRODUCT_ID          = 'dcard_narkis_product_id';
+
+	const OPTION_NURIT_ACTIVE               = 'dcard_nurit_active';
+	const OPTION_NURIT_LABEL                = 'dcard_nurit_label';
+	const OPTION_NURIT_PRICE                = 'dcard_nurit_price';
+	const OPTION_NURIT_UNLIMITED_MSG        = 'dcard_nurit_unlimited_msg';
+	const OPTION_NURIT_UNLIMITED_CHAT       = 'dcard_nurit_unlimited_chat';
+	const OPTION_NURIT_PRODUCT_ID           = 'dcard_nurit_product_id';
+
+	const OPTION_NURIT_YEARLY_ACTIVE          = 'dcard_nurit_yearly_active';
+	const OPTION_NURIT_YEARLY_LABEL           = 'dcard_nurit_yearly_label';
+	const OPTION_NURIT_YEARLY_PRICE           = 'dcard_nurit_yearly_price';
+	const OPTION_NURIT_YEARLY_UNLIMITED_MSG   = 'dcard_nurit_yearly_unlimited_msg';
+	const OPTION_NURIT_YEARLY_UNLIMITED_CHAT  = 'dcard_nurit_yearly_unlimited_chat';
+	const OPTION_NURIT_YEARLY_PRODUCT_ID      = 'dcard_nurit_yearly_product_id';
+
 	// ברירות מחדל זמניות בלבד - אין שום משמעות "נכונה" ידועה מראש למגבלות
 	// האלה, המנהל צריך לכוון אותן בעצמו בעמוד ההגדרות לפי מה שמתאים לעסק.
-	// "נרקיס" (המסלול המוגבל) מקבל 15/15 כנקודת פתיחה (אותו מספר שהיה
-	// קודם למאגר המשולב) - "נורית"/"נורית (שנתי)" נשארים ללא הגבלה בשני
-	// הצירים כברירת מחדל, כמו שהיו קודם.
 	const DEFAULT_ANON_MSG_LIMIT  = 1;
 	const DEFAULT_ANON_CHAT_LIMIT = 5;
 	const DEFAULT_REG_MSG_LIMIT   = 10;
 	const DEFAULT_REG_CHAT_LIMIT  = 30;
 	const DEFAULT_NARKIS_MSG_CREDITS        = 15;
 	const DEFAULT_NARKIS_CHAT_CREDITS       = 15;
+	// תיקון §6.10.2: 999999 לא תקף יותר כ"ערך קסם" - נשאר כברירת מחדל
+	// מספרית זמנית (עד שהמנהל מזין מספר שימוש-הוגן אמיתי) אבל "ללא הגבלה"
+	// עכשיו נקבע אך ורק ע"י ה-checkbox (DEFAULT_*_UNLIMITED_* למטה, true
+	// לנורית/נורית-שנתי - משמר את ההתנהגות שהייתה בפועל לפני השינוי).
+	// עמוד ההגדרות מציג אזהרה (ר' render_plan_row) כשמספר כלשהו > 1000,
+	// כדי לתזכר להחליף את 999999 במספר שימוש-הוגן אמיתי.
 	const DEFAULT_NURIT_MSG_CREDITS         = 999999;
 	const DEFAULT_NURIT_CHAT_CREDITS        = 999999;
 	const DEFAULT_NURIT_YEARLY_MSG_CREDITS  = 999999;
 	const DEFAULT_NURIT_YEARLY_CHAT_CREDITS = 999999;
-	// הוגדר יחד עם המשתמש (31.10.26): 40 קריאות AI ביום למשתמש רשום בודד
-	// (מאפשר שיחה מפתחת אחת ארוכה-בינונית ביום בלי להרגיש חסום), ותקציב
-	// AI חודשי כולל של $150 (נקבע כברירת מחדל זהירה, ניתן לכוונן).
 	const DEFAULT_DAILY_AI_CALL_LIMIT = 40;
 	const DEFAULT_MONTHLY_AI_BUDGET   = 150;
 
-	// תיקון איחוד תפריטים: קודם add_menu_page() נפרד ("DCard Quotas") - עכשיו
-	// תת-תפריט של ה-CPT "הקורא בקלפים" (projective_card), לצד "הגדרות AI"
-	// (DCard_Settings) ותת-התפריטים האוטומטיים של ה-CPT עצמו. כל התוסף
-	// נגיש כעת מתפריט ניהול אחד, כפי שהתבקש.
+	/**
+	 * מפתח-יחיד להגדרת כל מסלול בתשלום - משמש גם את ה-settings/sanitizers
+	 * וגם את render_page()/DCard_Plans (דרך ה-getters למטה), כדי שהוספת/
+	 * שינוי שדה למסלול יהיה שינוי במקום אחד.
+	 */
+	private static function paid_plan_fields_config() {
+		return array(
+			DCard_Plans::NARKIS       => array(
+				'default_label'      => 'נרקיס',
+				'default_product_id' => '601',
+				'default_unlimited'  => false,
+				'active'        => self::OPTION_NARKIS_ACTIVE,
+				'label'         => self::OPTION_NARKIS_LABEL,
+				'price'         => self::OPTION_NARKIS_PRICE,
+				'unlimited_msg' => self::OPTION_NARKIS_UNLIMITED_MSG,
+				'unlimited_chat'=> self::OPTION_NARKIS_UNLIMITED_CHAT,
+				'product_id'    => self::OPTION_NARKIS_PRODUCT_ID,
+				'msg_credits'   => self::OPTION_NARKIS_MSG_CREDITS,
+				'chat_credits'  => self::OPTION_NARKIS_CHAT_CREDITS,
+			),
+			DCard_Plans::NURIT        => array(
+				'default_label'      => 'נורית',
+				'default_product_id' => '602',
+				'default_unlimited'  => true,
+				'active'        => self::OPTION_NURIT_ACTIVE,
+				'label'         => self::OPTION_NURIT_LABEL,
+				'price'         => self::OPTION_NURIT_PRICE,
+				'unlimited_msg' => self::OPTION_NURIT_UNLIMITED_MSG,
+				'unlimited_chat'=> self::OPTION_NURIT_UNLIMITED_CHAT,
+				'product_id'    => self::OPTION_NURIT_PRODUCT_ID,
+				'msg_credits'   => self::OPTION_NURIT_MSG_CREDITS,
+				'chat_credits'  => self::OPTION_NURIT_CHAT_CREDITS,
+			),
+			DCard_Plans::NURIT_YEARLY => array(
+				'default_label'      => 'נורית (שנתי)',
+				'default_product_id' => '603',
+				'default_unlimited'  => true,
+				'active'        => self::OPTION_NURIT_YEARLY_ACTIVE,
+				'label'         => self::OPTION_NURIT_YEARLY_LABEL,
+				'price'         => self::OPTION_NURIT_YEARLY_PRICE,
+				'unlimited_msg' => self::OPTION_NURIT_YEARLY_UNLIMITED_MSG,
+				'unlimited_chat'=> self::OPTION_NURIT_YEARLY_UNLIMITED_CHAT,
+				'product_id'    => self::OPTION_NURIT_YEARLY_PRODUCT_ID,
+				'msg_credits'   => self::OPTION_NURIT_YEARLY_MSG_CREDITS,
+				'chat_credits'  => self::OPTION_NURIT_YEARLY_CHAT_CREDITS,
+			),
+		);
+	}
+
+	// --- Getters בשימוש DCard_Plans (לא ניגש ל-wp_options ישירות, כדי
+	// שיהיה רק מקום אחד שמכיר את שמות ה-options). מחזירים null למסלול לא
+	// מוכר (free) - DCard_Plans כבר מטפל בכך.
+
+	public static function active_option_name( $plan_id ) {
+		$cfg = self::paid_plan_fields_config();
+		return isset( $cfg[ $plan_id ] ) ? $cfg[ $plan_id ]['active'] : null;
+	}
+
+	public static function label_option_name( $plan_id ) {
+		$cfg = self::paid_plan_fields_config();
+		return isset( $cfg[ $plan_id ] ) ? $cfg[ $plan_id ]['label'] : null;
+	}
+
+	public static function default_label( $plan_id ) {
+		$cfg = self::paid_plan_fields_config();
+		return isset( $cfg[ $plan_id ] ) ? $cfg[ $plan_id ]['default_label'] : $plan_id;
+	}
+
+	public static function price_option_name( $plan_id ) {
+		$cfg = self::paid_plan_fields_config();
+		return isset( $cfg[ $plan_id ] ) ? $cfg[ $plan_id ]['price'] : null;
+	}
+
+	public static function product_id_option_name( $plan_id ) {
+		$cfg = self::paid_plan_fields_config();
+		return isset( $cfg[ $plan_id ] ) ? $cfg[ $plan_id ]['product_id'] : null;
+	}
+
+	public static function default_product_id( $plan_id ) {
+		$cfg = self::paid_plan_fields_config();
+		return isset( $cfg[ $plan_id ] ) ? $cfg[ $plan_id ]['default_product_id'] : '';
+	}
+
+	public static function unlimited_option_name( $plan_id, $type ) {
+		$cfg = self::paid_plan_fields_config();
+		if ( ! isset( $cfg[ $plan_id ] ) ) {
+			return null;
+		}
+		return ( 'chat' === $type ) ? $cfg[ $plan_id ]['unlimited_chat'] : $cfg[ $plan_id ]['unlimited_msg'];
+	}
+
+	public static function default_unlimited( $plan_id, $type ) {
+		$cfg = self::paid_plan_fields_config();
+		return isset( $cfg[ $plan_id ] ) ? $cfg[ $plan_id ]['default_unlimited'] : false;
+	}
+
+	public static function get_cardcom_payment_url() {
+		return (string) get_option( self::OPTION_CARDCOM_PAYMENT_URL, self::DEFAULT_CARDCOM_PAYMENT_URL );
+	}
+
+	// תיקון §6.10.2.5: "logged-in WordPress admin מקבל את חלון התשלום
+	// האמיתי גם כש'חלון התשלום פעיל' כבוי" - כדי לבדוק את כל הזרימה (כולל
+	// קארדקום בפועל) ב-staging בלי שהנסיינים הרגילים יראו תשלום חי.
+	public static function admin_payment_testing_active() {
+		return current_user_can( 'manage_options' ) && ! self::is_paywall_enabled();
+	}
+
 	public static function register_menu() {
 		add_submenu_page(
 			'edit.php?post_type=projective_card',
@@ -95,8 +216,17 @@ class DCard_Quotas {
 
 	public static function register_settings() {
 		$int_sanitizer = function ( $value ) {
-			$int = absint( $value ); // שולל/לא-מספרי -> 0, לא שומר ערך לא תקין בשקט
-			return $int;
+			return absint( $value ); // שולל/לא-מספרי -> 0, לא שומר ערך לא תקין בשקט
+		};
+		$price_sanitizer = function ( $value ) {
+			$float = (float) $value;
+			return $float > 0 ? round( $float, 2 ) : 0.0;
+		};
+		$bool_sanitizer = function ( $value ) {
+			return $value ? 1 : 0;
+		};
+		$text_sanitizer = function ( $value ) {
+			return sanitize_text_field( (string) $value );
 		};
 
 		$int_options = array(
@@ -112,7 +242,6 @@ class DCard_Quotas {
 			self::OPTION_NURIT_YEARLY_MSG_CREDITS   => self::DEFAULT_NURIT_YEARLY_MSG_CREDITS,
 			self::OPTION_NURIT_YEARLY_CHAT_CREDITS  => self::DEFAULT_NURIT_YEARLY_CHAT_CREDITS,
 		);
-
 		foreach ( $int_options as $option_name => $default ) {
 			register_setting( self::OPTION_GROUP, $option_name, array(
 				'sanitize_callback' => $int_sanitizer,
@@ -121,25 +250,48 @@ class DCard_Quotas {
 		}
 
 		register_setting( self::OPTION_GROUP, self::OPTION_MONTHLY_AI_BUDGET, array(
-			// תקציב בדולרים, יכול להיות עם אגורות (150.5) - לא absint כמו
-			// שאר המגבלות (שהן כולן ספירת סשנים/קריאות, מספרים שלמים).
-			'sanitize_callback' => function ( $value ) {
-				$float = (float) $value;
-				return $float > 0 ? round( $float, 2 ) : 0.0;
-			},
+			'sanitize_callback' => $price_sanitizer,
 			'default'           => self::DEFAULT_MONTHLY_AI_BUDGET,
 		) );
 
 		// checkbox בודד - ר' render_page: hidden input עם value=0 מודבק
-		// *לפני* ה-checkbox באותו name, כך שתיבה לא-מסומנת עדיין שולחת 0
-		// (לא משאירה את הערך הישן - התקלה הקלאסית של checkbox ב-Settings
-		// API, ש"נעלם" מה-$_POST כשהוא לא מסומן).
+		// *לפני* ה-checkbox באותו name, כך שתיבה לא-מסומנת עדיין שולחת 0.
 		register_setting( self::OPTION_GROUP, self::OPTION_PAYWALL_ENABLED, array(
-			'sanitize_callback' => function ( $value ) {
-				return $value ? 1 : 0;
-			},
+			'sanitize_callback' => $bool_sanitizer,
 			'default'           => self::DEFAULT_PAYWALL_ENABLED ? 1 : 0,
 		) );
+
+		register_setting( self::OPTION_GROUP, self::OPTION_CARDCOM_PAYMENT_URL, array(
+			'sanitize_callback' => 'esc_url_raw',
+			'default'           => self::DEFAULT_CARDCOM_PAYMENT_URL,
+		) );
+
+		foreach ( self::paid_plan_fields_config() as $cfg ) {
+			register_setting( self::OPTION_GROUP, $cfg['active'], array(
+				'sanitize_callback' => $bool_sanitizer,
+				'default'           => 1,
+			) );
+			register_setting( self::OPTION_GROUP, $cfg['label'], array(
+				'sanitize_callback' => $text_sanitizer,
+				'default'           => $cfg['default_label'],
+			) );
+			register_setting( self::OPTION_GROUP, $cfg['price'], array(
+				'sanitize_callback' => $price_sanitizer,
+				'default'           => 0,
+			) );
+			register_setting( self::OPTION_GROUP, $cfg['unlimited_msg'], array(
+				'sanitize_callback' => $bool_sanitizer,
+				'default'           => $cfg['default_unlimited'] ? 1 : 0,
+			) );
+			register_setting( self::OPTION_GROUP, $cfg['unlimited_chat'], array(
+				'sanitize_callback' => $bool_sanitizer,
+				'default'           => $cfg['default_unlimited'] ? 1 : 0,
+			) );
+			register_setting( self::OPTION_GROUP, $cfg['product_id'], array(
+				'sanitize_callback' => $text_sanitizer,
+				'default'           => $cfg['default_product_id'],
+			) );
+		}
 	}
 
 	public static function is_paywall_enabled() {
@@ -154,38 +306,25 @@ class DCard_Quotas {
 		return (float) get_option( self::OPTION_MONTHLY_AI_BUDGET, self::DEFAULT_MONTHLY_AI_BUDGET );
 	}
 
-	public static function get_narkis_msg_credits() {
-		return (int) get_option( self::OPTION_NARKIS_MSG_CREDITS, self::DEFAULT_NARKIS_MSG_CREDITS );
-	}
-
-	public static function get_narkis_chat_credits() {
-		return (int) get_option( self::OPTION_NARKIS_CHAT_CREDITS, self::DEFAULT_NARKIS_CHAT_CREDITS );
-	}
-
-	public static function get_nurit_msg_credits() {
-		return (int) get_option( self::OPTION_NURIT_MSG_CREDITS, self::DEFAULT_NURIT_MSG_CREDITS );
-	}
-
-	public static function get_nurit_chat_credits() {
-		return (int) get_option( self::OPTION_NURIT_CHAT_CREDITS, self::DEFAULT_NURIT_CHAT_CREDITS );
-	}
-
-	public static function get_nurit_yearly_msg_credits() {
-		return (int) get_option( self::OPTION_NURIT_YEARLY_MSG_CREDITS, self::DEFAULT_NURIT_YEARLY_MSG_CREDITS );
-	}
-
-	public static function get_nurit_yearly_chat_credits() {
-		return (int) get_option( self::OPTION_NURIT_YEARLY_CHAT_CREDITS, self::DEFAULT_NURIT_YEARLY_CHAT_CREDITS );
-	}
-
 	/**
-	 * אותו מנגנון הודעות עצמאי (לא רק settings_errors() המובנה) כמו ב-
-	 * DCard_Settings::add_notice()/take_notices() - כבר הוכח שההודעות
-	 * המובנות של וורדפרס לא בהכרח מוצגות בעמודי ניהול מותאמים אישית.
-	 * כרגע ה-sanitizer כאן לא בודק תקינות שדורשת הודעת שגיאה (absint תמיד
-	 * "מצליח", רק לא שומר קלט לא תקין בשקט) - אבל מוכן לשימוש עתידי
-	 * (למשל ולידציה "chat limit > msg limit") בלי לבנות מנגנון נוסף.
+	 * ולידציה בשמירה (§6.10.2: "מסלול פעיל בלי ProductID מציג אזהרה") -
+	 * רצה ב-admin_notices, אחרי שה-Settings API כבר שמר. לא חוסמת שמירה
+	 * (אין sanitize_callback שדוחה ערך) - רק מתריעה.
 	 */
+	public static function maybe_warn_active_plan_without_product_id() {
+		if ( ! isset( $_GET['page'] ) || 'dcard-quotas' !== $_GET['page'] ) {
+			return;
+		}
+		foreach ( self::paid_plan_fields_config() as $plan_id => $cfg ) {
+			$active     = (bool) get_option( $cfg['active'], 1 );
+			$product_id = trim( (string) get_option( $cfg['product_id'], $cfg['default_product_id'] ) );
+			if ( $active && '' === $product_id ) {
+				$label = (string) get_option( $cfg['label'], $cfg['default_label'] );
+				echo '<div class="notice notice-warning"><p>המסלול "' . esc_html( $label ) . '" מסומן כפעיל, אבל אין לו ProductID בקארדקום - תשלומים עבורו לא ישויכו אוטומטית למשתמש.</p></div>';
+			}
+		}
+	}
+
 	private static function notice_transient_key() {
 		return 'dcard_quotas_notices_' . get_current_user_id();
 	}
@@ -204,64 +343,64 @@ class DCard_Quotas {
 	}
 
 	/**
-	 * שורה אחת בטבלה - שם המסלול + שני שדות (מסר/שיחה מפתחת). אנונימי
-	 * ו"חינמי" לא נאכפים/מתפרשים כ"ללא הגבלה" בכלל (הערך פשוט המספר
-	 * שהוזן), לכן $allow_unlimited=false עבורם; מסלולי התשלום כן יכולים
-	 * להיות "ללא הגבלה" (999999+), אז מוצג רמז לכך בתיאור.
+	 * שורה לטבלת "לא משלמים" (אנונימי/חינמי) - ללא שדות המסלול בתשלום.
 	 */
-	private static function render_plan_row( $label, $msg_option, $msg_default, $chat_option, $chat_default, $allow_unlimited ) {
+	private static function render_free_plan_row( $label, $msg_option, $msg_default, $chat_option, $chat_default ) {
 		$msg_value  = get_option( $msg_option, $msg_default );
 		$chat_value = get_option( $chat_option, $chat_default );
 		?>
 		<tr>
 			<th scope="row"><?php echo esc_html( $label ); ?></th>
-			<td>
-				<input type="number" min="0" step="1" id="<?php echo esc_attr( $msg_option ); ?>" name="<?php echo esc_attr( $msg_option ); ?>" value="<?php echo esc_attr( $msg_value ); ?>" class="small-text" />
-			</td>
-			<td>
-				<input type="number" min="0" step="1" id="<?php echo esc_attr( $chat_option ); ?>" name="<?php echo esc_attr( $chat_option ); ?>" value="<?php echo esc_attr( $chat_value ); ?>" class="small-text" />
-			</td>
-			<td class="description">
-				<?php echo $allow_unlimited ? '999999 ומעלה = ללא הגבלה בכל אחד מהשדות.' : ''; ?>
-			</td>
+			<td><input type="number" min="0" step="1" name="<?php echo esc_attr( $msg_option ); ?>" value="<?php echo esc_attr( $msg_value ); ?>" class="small-text" /></td>
+			<td><input type="number" min="0" step="1" name="<?php echo esc_attr( $chat_option ); ?>" value="<?php echo esc_attr( $chat_value ); ?>" class="small-text" /></td>
+			<td colspan="6" class="description"></td>
 		</tr>
 		<?php
 	}
 
 	/**
-	 * שורת כותרת-קבוצה (colspan על פני כל 4 העמודות) - מפרידה ויזואלית בין
-	 * "לא משלמים" (אנונימי/חינמי, נאכפים בלי קשר למסלול תשלום) לבין
-	 * "משלמים" (נרקיס/נורית/נורית שנתי, שדרכם עובר CARDCOM) - התבקש
-	 * כ"שינוי קטן בטבלה שיהיה נוח יותר לקריאה".
+	 * שורה למסלול בתשלום - כל השדות מ-§6.10.2 (פעיל/שם/מחיר/מקס' מסרים
+	 * ודיאלוגים + "ללא הגבלה" לכל אחד/ProductID), ועמודת "כך זה יוצג"
+	 * שמתעדכנת ב-JS (ר' render_preview_script). class="dcard-plan-row"
+	 * ו-data-plan תואמים לשם מפתח ה-JS בתחתית render_page().
 	 */
-	private static function render_group_header( $label ) {
-		echo '<tr class="dcard-quotas-group-row"><th colspan="4" style="background:#f0f0f1;">' . esc_html( $label ) . '</th></tr>';
-	}
-
-	/**
-	 * מערך-תצורה אחד לכל השורות, שמוזן ל-foreach (לא קריאה בודדת לכל שורה
-	 * בגוף render_page()) - שינוי/הוספת מסלול עכשיו נוגע בשורה אחת כאן,
-	 * לא בשני מקומות (גם תחזוקתית נוח יותר, כמו שהתבקש).
-	 */
-	private static function plan_rows_config() {
-		return array(
-			'לא משלמים' => array(
-				array( 'אנונימי', self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT, self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT, false ),
-				array( 'חינמי (רשום)', self::OPTION_REG_MSG_LIMIT, self::DEFAULT_REG_MSG_LIMIT, self::OPTION_REG_CHAT_LIMIT, self::DEFAULT_REG_CHAT_LIMIT, false ),
-			),
-			'משלמים'    => array(
-				array( 'נרקיס (תשלום חודשי)', self::OPTION_NARKIS_MSG_CREDITS, self::DEFAULT_NARKIS_MSG_CREDITS, self::OPTION_NARKIS_CHAT_CREDITS, self::DEFAULT_NARKIS_CHAT_CREDITS, true ),
-				array( 'נורית (תשלום חודשי)', self::OPTION_NURIT_MSG_CREDITS, self::DEFAULT_NURIT_MSG_CREDITS, self::OPTION_NURIT_CHAT_CREDITS, self::DEFAULT_NURIT_CHAT_CREDITS, true ),
-				array( 'נורית (שנתי)', self::OPTION_NURIT_YEARLY_MSG_CREDITS, self::DEFAULT_NURIT_YEARLY_MSG_CREDITS, self::OPTION_NURIT_YEARLY_CHAT_CREDITS, self::DEFAULT_NURIT_YEARLY_CHAT_CREDITS, true ),
-			),
-		);
+	private static function render_paid_plan_row( $plan_id, $cfg, $period_label ) {
+		$active         = (bool) get_option( $cfg['active'], 1 );
+		$label          = get_option( $cfg['label'], $cfg['default_label'] );
+		$price          = get_option( $cfg['price'], 0 );
+		$msg_value      = (int) get_option( $cfg['msg_credits'], 0 );
+		$chat_value     = (int) get_option( $cfg['chat_credits'], 0 );
+		$unlimited_msg  = (bool) get_option( $cfg['unlimited_msg'], $cfg['default_unlimited'] ? 1 : 0 );
+		$unlimited_chat = (bool) get_option( $cfg['unlimited_chat'], $cfg['default_unlimited'] ? 1 : 0 );
+		$product_id     = get_option( $cfg['product_id'], $cfg['default_product_id'] );
+		?>
+		<tr class="dcard-plan-row" data-plan="<?php echo esc_attr( $plan_id ); ?>">
+			<td><input type="checkbox" name="<?php echo esc_attr( $cfg['active'] ); ?>" value="1" <?php checked( $active ); ?> /></td>
+			<td><input type="text" class="regular-text dcard-plan-label" name="<?php echo esc_attr( $cfg['label'] ); ?>" value="<?php echo esc_attr( $label ); ?>" style="width:120px;" /></td>
+			<td><?php echo esc_html( $period_label ); ?></td>
+			<td><input type="number" min="0" step="1" class="small-text dcard-plan-price" name="<?php echo esc_attr( $cfg['price'] ); ?>" value="<?php echo esc_attr( $price ); ?>" /> ₪</td>
+			<td>
+				<input type="number" min="0" step="1" class="small-text dcard-plan-msg" name="<?php echo esc_attr( $cfg['msg_credits'] ); ?>" value="<?php echo esc_attr( $msg_value ); ?>" />
+				<?php if ( $msg_value > 1000 ) : ?><br /><span style="color:#a3262a;">⚠ מספר גבוה מאוד - ייתכן שזה 999999 ישן. כדאי להזין מספר שימוש-הוגן אמיתי.</span><?php endif; ?>
+				<br /><label><input type="checkbox" class="dcard-plan-unlimited-msg" name="<?php echo esc_attr( $cfg['unlimited_msg'] ); ?>" value="1" <?php checked( $unlimited_msg ); ?> /> להציג ללא הגבלה</label>
+			</td>
+			<td>
+				<input type="number" min="0" step="1" class="small-text dcard-plan-chat" name="<?php echo esc_attr( $cfg['chat_credits'] ); ?>" value="<?php echo esc_attr( $chat_value ); ?>" />
+				<?php if ( $chat_value > 1000 ) : ?><br /><span style="color:#a3262a;">⚠ מספר גבוה מאוד - ייתכן שזה 999999 ישן. כדאי להזין מספר שימוש-הוגן אמיתי.</span><?php endif; ?>
+				<br /><label><input type="checkbox" class="dcard-plan-unlimited-chat" name="<?php echo esc_attr( $cfg['unlimited_chat'] ); ?>" value="1" <?php checked( $unlimited_chat ); ?> /> להציג ללא הגבלה</label>
+			</td>
+			<td><input type="text" class="small-text dcard-plan-product-id" name="<?php echo esc_attr( $cfg['product_id'] ); ?>" value="<?php echo esc_attr( $product_id ); ?>" /></td>
+			<td class="dcard-plan-preview" style="max-width:220px;font-size:12px;color:#555;"></td>
+		</tr>
+		<?php
 	}
 
 	public static function render_page() {
+		$paid_cfg = self::paid_plan_fields_config();
 		?>
 		<div class="wrap" dir="rtl">
 			<h1>קורא בקלפים - הגדרות מכסות (Freemium)</h1>
-			<p>לכל מסלול - כמה <strong>סשנים</strong> (שאלה אחת, עד 3 קלפים + כל השיחה סביבם) מקבל לקוח במסלול "קבלת מסר" ובמסלול "שיחה פתוחה" בנפרד. ר' עמוד <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=projective_card&page=dcard-customers' ) ); ?>">לקוחות</a> לצפייה ביתרת הקרדיטים בפועל של כל לקוח. אנונימי נאכף בדפדפן (לא בשרת) - שאר השורות נאכפות בצד השרת.</p>
+			<p>לכל מסלול - כמה <strong>סשנים</strong> (שאלה אחת, עד 3 קלפים + כל השיחה סביבם) מקבל לקוח במסלול "קבלת מסר" ובמסלול "דיאלוג מכוון" בנפרד. ר' עמוד <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=projective_card&page=dcard-customers' ) ); ?>">לקוחות</a> לצפייה ביתרת הקרדיטים בפועל של כל לקוח. אנונימי נאכף בדפדפן (לא בשרת) - שאר השורות נאכפות בצד השרת.</p>
 			<?php
 			settings_errors();
 			foreach ( self::take_notices() as $notice ) {
@@ -270,29 +409,71 @@ class DCard_Quotas {
 			?>
 			<form method="post" action="options.php">
 				<?php settings_fields( self::OPTION_GROUP ); ?>
+				<h2>לא משלמים</h2>
 				<table class="wp-list-table widefat fixed striped" style="max-width: 820px;">
 					<thead>
 						<tr>
 							<th scope="col">מסלול</th>
 							<th scope="col">מקס' מסרים (קבלת מסר)</th>
-							<th scope="col">מקס' שיחות מפתחות</th>
-							<th scope="col">הערה</th>
+							<th scope="col">מקס' דיאלוגים</th>
+							<th scope="col" colspan="6"></th>
 						</tr>
 					</thead>
 					<tbody>
 						<?php
-						foreach ( self::plan_rows_config() as $group_label => $rows ) {
-							self::render_group_header( $group_label );
-							foreach ( $rows as $row ) {
-								self::render_plan_row( $row[0], $row[1], $row[2], $row[3], $row[4], $row[5] );
-							}
+						self::render_free_plan_row( 'אנונימי', self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT, self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT );
+						self::render_free_plan_row( 'חינמי (רשום)', self::OPTION_REG_MSG_LIMIT, self::DEFAULT_REG_MSG_LIMIT, self::OPTION_REG_CHAT_LIMIT, self::DEFAULT_REG_CHAT_LIMIT );
+						?>
+					</tbody>
+				</table>
+
+				<h2 style="margin-top:28px;">מסלולים בתשלום</h2>
+				<table class="wp-list-table widefat fixed striped" style="max-width: 1180px;">
+					<thead>
+						<tr>
+							<th scope="col">פעיל</th>
+							<th scope="col">שם לתצוגה</th>
+							<th scope="col">תקופה</th>
+							<th scope="col">מחיר</th>
+							<th scope="col">מקס' קבלות מסר</th>
+							<th scope="col">מקס' דיאלוגים</th>
+							<th scope="col">ProductID בקארדקום</th>
+							<th scope="col">כך זה יוצג</th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php
+						foreach ( $paid_cfg as $plan_id => $cfg ) {
+							self::render_paid_plan_row( $plan_id, $cfg, DCard_Plans::period_label_for_plan( $plan_id ) );
 						}
 						?>
 					</tbody>
 				</table>
 				<p class="description" style="max-width: 820px;">
-					איך קרדיט מתקזז בפועל בתוך סשן בודד: סשן ש<strong>נשאר</strong> "קבלת מסר" לכל אורכו מקזז קרדיט אחד מ"מסרים". סשן שמתחיל כ"שיחה פתוחה" מקזז קרדיט אחד מ"שיחות מפתחות". סשן ש<strong>עבר</strong> מ"קבלת מסר" ל"שיחה פתוחה" (לחיצה על "להמשיך ולהעמיק בשיחה", או המשך כתיבה חופשית אחרי מסר) מקזז קרדיט אחד מ"מסרים" <strong>וגם</strong> קרדיט אחד מ"שיחות מפתחות" - שני המונים יורדים על אותו סשן בודד.
+					איך קרדיט מתקזז בפועל בתוך סשן בודד: סשן ש<strong>נשאר</strong> "קבלת מסר" לכל אורכו מקזז קרדיט אחד מ"מסרים". סשן שמתחיל כ"דיאלוג מכוון" מקזז קרדיט אחד מ"דיאלוגים". סשן ש<strong>עבר</strong> מ"קבלת מסר" ל"דיאלוג מכוון" מקזז קרדיט אחד מ"מסרים" <strong>וגם</strong> קרדיט אחד מ"דיאלוגים" - שני המונים יורדים על אותו סשן בודד. "ללא הגבלה" הוא תווית תצוגה בלבד - המספר האמיתי שהוזן תמיד נאכף בפועל (מכסת שימוש הוגן).
 				</p>
+				<p class="description" id="dcard-unlimited-note" style="max-width: 820px;font-style:italic;"></p>
+
+				<h2 style="margin-top:28px;">עמוד התשלום</h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_CARDCOM_PAYMENT_URL ); ?>">כתובת קארדקום</label></th>
+						<td>
+							<input type="url" id="<?php echo esc_attr( self::OPTION_CARDCOM_PAYMENT_URL ); ?>" name="<?php echo esc_attr( self::OPTION_CARDCOM_PAYMENT_URL ); ?>" value="<?php echo esc_attr( self::get_cardcom_payment_url() ); ?>" class="large-text" dir="ltr" />
+							<p class="description">כתובת תשלום אחת משותפת לכל המסלולים - בחירת המסלול נעשית בעמוד התשלום עצמו (כפתורי רדיו), והשרת מזהה מה נקנה לפי ה-ProductID שמגיע ב-IPN.</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>">חלון התשלום פעיל</label></th>
+						<td>
+							<input type="hidden" name="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>" value="0" />
+							<input type="checkbox" id="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>" name="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>" value="1" <?php checked( self::is_paywall_enabled() ); ?> />
+							<p class="description">כשכבוי (ברירת המחדל בתקופת הבדיקות): משתמש רשום שנגמרו לו הקרדיטים יראה "נגמרו השימושים לתקופת הניסיון" במקום חלון התשלום. כשפעיל: משתמש כזה רואה את חלון התשלום הרגיל. <strong>מנהל מחובר (manage_options) תמיד רואה את חלון התשלום האמיתי</strong> (עם תווית "מצב בדיקה"), גם כשהתיבה הזו כבויה - כדי לאפשר בדיקת הזרימה המלאה מול קארדקום בלי לחשוף תשלום לנסיינים.</p>
+						</td>
+					</tr>
+				</table>
+
+				<h2 style="margin-top:28px;">מגבלות AI</h2>
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_DAILY_AI_CALL_LIMIT ); ?>">מגבלת קריאות AI ביום - משתמש רשום בודד</label></th>
@@ -308,42 +489,113 @@ class DCard_Quotas {
 							<p class="description">סכום כולל (כל המשתמשים וכל המודלים יחד) לחודש קלנדרי. בחציית 80% ו-100% נשלחת התראת מייל אחת לכתובת הניהול (admin_email) - <strong>בלי חסימה אוטומטית של שימוש</strong> (נבחר במכוון כצעד ראשון זהיר). 0 = בלי מעקב/התראה.</p>
 						</td>
 					</tr>
-					<tr>
-						<th scope="row"><label for="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>">חלון התשלום פעיל</label></th>
-						<td>
-							<input type="hidden" name="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>" value="0" />
-							<input type="checkbox" id="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>" name="<?php echo esc_attr( self::OPTION_PAYWALL_ENABLED ); ?>" value="1" <?php checked( self::is_paywall_enabled() ); ?> />
-							<p class="description">כשכבוי (ברירת המחדל בתקופת הבדיקות): משתמש רשום שנגמרו לו הקרדיטים יראה "נגמרו השימושים לתקופת הניסיון" במקום חלון התשלום. כשפעיל: משתמש כזה רואה את חלון התשלום הרגיל.</p>
-						</td>
-					</tr>
 				</table>
 				<?php submit_button( 'שמירה' ); ?>
 			</form>
 		</div>
 		<?php
+		self::render_preview_script( $paid_cfg );
 	}
 
 	/**
-	 * תיקון QA 4.3 (אותו דפוס): אין כאן קובץ JS אמיתי שנרשם/נטען ב-wp_enqueue_
-	 * scripts (כל קוד הצד-לקוח הוא <script> אחד בתוך ווידג'ט HTML של
-	 * אלמנטור, לא asset מנוהל) - אז בדיוק כמו עם ה-nonce (ר' dcard-ai-reader-
-	 * backend.php), חובה "handle" מדומה (ללא src) רק כדי ש-wp_localize_script
-	 * יוכל לצרף אליו משתנה. נרשם+מלוקלייז ב-wp_head (בלי in_footer, כך
-	 * שהתסריט שהפלאגין מזריק יושב ב-<head>) ולא ב-wp_footer, מהסיבה
-	 * המתועדת שם: ה-<script> של הווידג'ט עצמו יכול לשבת בכל מקום בעמוד,
-	 * וחייב שה-window.dcardSettings יהיה קיים לפני שהוא רץ, לא משנה היכן.
+	 * עמודת "כך זה יוצג" + הערת "ללא הגבלה, בשימוש הוגן" - מתעדכנות
+	 * בזמן הקלדה, בלי AJAX (כל הנתונים כבר בדף). אחוז החיסכון במסלול
+	 * השנתי מחושב כאן מול המחיר החודשי של "נורית" (המסלול המקביל),
+	 * floor כלפי מטה (§6.10.2: "כדי שלא נבטיח יותר ממה שיש").
+	 */
+	private static function render_preview_script( $paid_cfg ) {
+		$yearly_plan_id  = DCard_Plans::NURIT_YEARLY;
+		$monthly_plan_id = DCard_Plans::NURIT;
+		?>
+		<script>
+		(function () {
+			var YEARLY_PLAN = <?php echo wp_json_encode( $yearly_plan_id ); ?>;
+			var MONTHLY_PLAN = <?php echo wp_json_encode( $monthly_plan_id ); ?>;
+
+			function rowData(row) {
+				return {
+					plan: row.dataset.plan,
+					label: row.querySelector('.dcard-plan-label').value || '',
+					price: parseFloat(row.querySelector('.dcard-plan-price').value) || 0,
+					msg: parseInt(row.querySelector('.dcard-plan-msg').value, 10) || 0,
+					chat: parseInt(row.querySelector('.dcard-plan-chat').value, 10) || 0,
+					unlimitedMsg: row.querySelector('.dcard-plan-unlimited-msg').checked,
+					unlimitedChat: row.querySelector('.dcard-plan-unlimited-chat').checked
+				};
+			}
+
+			function quotaLine(label, value, unlimited) {
+				return '✓ ' + label + ': ' + (unlimited ? 'ללא הגבלה*' : ('עד ' + value + ' בחודש'));
+			}
+
+			function render() {
+				var rows = Array.prototype.slice.call(document.querySelectorAll('.dcard-plan-row'));
+				var byPlan = {};
+				rows.forEach(function (row) { byPlan[row.dataset.plan] = rowData(row); });
+
+				var unlimitedNotes = [];
+
+				rows.forEach(function (row) {
+					var d = byPlan[row.dataset.plan];
+					var lines = [d.label + ' - ' + d.price + ' ₪'];
+					var period = row.children[2].textContent.trim();
+					if (d.plan === YEARLY_PLAN && byPlan[MONTHLY_PLAN]) {
+						var monthlyEquivalent = byPlan[MONTHLY_PLAN].price * 12;
+						if (monthlyEquivalent > 0) {
+							var savingsPct = Math.floor((1 - (d.price / monthlyEquivalent)) * 100);
+							lines[0] += ' לשנה, במקום ' + monthlyEquivalent.toFixed(0) + ' ₪ (חיסכון של ' + Math.max(savingsPct, 0) + '%)';
+						} else {
+							lines[0] += ' ל' + period;
+						}
+					} else {
+						lines[0] += ' ל' + period;
+					}
+					lines.push(quotaLine('קבלת מסר', d.msg, d.unlimitedMsg));
+					lines.push(quotaLine('דיאלוג מכוון', d.chat, d.unlimitedChat));
+					row.querySelector('.dcard-plan-preview').innerHTML = lines.join('<br>');
+
+					if (d.unlimitedMsg) unlimitedNotes.push({ type: 'msg', n: d.msg });
+					if (d.unlimitedChat) unlimitedNotes.push({ type: 'chat', n: d.chat });
+				});
+
+				var msgNums = unlimitedNotes.filter(function (n) { return n && n.type === 'msg'; }).map(function (n) { return n.n; });
+				var chatNums = unlimitedNotes.filter(function (n) { return n && n.type === 'chat'; }).map(function (n) { return n.n; });
+				var noteEl = document.getElementById('dcard-unlimited-note');
+				if (!msgNums.length && !chatNums.length) {
+					noteEl.textContent = '';
+				} else {
+					var parts = [];
+					if (chatNums.length) parts.push('עד ' + Math.max.apply(null, chatNums) + ' דיאלוגים מכוונים');
+					if (msgNums.length) parts.push('עד ' + Math.max.apply(null, msgNums) + ' קבלות מסר');
+					noteEl.textContent = '* ללא הגבלה, בשימוש הוגן: ' + parts.join(' ו-') + ' בחודש.';
+				}
+			}
+
+			document.querySelectorAll('.dcard-plan-row input').forEach(function (input) {
+				input.addEventListener('input', render);
+				input.addEventListener('change', render);
+			});
+			render();
+		})();
+		</script>
+		<?php
+	}
+
+	/**
+	 * §6.10.2: adminPaymentTesting/cardcomPaymentUrl נוספו כאן - משתמשים
+	 * בהם ב-elementor-code.html (kbHandleCreditsExhausted/CARDCOM_PAYMENT_URL
+	 * בהתאמה), ר' ההערות המלאות שם.
 	 */
 	public static function enqueue_frontend_settings() {
 		wp_register_script( 'dcard-quotas-stub', '', array(), null, false );
 		wp_enqueue_script( 'dcard-quotas-stub' );
 		wp_localize_script( 'dcard-quotas-stub', 'dcardSettings', array(
-			'anonMsgLimit'   => (int) get_option( self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT ),
-			'anonChatLimit'  => (int) get_option( self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT ),
-			// סעיף 7.2א/8: ר' ההערה המלאה ליד OPTION_PAYWALL_ENABLED למעלה.
-			// isAdminViewing - רק כדי להציג את תווית "מצב בדיקות" למנהל
-			// מחובר (סעיף 8) - לעולם לא נבדק בשרת לאכיפה אמיתית.
-			'paywallEnabled' => self::is_paywall_enabled(),
-			'isAdminViewing' => current_user_can( 'manage_options' ),
+			'anonMsgLimit'        => (int) get_option( self::OPTION_ANON_MSG_LIMIT, self::DEFAULT_ANON_MSG_LIMIT ),
+			'anonChatLimit'       => (int) get_option( self::OPTION_ANON_CHAT_LIMIT, self::DEFAULT_ANON_CHAT_LIMIT ),
+			'paywallEnabled'      => self::is_paywall_enabled(),
+			'isAdminViewing'      => current_user_can( 'manage_options' ),
+			'adminPaymentTesting' => self::admin_payment_testing_active(),
+			'cardcomPaymentUrl'   => self::get_cardcom_payment_url(),
 		) );
 	}
 }

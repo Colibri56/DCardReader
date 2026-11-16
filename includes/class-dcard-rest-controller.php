@@ -257,6 +257,15 @@ class DCard_REST_Controller {
 			),
 		) );
 
+		// §6.10.2: מסלולי התשלום הפעילים, לבניית כרטיסי המידע בחלון
+		// ההצטרפות (kb-payment-modal) - ציבורי (לא PII, רק מחיר/תכולה),
+		// בלי nonce נדרש. GET, לא משנה כלום בשרת.
+		register_rest_route( self::NAMESPACE_, '/plans', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'plans' ),
+			'permission_callback' => '__return_true',
+		) );
+
 		// Webhook (IPN) מקארדקום. תיקון: הנתיב הקודם - /webhook/payment -
 		// חזר 404 לקארדקום גם אחרי רענון Permalinks. המילה "payment"
 		// בנתיב עצמו כנראה מזוהה ע"י WAF/תוסף אבטחה בשרת כטריגר חסימה
@@ -1487,6 +1496,18 @@ class DCard_REST_Controller {
 	}
 
 	// ---------------------------------------------------------------
+	// GET /plans
+	// ---------------------------------------------------------------
+	public function plans( WP_REST_Request $request ) {
+		return $this->safely( 'plans', function () {
+			return new WP_REST_Response( array(
+				'success' => true,
+				'plans'   => DCard_Plans::active_public_plans(),
+			), 200 );
+		} );
+	}
+
+	// ---------------------------------------------------------------
 	// POST /webhook/ipn-update  (שלד בלבד - שלב 3, הכנה ל-Cardcom)
 	// ---------------------------------------------------------------
 	public function payment_webhook( WP_REST_Request $request ) {
@@ -1698,12 +1719,35 @@ class DCard_REST_Controller {
 			// 601/602/603, ר' הבדיקה למעלה) - זו כבר לא רעש מעסקאות של
 			// מוצרים אחרים, אלא בעיה אמיתית שדורשת טיפול ידני (לקוח ששילם
 			// על "הקורא בקלפים" ולא מקבל קרדיט).
+			$unmatched_invoice = (string) $request->get_param( 'ExtReadInvoiceHead_InvoiceNumber' );
+			$unmatched_amount  = (string) $request->get_param( 'ExtReadInvoiceHead_TotalIncludeVAT' );
 			DCard_Logger::warning( 'POST /webhook/ipn-update - no user found via ReturnValue or email fallback (for OUR product)', array(
 				'return_value'   => $return_value,
 				'email'          => $email_from_ipn,
 				'product_id'     => $product_id,
-				'invoice_number' => (string) $request->get_param( 'ExtReadInvoiceHead_InvoiceNumber' ),
+				'invoice_number' => $unmatched_invoice,
 			) );
+
+			// תוספת (התבקש): תשלום אמיתי שהתקבל (ProductID שלנו, ResponseCode=0)
+			// אבל לא השתייך לאף משתמש - בלי מייל ל-admin_email הדבר היחיד
+			// שמתעד את זה הוא לוג WooCommerce (לא נבדק באופן שוטף). אותו
+			// דפוס מדויק כמו DCard_Usage_Logs::maybe_send_monthly_budget_alert -
+			// wp_mail() פשוט ל-admin_email, בלי חסימה/טיפול אוטומטי.
+			$admin_email = get_option( 'admin_email' );
+			if ( $admin_email ) {
+				wp_mail(
+					$admin_email,
+					'הקורא בקלפים - תשלום התקבל בלי שיוך למשתמש',
+					sprintf(
+						"התקבל תשלום בקארדקום (מק\"ט %s, חשבונית %s, סכום %s ₪) שלא ניתן היה לשייך לאף משתמש - לא לפי ReturnValue ולא לפי אימייל.\n\nמייל מהחשבונית: %s\n\nיש לשייך ידנית: עמוד לקוחות (Settings > קורא בקלפים > לקוחות), או ליצור קשר עם הלקוח לפי המייל/הטלפון שבחשבונית בקארדקום.",
+						$product_id,
+						$unmatched_invoice,
+						$unmatched_amount,
+						$email_from_ipn ? $email_from_ipn : '(לא התקבל)'
+					)
+				);
+			}
+
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא (ReturnValue ואימייל לא תואמים)' ), 404 );
 		}
 
@@ -1745,7 +1789,7 @@ class DCard_REST_Controller {
 		// 6. עדכון בפועל: מסלול+קרדיטים (DCard_Users::set_plan - קורא ל-
 		// DCard_Plans::credits_for_plan, לא קשיח), תפוגה (30/365 יום לפי
 		// המק"ט - ר' DCard_Plans::plan_duration_days), וטלפון (רק אם ריק).
-		$expires_at = gmdate( 'Y-m-d H:i:s', strtotime( '+' . DCard_Plans::plan_duration_days( $product_id ) . ' days' ) );
+		$expires_at = gmdate( 'Y-m-d H:i:s', strtotime( '+' . DCard_Plans::plan_duration_days( $plan_id ) . ' days' ) );
 		DCard_Users::set_plan( $user['id'], $plan_id, $expires_at );
 		DCard_Users::update_phone_if_empty( $user['id'], $phone );
 
