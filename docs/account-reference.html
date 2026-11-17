@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference: האזור שלי (design-spec 6.11)</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#ddd;font-family:Rubik,sans-serif}a{color:#7D2E46}.wrap{display:flex;gap:40px;padding:30px;align-items:flex-start;flex-wrap:wrap}h3{margin:0 0 10px;font:500 16px Rubik}</style>
+</head><body>
+<!-- Static reference of the mockup "טלפון · האזור שלי". Values are examples. Gendered text shown in feminine form. -->
+<div class="wrap">
+<div><h3>1. המסך (משתמש בתשלום)</h3><div dir="rtl" style="position: relative; width: 390px; min-height: 1500px; box-sizing: border-box; background: #FBF8F6; font-family: 'Rubik', sans-serif; color: #2A2326; display: flex; flex-direction: column">
+  <header style="padding: 14px 18px; display: flex; align-items: center; gap: 10px">
+    <button aria-label="חזרה" style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid #E6DCDE; background: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A2326" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+    </button>
+    <h1 style="margin: 0; font-size: 22px; font-weight: 500">האזור שלי</h1>
+  </header>
+
+  <main style="padding: 10px 20px 40px; display: flex; flex-direction: column; gap: 30px">
+
+    <section aria-labelledby="s-plan" style="display: flex; flex-direction: column; gap: 12px">
+      <h2 id="s-plan" style="margin: 0; font-size: 18px; font-weight: 500">המסלול שלי</h2>
+      <div style="background: #FFFFFF; border: 1.5px solid #E6DCDE; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start">
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: 20px; font-weight: 500">נרקיס</span>
+            <span style="font-size: 14px; color: #6E6266">החיוב הבא: 17.12.2026</span>
+            
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end">
+            <span style="font-size: 22px; font-weight: 600">49 ₪</span>
+            <span style="font-size: 13px; color: #6E6266">לחודש</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px; padding-top: 4px">
+          <span style="font-size: 14px; color: #6E6266">השימוש החודש · מתחדש ב־17.12</span>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; font-size: 15px"><span>קבלות מסר</span><span style="color: #6E6266">12 מתוך 80</span></div>
+            <div role="progressbar" aria-valuenow="12" aria-valuemax="80" aria-label="קבלות מסר" style="height: 8px; border-radius: 4px; background: #F3E7EA; overflow: hidden"><div style="width: 15%; height: 100%; background: #7D2E46; border-radius: 4px"></div></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; justify-content: space-between; font-size: 15px"><span>דיאלוגים מכוונים</span><span style="color: #6E6266">4 מתוך 30</span></div>
+            <div role="progressbar" aria-valuenow="4" aria-valuemax="30" aria-label="דיאלוגים מכוונים" style="height: 8px; border-radius: 4px; background: #F3E7EA; overflow: hidden"><div style="width: 13%; height: 100%; background: #7D2E46; border-radius: 4px"></div></div>
+          </div>
+        </div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #6E6266">רוצה להחליף מסלול? <a href="#">כתבו לנו</a></p>
+      </div>
+      
+        <button style="align-self: flex-start; min-height: 44px; padding: 0; border: none; background: transparent; color: #7D2E46; font-family: 'Rubik', sans-serif; font-size: 15px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; color: #6E6266">ביטול המנוי</button>
+      
+      
+    </section>
+
+    <section aria-labelledby="s-details" style="display: flex; flex-direction: column; gap: 12px">
+      <h2 id="s-details" style="margin: 0; font-size: 18px; font-weight: 500">הפרטים שלי</h2>
+      <div style="background: #FFFFFF; border: 1.5px solid #E6DCDE; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <label for="a-name" style="font-size: 15px; font-weight: 500">שם</label>
+          <input id="a-name" type="text" value="עינב" style="height: 48px; box-sizing: border-box; border: 1.5px solid #D9C9CD; border-radius: 14px; background: #FFFFFF; padding: 0 14px; font-family: 'Rubik', sans-serif; font-size: 16px; color: #2A2326; outline: none">
+        </div>
+        <fieldset style="margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 6px">
+          <legend style="font-size: 15px; font-weight: 500; margin-bottom: 6px">איך לפנות אלייך?</legend>
+          <div style="display: flex; gap: 28px">
+            <label style="display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 16px"><input type="radio" name="g" style="accent-color: #7D2E46; width: 20px; height: 20px; margin: 0"> בלשון זכר</label>
+            <label style="display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 16px"><input type="radio" name="g" checked style="accent-color: #7D2E46; width: 20px; height: 20px; margin: 0"> בלשון נקבה</label>
+          </div>
+        </fieldset>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <label for="a-phone" style="font-size: 15px; font-weight: 500">טלפון</label>
+          <input id="a-phone" type="tel" dir="ltr" placeholder="050-0000000" style="height: 48px; box-sizing: border-box; border: 1.5px solid #D9C9CD; border-radius: 14px; background: #FFFFFF; padding: 0 14px; font-family: 'Rubik', sans-serif; font-size: 16px; color: #2A2326; outline: none; text-align: right">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 15px; font-weight: 500">מייל</span>
+          <span dir="ltr" style="font-size: 16px; text-align: right">einav@gmail.com</span>
+          <span style="font-size: 14px; color: #6E6266">לשינוי כתובת המייל, <a href="#">כתבו לנו</a>.</span>
+        </div>
+        <button style="height: 48px; border-radius: 999px; border: none; background: #7D2E46; color: #FFFFFF; font-family: 'Rubik', sans-serif; font-weight: 500; font-size: 16px; cursor: pointer">שמירת השינויים</button>
+      </div>
+    </section>
+
+    <section aria-labelledby="s-pay" style="display: flex; flex-direction: column; gap: 12px">
+      <h2 id="s-pay" style="margin: 0; font-size: 18px; font-weight: 500">היסטוריית תשלומים</h2>
+      <div style="background: #FFFFFF; border: 1.5px solid #E6DCDE; border-radius: 18px; padding: 4px 18px">
+        
+          <div style="display: flex; justify-content: space-between; align-items: center; min-height: 56px; border-bottom: 1px solid #F3E7EA; font-size: 15px">
+            <span style="display: flex; flex-direction: column"><span>17.11.2026</span><span style="font-size: 13px; color: #6E6266">נרקיס</span></span>
+            <span style="display: flex; align-items: center; gap: 14px"><span style="font-weight: 500">49 ₪</span><a href="#" style="font-size: 14px">חשבונית</a></span>
+          </div>
+        
+          <div style="display: flex; justify-content: space-between; align-items: center; min-height: 56px; border-bottom: 1px solid #F3E7EA; font-size: 15px">
+            <span style="display: flex; flex-direction: column"><span>17.10.2026</span><span style="font-size: 13px; color: #6E6266">נרקיס</span></span>
+            <span style="display: flex; align-items: center; gap: 14px"><span style="font-weight: 500">49 ₪</span><a href="#" style="font-size: 14px">חשבונית</a></span>
+          </div>
+        
+      </div>
+    </section>
+
+    <section aria-labelledby="s-acc" style="display: flex; flex-direction: column; gap: 4px">
+      <h2 id="s-acc" style="margin: 0; font-size: 18px; font-weight: 500; margin-bottom: 6px">החשבון</h2>
+      <button style="align-self: flex-start; min-height: 44px; padding: 0; border: none; background: transparent; color: #7D2E46; font-family: 'Rubik', sans-serif; font-size: 15px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer">התנתקות מהמכשיר הזה</button>
+      <button style="align-self: flex-start; min-height: 44px; padding: 0; border: none; background: transparent; color: #7D2E46; font-family: 'Rubik', sans-serif; font-size: 15px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; color: #A3262A">מחיקת החשבון</button>
+    </section>
+  </main>
+
+  
+</div>
+</div>
+<div><h3>2. חלון ביטול המנוי</h3>
+    <div style="position: relative; width: 390px; height: 700px; background: rgba(42,35,38,0.45); display: flex; align-items: flex-end">
+      <div role="dialog" aria-labelledby="c-title" style="width: 100%; box-sizing: border-box; background: #FBF8F6; border-radius: 28px 28px 0 0; padding: 14px 24px 34px; display: flex; flex-direction: column; gap: 18px">
+        <div style="align-self: center; width: 44px; height: 5px; border-radius: 3px; background: #E6DCDE"></div>
+        <h2 id="c-title" style="margin: 0; font-size: 24px; font-weight: 500">לבטל את המנוי?</h2>
+        <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #4A3F43">המנוי יישאר פעיל עד <strong style="font-weight: 500">17.12.2026</strong>, ולא תחויבי שוב. אחרי התאריך הזה תעברי למסלול החינמי.</p>
+        <fieldset style="margin: 0; padding: 0; border: none; display: flex; flex-direction: column; gap: 10px">
+          <legend style="font-size: 15px; font-weight: 500; margin-bottom: 10px">נשמח לדעת למה (לא חובה)</legend>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <button style="min-height: 40px; padding: 0 16px; border-radius: 999px; font-family: Rubik, sans-serif; font-size: 15px; background: #fff; color: #2A2326; border: 1.5px solid #D9C9CD">יקר לי</button><button style="min-height: 40px; padding: 0 16px; border-radius: 999px; font-family: Rubik, sans-serif; font-size: 15px; background: #fff; color: #2A2326; border: 1.5px solid #D9C9CD">לא משתמשת מספיק</button><button style="min-height: 40px; padding: 0 16px; border-radius: 999px; font-family: Rubik, sans-serif; font-size: 15px; background: #fff; color: #2A2326; border: 1.5px solid #D9C9CD">קיבלתי מה שחיפשתי</button><button style="min-height: 40px; padding: 0 16px; border-radius: 999px; font-family: Rubik, sans-serif; font-size: 15px; background: #fff; color: #2A2326; border: 1.5px solid #D9C9CD">אחר</button>
+          </div>
+        </fieldset>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <button style="height: 56px; border-radius: 999px; border: 1.5px solid #7D2E46; background: #FFFFFF; color: #7D2E46; font-family: 'Rubik', sans-serif; font-weight: 500; font-size: 17px; cursor: pointer">כן, לבטל את המנוי</button>
+          <button style="height: 56px; border-radius: 999px; border: none; background: #7D2E46; color: #FFFFFF; font-family: 'Rubik', sans-serif; font-weight: 500; font-size: 17px; cursor: pointer">להישאר במנוי</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></body></html>

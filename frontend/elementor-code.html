@@ -1039,30 +1039,60 @@
         border: 2px solid var(--bordeaux); background: var(--blush); color: var(--ink) !important;
     }
 
-    /* סעיף 6.11 "האזור שלי" - מסך מלא (לא kb-modal), עמודה ממורכזת
-       ברוחב 560px במחשב, כמו שאר הדף בטלפון. */
+    /* סעיף 6.11 "האזור שלי" - מסך מלא (לא kb-modal-scrim), לפי
+       docs/account-reference.html. עמודה ממורכזת ברוחב 560px במחשב, כמו
+       שאר הדף בטלפון.
+       *** תיקון באג חמור (דווח בפועל ב-staging: המסך נפתח לבד בטעינה,
+       חסם את הטסטרים לגמרי) - אותה מלכודת בדיוק שכל שאר ה-scrim-ים בקובץ
+       הזה כבר נזהרים ממנה (ר' .kb-modal-scrim[hidden]/.kb-menu-overlay
+       [hidden]/.kb-overlay-scrim[hidden] למעלה): כלל ה-`display` הייחודי
+       (לא UA-default) שקובע display:flex על .kb-account-screen גובר על
+       ברירת המחדל display:none של תכונת ה-HTML `hidden` - CSS של הדף
+       תמיד גובר על stylesheet ברירת המחדל של הדפדפן, בלי קשר ל-specificity.
+       בלי שורת [hidden] מפורשת כאן, האלמנט מוצג תמיד, גם לפני שנלחץ
+       עליו - בדיוק מה שקרה. נוסף גם !important, לפי הבקשה המפורשת, כהגנה
+       נוספת מעבר לכל override עתידי של ה-CSS של התבנית/אלמנטור. ***
+    */
     .kb-account-screen {
         position: fixed; inset: 0; background: var(--paper); z-index: 60;
         display: flex; flex-direction: column; overflow-y: auto;
     }
+    .kb-account-screen[hidden] { display: none !important; }
     .kb-account-header {
-        display: flex; align-items: center; gap: 12px; padding: 16px;
-        border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--paper);
+        display: flex; align-items: center; gap: 10px; padding: 14px 18px;
     }
     .kb-account-back {
-        width: 40px; height: 40px; border: none; background: none; cursor: pointer;
-        font-size: 20px; color: var(--ink) !important; display: flex; align-items: center; justify-content: center;
+        width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong);
+        background: var(--surface); cursor: pointer;
+        display: flex; align-items: center; justify-content: center; flex: none;
     }
-    .kb-account-body { padding: 20px 16px 40px; max-width: 560px; width: 100%; margin: 0 auto; box-sizing: border-box; }
-    .kb-account-section { margin-bottom: 32px; }
-    .kb-account-section-title { font-size: 19px; font-weight: 500; margin: 0 0 14px; }
-    .kb-account-card { border: 1px solid var(--line-strong); border-radius: 14px; padding: 16px; }
-    .kb-account-progress-row { margin-top: 12px; }
-    .kb-account-progress-label { font-size: 14px; color: var(--ink-soft); margin-bottom: 4px; }
-    .kb-account-progress-track { height: 8px; background: var(--blush); border-radius: 4px; overflow: hidden; }
+    .kb-account-body { padding: 10px 20px 40px; max-width: 560px; width: 100%; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 30px; }
+    .kb-account-section { display: flex; flex-direction: column; gap: 12px; }
+    .kb-account-section-title { font-size: 18px; font-weight: 500; margin: 0; }
+    .kb-account-card { background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+    .kb-account-quiet-link {
+        align-self: flex-start; min-height: 44px; padding: 0; border: none; background: transparent;
+        color: var(--bordeaux) !important; font-family: 'Rubik', sans-serif; font-size: 15px;
+        text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+    }
+    .kb-account-progress-label-row { display: flex; justify-content: space-between; font-size: 15px; }
+    .kb-account-progress-label-row span:last-child { color: var(--muted); }
+    .kb-account-progress-track { height: 8px; border-radius: 4px; background: var(--blush); overflow: hidden; }
     .kb-account-progress-fill { height: 100%; background: var(--bordeaux); border-radius: 4px; }
-    .kb-account-tx-row { display: flex; justify-content: space-between; font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .kb-account-tx-row { display: flex; justify-content: space-between; align-items: center; min-height: 56px; border-bottom: 1px solid var(--blush); font-size: 15px; }
     .kb-account-tx-row:last-child { border-bottom: none; }
+
+    /* חלון ביטול המנוי (תוך kb-account-screen, "הדמיה 2" ב-
+       docs/account-reference.html) - kb-modal-scrim רגיל, כבר עם [hidden]
+       תקין (ר' ההערה למעלה). תגיות הסיבה: בחירה יחידה, כמו kb-radio-card
+       אבל פילוליים (pill) ולא תופסות שורה מלאה. */
+    .kb-cancel-reason-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .kb-cancel-reason-pill {
+        min-height: 40px; padding: 0 16px; border-radius: 999px; font-family: 'Rubik', sans-serif;
+        font-size: 15px; background: var(--surface); color: var(--ink) !important; border: 1.5px solid var(--line-strong);
+        cursor: pointer;
+    }
+    .kb-cancel-reason-pill[aria-pressed="true"] { border-color: var(--bordeaux); background: var(--blush); }
 
     #kb-main-content { display: flex; flex-direction: column; gap: 30px; }
 
@@ -1751,54 +1781,90 @@
          של kb-reading-screen (hidden, מוחלף ל-display:flex ב-JS). -->
     <div id="kb-account-screen" class="kb-account-screen" hidden>
         <div class="kb-account-header">
-            <button type="button" class="kb-account-back" id="kb-account-back-btn" aria-label="חזרה">→</button>
-            <h2 class="kb-modal-title" style="margin:0;">האזור שלי</h2>
+            <button type="button" class="kb-account-back" id="kb-account-back-btn" aria-label="חזרה">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A2326" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>
+            <h1 style="margin:0;font-size:22px;font-weight:500;">האזור שלי</h1>
         </div>
         <div id="kb-account-body" class="kb-account-body">
 
-            <!-- 1. המסלול שלי -->
-            <section class="kb-account-section">
-                <h3 class="kb-account-section-title">המסלול שלי</h3>
+            <!-- 1. המסלול שלי - docs/account-reference.html חלק 1 -->
+            <section class="kb-account-section" aria-labelledby="kb-account-plan-title">
+                <h2 id="kb-account-plan-title" class="kb-account-section-title">המסלול שלי</h2>
                 <div id="kb-account-plan-card" class="kb-account-card"></div>
-                <p class="kb-modal-text" style="margin-top:10px;">רוצה להחליף מסלול? <a href="#" id="kb-account-change-plan-link">כתבו לנו</a></p>
                 <!-- ביטול מנוי אמיתי (קריאה ל-API של קארדקום) הוא Phase C -
-                     עדיין לא קיים endpoint לכך, לכן הקישור מפנה ל"כתבו לנו"
-                     בינתיים, לא לתהליך ביטול עצמי. -->
-                <p id="kb-account-cancel-row" class="kb-modal-text" style="display:none;"><a href="#" id="kb-account-cancel-link" style="color:var(--muted);font-size:14px;">ביטול המנוי</a></p>
+                     עדיין לא קיים endpoint לכך. הקישור כאן פותח את חלון
+                     האישור (לפי "הדמיה 2" ב-docs/account-reference.html),
+                     אבל "כן, לבטל" בתוכו לא מבטל שום דבר בפועל עדיין -
+                     ר' kbCancelConfirmBtn למטה. -->
+                <button type="button" class="kb-account-quiet-link" id="kb-account-cancel-link" style="display:none;color:var(--muted) !important;">ביטול המנוי</button>
             </section>
 
-            <!-- 2. הפרטים שלי -->
-            <section class="kb-account-section">
-                <h3 class="kb-account-section-title">הפרטים שלי</h3>
-                <label class="kb-field-label" for="kb-account-name">שם</label>
-                <input type="text" id="kb-account-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
-                <div class="kb-field-error" id="kb-account-name-error" style="display:none;" role="alert"></div>
-                <div class="kb-field-label" style="margin-top:12px;">איך לפנות אליך?</div>
-                <div class="kb-gender-radio-group" role="radiogroup" aria-label="לשון פנייה">
-                    <label class="kb-gender-radio"><input type="radio" name="kb-account-gender" id="kb-account-gender-male" value="male">בלשון זכר</label>
-                    <label class="kb-gender-radio"><input type="radio" name="kb-account-gender" id="kb-account-gender-female" value="female">בלשון נקבה</label>
+            <!-- 2. הפרטים שלי - docs/account-reference.html חלק 1 -->
+            <section class="kb-account-section" aria-labelledby="kb-account-details-title">
+                <h2 id="kb-account-details-title" class="kb-account-section-title">הפרטים שלי</h2>
+                <div class="kb-account-card">
+                    <label class="kb-field-label" for="kb-account-name">שם</label>
+                    <input type="text" id="kb-account-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
+                    <div class="kb-field-error" id="kb-account-name-error" style="display:none;" role="alert"></div>
+                    <fieldset style="margin:0;padding:0;border:none;">
+                        <legend class="kb-field-label" id="kb-account-gender-legend">איך לפנות אליך?</legend>
+                        <div class="kb-gender-radio-group" role="radiogroup" aria-labelledby="kb-account-gender-legend">
+                            <label class="kb-gender-radio"><input type="radio" name="kb-account-gender" id="kb-account-gender-male" value="male">בלשון זכר</label>
+                            <label class="kb-gender-radio"><input type="radio" name="kb-account-gender" id="kb-account-gender-female" value="female">בלשון נקבה</label>
+                        </div>
+                    </fieldset>
+                    <label class="kb-field-label" for="kb-account-phone">טלפון (לא חובה)</label>
+                    <input type="tel" id="kb-account-phone" class="kb-field" dir="ltr" placeholder="050-0000000" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
+                    <div class="kb-alert-banner" id="kb-account-details-error" style="display:none;"></div>
+                    <button type="button" class="btn-main" id="kb-account-save-details">שמירת השינויים</button>
+                    <div>
+                        <span class="kb-field-label">מייל</span>
+                        <p class="kb-modal-text" style="margin:2px 0 0;"><span id="kb-account-email-readonly" dir="ltr"></span><br>לשינוי כתובת המייל, <a href="#" id="kb-account-change-email-link">כתבו לנו</a>.</p>
+                    </div>
                 </div>
-                <label class="kb-field-label" for="kb-account-phone" style="margin-top:12px;">טלפון (לא חובה)</label>
-                <input type="tel" id="kb-account-phone" class="kb-field" dir="ltr" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
-                <div class="kb-alert-banner" id="kb-account-details-error" style="display:none;"></div>
-                <button type="button" class="btn-main" id="kb-account-save-details" style="margin-top:14px;">שמירת השינויים</button>
-                <p class="kb-modal-text" style="margin-top:14px;">מייל: <span id="kb-account-email-readonly" dir="ltr"></span><br>לשינוי כתובת המייל, <a href="#" id="kb-account-change-email-link">כתבו לנו</a>.</p>
             </section>
 
-            <!-- 3. היסטוריית תשלומים -->
-            <section class="kb-account-section">
-                <h3 class="kb-account-section-title">היסטוריית תשלומים</h3>
-                <div id="kb-account-transactions"></div>
+            <!-- 3. היסטוריית תשלומים - docs/account-reference.html חלק 1 -->
+            <section class="kb-account-section" aria-labelledby="kb-account-tx-title">
+                <h2 id="kb-account-tx-title" class="kb-account-section-title">היסטוריית תשלומים</h2>
+                <div id="kb-account-transactions" class="kb-account-card" style="padding:4px 18px;"></div>
             </section>
 
-            <!-- 4. החשבון -->
-            <section class="kb-account-section">
-                <h3 class="kb-account-section-title">החשבון</h3>
-                <p class="kb-modal-text">בשלב הזה אין עדיין כניסה ממכשיר אחר. אחרי התנתקות, כדי לחזור לחשבון צריך לכתוב לנו.</p>
-                <button type="button" class="kb-btn kb-btn--quiet" id="kb-account-logout">התנתקות מהמכשיר הזה</button>
-                <!-- מחיקת חשבון (Phase D) - לא מיושמת עדיין, ר' docs/design-spec.md §6.11. -->
+            <!-- 4. החשבון - docs/account-reference.html חלק 1 (בלי כרטיס לבן, קישורים בלבד) -->
+            <section class="kb-account-section" aria-labelledby="kb-account-section-title">
+                <h2 id="kb-account-section-title" class="kb-account-section-title">החשבון</h2>
+                <button type="button" class="kb-account-quiet-link" id="kb-account-logout">התנתקות מהמכשיר הזה</button>
+                <!-- מחיקת חשבון בפועל (Phase D) לא קיימת עדיין - הקישור
+                     פותח "כתבו לנו" בינתיים, ר' kbAccountDeleteLink למטה. -->
+                <button type="button" class="kb-account-quiet-link" id="kb-account-delete-link" style="color:#A3262A !important;">מחיקת החשבון</button>
             </section>
 
+        </div>
+    </div>
+
+    <!-- חלון "לבטל את המנוי?" - docs/account-reference.html "הדמיה 2".
+         kb-modal-scrim רגיל (כבר עם [hidden] תקין, ר' ההערה המלאה למעלה
+         ליד .kb-account-screen). "כן, לבטל את המנוי" לא קורא לשום API -
+         Phase C (ביטול אמיתי מול קארדקום) עדיין לא קיים, ר' kbCancelConfirmBtn. -->
+    <div id="kb-cancel-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-cancel-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-cancel-title" style="text-align:center;">לבטל את המנוי?</h2>
+            <p class="kb-modal-text" id="kb-cancel-text"></p>
+            <fieldset style="margin:0 0 6px;padding:0;border:none;">
+                <legend class="kb-field-label" style="margin-bottom:10px;">נשמח לדעת למה (לא חובה)</legend>
+                <div class="kb-cancel-reason-pills" role="radiogroup" aria-label="סיבת הביטול">
+                    <button type="button" class="kb-cancel-reason-pill" data-reason="יקר לי" aria-pressed="false">יקר לי</button>
+                    <button type="button" class="kb-cancel-reason-pill" data-reason="לא משתמש/ת מספיק" aria-pressed="false">לא משתמש/ת מספיק</button>
+                    <button type="button" class="kb-cancel-reason-pill" data-reason="קיבלתי מה שחיפשתי" aria-pressed="false">קיבלתי מה שחיפשתי</button>
+                    <button type="button" class="kb-cancel-reason-pill" data-reason="אחר" aria-pressed="false">אחר</button>
+                </div>
+            </fieldset>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-outline" id="kb-cancel-confirm-btn">כן, לבטל את המנוי</button>
+                <button type="button" class="btn-main" id="kb-cancel-stay-btn">להישאר במנוי</button>
+            </div>
         </div>
     </div>
 
@@ -3110,17 +3176,19 @@
     });
 
     // ============================================================
-    // סעיף 6.11: "האזור שלי" (Phase B - חלקים לקריאה/עריכה בלבד).
-    // ביטול מנוי אמיתי (קריאה ל-API של קארדקום, Phase C) ומחיקת חשבון
-    // (Phase D) עדיין לא קיימים בשרת - הקישורים שלהם כאן מפנים ל"כתבו
-    // לנו" בינתיים, לא לתהליך עצמאי (ר' docs/design-spec.md §6.11).
+    // סעיף 6.11: "האזור שלי" (Phase B - חלקים לקריאה/עריכה בלבד, לפי
+    // docs/account-reference.html). ביטול מנוי אמיתי מול קארדקום (Phase C)
+    // ומחיקת חשבון בפועל (Phase D) עדיין לא קיימים בשרת: חלון הביטול
+    // (קישור+modal) בנוי לפי ה"הדמיה 2" של docs/account-reference.html,
+    // אבל "כן, לבטל את המנוי" בתוכו לא קורא לשום API עדיין - ר' למטה.
+    // מחיקת חשבון פותחת "כתבו לנו" בינתיים, כמו שינוי מייל.
     // ============================================================
     const kbAccountScreen = document.getElementById('kb-account-screen');
     const kbAccountBackBtn = document.getElementById('kb-account-back-btn');
     const kbAccountPlanCard = document.getElementById('kb-account-plan-card');
-    const kbAccountChangePlanLink = document.getElementById('kb-account-change-plan-link');
-    const kbAccountChangeEmailLink = document.getElementById('kb-account-change-email-link');
     const kbAccountCancelLink = document.getElementById('kb-account-cancel-link');
+    const kbAccountChangeEmailLink = document.getElementById('kb-account-change-email-link');
+    const kbAccountDeleteLink = document.getElementById('kb-account-delete-link');
     const kbAccountName = document.getElementById('kb-account-name');
     const kbAccountNameError = document.getElementById('kb-account-name-error');
     const kbAccountGenderMale = document.getElementById('kb-account-gender-male');
@@ -3131,14 +3199,16 @@
     const kbAccountTransactions = document.getElementById('kb-account-transactions');
     const kbAccountLogout = document.getElementById('kb-account-logout');
 
+    // docs/account-reference.html חלק 1, שורות ההתקדמות: "{תווית}" / "{נשאר}
+    // מתוך {מקס}" בשורה אחת, ומתחת פס ה-progress. "ללא הגבלה" בלי פס.
     function kbAccountQuotaLine(label, used, max, unlimited) {
         if (unlimited) {
-            return '<div class="kb-account-progress-row"><div class="kb-account-progress-label">' + label + ': ללא הגבלה</div></div>';
+            return '<div class="kb-account-progress-label-row"><span>' + label + '</span><span>ללא הגבלה</span></div>';
         }
         const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
-        return '<div class="kb-account-progress-row">' +
-            '<div class="kb-account-progress-label">' + label + ': ' + used + ' מתוך ' + max + '</div>' +
-            '<div class="kb-account-progress-track" role="progressbar" aria-valuenow="' + used + '" aria-valuemin="0" aria-valuemax="' + max + '">' +
+        return '<div style="display:flex;flex-direction:column;gap:6px;">' +
+            '<div class="kb-account-progress-label-row"><span>' + label + '</span><span>' + used + ' מתוך ' + max + '</span></div>' +
+            '<div class="kb-account-progress-track" role="progressbar" aria-valuenow="' + used + '" aria-valuemin="0" aria-valuemax="' + max + '" aria-label="' + label + '">' +
             '<div class="kb-account-progress-fill" style="width:' + pct + '%;"></div></div></div>';
     }
 
@@ -3151,9 +3221,12 @@
         }
     }
 
+    let kbAccountCurrentData = null;
+
     async function kbLoadAccountDetails() {
         kbAccountPlanCard.innerHTML = '<p class="kb-modal-text">טוען…</p>';
         kbAccountTransactions.innerHTML = '<p class="kb-modal-text">טוען…</p>';
+        kbAccountCancelLink.style.display = 'none';
         try {
             const res = await fetch('/wp-json/dcard/v1/account/details', { method: 'GET', headers: dcardHeaders() });
             const data = await res.json();
@@ -3162,31 +3235,47 @@
                 kbAccountTransactions.innerHTML = '';
                 return;
             }
+            kbAccountCurrentData = data;
 
-            // חלק 1: המסלול שלי
+            // חלק 1: המסלול שלי - docs/account-reference.html חלק 1
             const isFree = ('free' === data.current_plan);
-            let planHtml = '<div><strong>' + data.plan_label + '</strong>' + (isFree ? '' : (' - ' + data.plan_price + ' ₪ לחודש')) + '</div>';
-            if (!isFree && data.plan_expires_at) {
-                planHtml += '<div class="kb-modal-text" style="margin:4px 0 0;">החיוב הבא: ' + kbFormatAccountDate(data.plan_expires_at) + '</div>';
+            let planHtml = '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+                '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                '<span style="font-size:20px;font-weight:500;">' + data.plan_label + '</span>' +
+                (!isFree && data.plan_expires_at ? '<span style="font-size:14px;color:var(--muted);">החיוב הבא: ' + kbFormatAccountDate(data.plan_expires_at) + '</span>' : '') +
+                '</div>';
+            if (!isFree) {
+                planHtml += '<div style="display:flex;flex-direction:column;align-items:flex-end;">' +
+                    '<span style="font-size:22px;font-weight:600;">' + data.plan_price + ' ₪</span>' +
+                    '<span style="font-size:13px;color:var(--muted);">לחודש</span></div>';
             }
-            // current_credits_* זה מה שנשאר, לא המקסימום - ה"משומש" לפס
-            // ההתקדמות (used מתוך max) הוא ההפרש מול credits_*_max.
-            let quotaHtml = kbAccountQuotaLine('קבלות מסר', data.credits_msg_max - data.current_credits_msg, data.credits_msg_max, data.unlimited_msg) +
-                kbAccountQuotaLine('דיאלוגים מכוונים', data.credits_chat_max - data.current_credits_chat, data.credits_chat_max, data.unlimited_chat);
-            if (data.next_credit_reset_at) {
-                quotaHtml += '<div class="kb-modal-text" style="margin-top:6px;">מתחדש ב־' + kbFormatAccountDate(data.next_credit_reset_at) + '</div>';
-            }
-            kbAccountPlanCard.innerHTML = planHtml + quotaHtml;
+            planHtml += '</div>';
+            planHtml += '<div style="display:flex;flex-direction:column;gap:12px;padding-top:4px;">' +
+                '<span style="font-size:14px;color:var(--muted);">השימוש החודש' + (data.next_credit_reset_at ? ' · מתחדש ב־' + kbFormatAccountDate(data.next_credit_reset_at) : '') + '</span>' +
+                // current_credits_* זה מה שנשאר, לא המקסימום - "used" לפס
+                // ההתקדמות הוא ההפרש מול credits_*_max.
+                kbAccountQuotaLine('קבלות מסר', data.credits_msg_max - data.current_credits_msg, data.credits_msg_max, data.unlimited_msg) +
+                kbAccountQuotaLine('דיאלוגים מכוונים', data.credits_chat_max - data.current_credits_chat, data.credits_chat_max, data.unlimited_chat) +
+                '</div>';
+            planHtml += '<p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted);">רוצה להחליף מסלול? <a href="#" id="kb-account-change-plan-link">כתבו לנו</a></p>';
             if (isFree) {
-                kbAccountPlanCard.innerHTML += '<button type="button" class="btn-main" style="margin-top:12px;" id="kb-account-join-plan-btn">הצטרפות למסלול</button>';
-                const joinBtn = document.getElementById('kb-account-join-plan-btn');
-                if (joinBtn) {
-                    joinBtn.addEventListener('click', function () {
-                        kbCloseAccountScreen();
-                        kbOpenPaymentModal(false);
-                    });
-                }
+                planHtml += '<button type="button" class="btn-main" id="kb-account-join-plan-btn">הצטרפות למסלול</button>';
             }
+            kbAccountPlanCard.innerHTML = planHtml;
+            document.getElementById('kb-account-change-plan-link').addEventListener('click', function (e) {
+                e.preventDefault();
+                kbCloseAccountScreen();
+                kbOpenContactModal();
+            });
+            if (isFree) {
+                document.getElementById('kb-account-join-plan-btn').addEventListener('click', function () {
+                    kbCloseAccountScreen();
+                    kbOpenPaymentModal(false);
+                });
+            }
+            // "ביטול המנוי" מוצג רק במסלול בתשלום (לפי docs/account-reference.html,
+            // לא קיים בכלל אצל משתמש חינמי).
+            kbAccountCancelLink.style.display = isFree ? 'none' : '';
 
             // חלק 2: הפרטים שלי
             kbAccountName.value = data.name || '';
@@ -3197,10 +3286,13 @@
 
             // חלק 3: היסטוריית תשלומים
             if (!data.transactions || !data.transactions.length) {
-                kbAccountTransactions.innerHTML = '<p class="kb-modal-text">עוד לא היו תשלומים.</p>';
+                kbAccountTransactions.innerHTML = '<p class="kb-modal-text" style="padding:14px 0;">עוד לא היו תשלומים.</p>';
             } else {
                 kbAccountTransactions.innerHTML = data.transactions.map(function (tx) {
-                    return '<div class="kb-account-tx-row"><span>' + kbFormatAccountDate(tx.transaction_date) + ' - ' + tx.plan_label + '</span><span>' + tx.amount + ' ₪</span></div>';
+                    return '<div class="kb-account-tx-row"><span style="display:flex;flex-direction:column;">' +
+                        '<span>' + kbFormatAccountDate(tx.transaction_date) + '</span>' +
+                        '<span style="font-size:13px;color:var(--muted);">' + tx.plan_label + '</span></span>' +
+                        '<span style="font-weight:500;">' + tx.amount + ' ₪</span></div>';
                 }).join('');
             }
         } catch (err) {
@@ -3210,7 +3302,15 @@
         }
     }
 
+    // תיקון באג חמור (דווח בפועל ב-staging): מעבר על ה-[hidden] שתוקן
+    // למעלה (CSS), הגנה גם כאן בצד ה-JS - ניסיון לפתוח את המסך בלי משתמש
+    // רשום (dcardIsRegistered) פשוט לא עושה כלום, במקום להציג מסך עם
+    // נתונים שלא קיימים. "חזרה למסך הבית" = לא פותחים בכלל.
     function kbOpenAccountScreen() {
+        if (!dcardIsRegistered()) {
+            console.warn('[DCard Account] kbOpenAccountScreen called for an unregistered user - ignoring.');
+            return;
+        }
         kbCloseMenu();
         kbAccountScreen.hidden = false;
         kbLoadAccountDetails();
@@ -3218,15 +3318,71 @@
     function kbCloseAccountScreen() {
         kbAccountScreen.hidden = true;
     }
+    // הגנה נוספת, חד-פעמית בטעינת העמוד: אם המסך נשאר פתוח ממצב קודם
+    // (למשל localStorage שנוקה בטאב אחר) אצל משתמש שכבר לא רשום - סוגרים
+    // אותו מיד, לא מסתמכים רק על זה שהכפתור בתפריט מוסתר.
+    if (!kbAccountScreen.hidden && !dcardIsRegistered()) {
+        kbAccountScreen.hidden = true;
+    }
     kbMenuMyAccount.addEventListener('click', kbOpenAccountScreen);
     kbAccountBackBtn.addEventListener('click', kbCloseAccountScreen);
 
-    [kbAccountChangePlanLink, kbAccountChangeEmailLink, kbAccountCancelLink].forEach(function (link) {
-        link.addEventListener('click', function (e) {
-            e.preventDefault();
-            kbCloseAccountScreen();
-            kbOpenContactModal();
+    kbAccountChangeEmailLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        kbCloseAccountScreen();
+        kbOpenContactModal();
+    });
+    kbAccountDeleteLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        kbCloseAccountScreen();
+        kbOpenContactModal();
+    });
+
+    // חלון "לבטל את המנוי?" (docs/account-reference.html "הדמיה 2").
+    // "כן, לבטל את המנוי" לא מבטל שום דבר בפועל - Phase C (קריאה אמיתית
+    // ל-API של קארדקום, ר' תוכנית §6.11) עדיין לא קיימת. במקום לדמות
+    // ביטול שלא קרה באמת, הכפתור סוגר את החלון ומפנה ל"כתבו לנו" - אותו
+    // דפוס בדיוק כמו שינוי מייל/מסלול במסך הזה.
+    const kbCancelModal = document.getElementById('kb-cancel-modal');
+    const kbCancelText = document.getElementById('kb-cancel-text');
+    const kbCancelReasonPills = document.querySelectorAll('.kb-cancel-reason-pill');
+    const kbCancelConfirmBtn = document.getElementById('kb-cancel-confirm-btn');
+    const kbCancelStayBtn = document.getElementById('kb-cancel-stay-btn');
+    let kbCancelSelectedReason = null;
+
+    function kbOpenCancelModal() {
+        const expiresAt = kbAccountCurrentData && kbAccountCurrentData.plan_expires_at
+            ? kbFormatAccountDate(kbAccountCurrentData.plan_expires_at) : '';
+        kbCancelText.innerHTML = ('female' === userGender)
+            ? 'המנוי יישאר פעיל עד <strong>' + expiresAt + '</strong>, ולא תחויבי שוב. אחרי התאריך הזה תעברי למסלול החינמי.'
+            : 'המנוי יישאר פעיל עד <strong>' + expiresAt + '</strong>, ולא תחויב שוב. אחרי התאריך הזה תעבור למסלול החינמי.';
+        kbCancelSelectedReason = null;
+        kbCancelReasonPills.forEach(function (pill) { pill.setAttribute('aria-pressed', 'false'); });
+        kbCancelModal.hidden = false;
+    }
+    function kbCloseCancelModal() {
+        kbCancelModal.hidden = true;
+    }
+    kbAccountCancelLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        kbOpenCancelModal();
+    });
+    kbCancelReasonPills.forEach(function (pill) {
+        pill.addEventListener('click', function () {
+            const alreadySelected = ('true' === pill.getAttribute('aria-pressed'));
+            kbCancelReasonPills.forEach(function (p) { p.setAttribute('aria-pressed', 'false'); });
+            kbCancelSelectedReason = alreadySelected ? null : pill.getAttribute('data-reason');
+            if (!alreadySelected) pill.setAttribute('aria-pressed', 'true');
         });
+    });
+    kbCancelStayBtn.addEventListener('click', kbCloseCancelModal);
+    kbCancelModal.addEventListener('click', function (e) {
+        if (e.target === kbCancelModal) kbCloseCancelModal();
+    });
+    kbCancelConfirmBtn.addEventListener('click', function () {
+        kbCloseCancelModal();
+        kbCloseAccountScreen();
+        kbOpenContactModal();
     });
 
     kbAccountSaveDetails.addEventListener('click', async function () {
@@ -3274,7 +3430,8 @@
 
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
-        if (!kbAccountScreen.hidden) kbCloseAccountScreen();
+        if (!kbCancelModal.hidden) kbCloseCancelModal();
+        else if (!kbAccountScreen.hidden) kbCloseAccountScreen();
         else if (!kbMenuOverlay.hidden) kbCloseMenu();
         else if (!kbInfoModal.hidden) kbInfoModal.hidden = true;
         else if (!kbGuidelinesModal.hidden) kbGuidelinesModal.hidden = true;
