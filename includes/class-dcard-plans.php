@@ -47,15 +47,6 @@ class DCard_Plans {
 	}
 
 	/**
-	 * "חודשי"/"שנתי" לתצוגה בלבד - אותה טבלה כמו plan_period_days, נשמרת
-	 * נפרדת כדי לא "לנחש" טקסט ממספר הימים (365 יום הוא "שנתי", אבל אין
-	 * סיבה להצמיד טקסט-תצוגה ללוגיקת ימים בקוד אחד).
-	 */
-	public static function period_label_for_plan( $plan_id ) {
-		return ( self::NURIT_YEARLY === $plan_id ) ? 'שנתי' : 'חודשי';
-	}
-
-	/**
 	 * שלושת המסלולים בתשלום שה-admin מציג/עורך (ר' DCard_Quotas::
 	 * paid_plan_ids_config) - רשימה קבועה (לא "הוספת מסלול" גנרית, ר'
 	 * ההערה ב-DCard_Quotas), אבל כל השדות שלהם (שם לתצוגה/מחיר/ProductID/
@@ -227,13 +218,16 @@ class DCard_Plans {
 	 * controller.php) ולדף המכסות - מקור אחד לכל השדות, לא איסוף ידני בכל
 	 * caller. ProductID לא נכלל בכוונה (לא רלוונטי ללקוח - קארדקום מזהה
 	 * מסלול לפי כפתורי הרדיו בעמוד שלהם עצמם, לא מה-URL שלנו).
+	 *
+	 * עדכון §6.10.2: אין יותר 'period' - כל המסלולים מוצגים כ"לחודש"
+	 * בלבד (ר' ההערה המלאה ב-class-dcard-quotas.php). לא משנה את משך
+	 * התוקף בפועל (plan_duration_days) - זו רק הצגה.
 	 */
 	public static function public_plan_data( $plan_id ) {
 		return array(
 			'id'            => $plan_id,
 			'label'         => self::label_for_plan( $plan_id ),
 			'price'         => self::price_for_plan( $plan_id ),
-			'period'        => self::period_label_for_plan( $plan_id ),
 			'credits_msg'   => self::credits_for_plan( $plan_id, 'msg' ),
 			'credits_chat'  => self::credits_for_plan( $plan_id, 'chat' ),
 			'unlimited_msg' => self::is_unlimited( $plan_id, 'msg' ),

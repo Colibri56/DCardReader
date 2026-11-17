@@ -1446,10 +1446,6 @@
                 <button class="btn-main" id="btn-path-chat">דיאלוג מכוון<span class="kb-btn-sub">שיחה מעמיקה, צעד אחר צעד, עד שמגיעים לתובנה</span></button>
                 <button class="btn-outline" id="btn-path-message">קבלת מסר אישי<span class="kb-btn-sub">מסר אחד קצר על השאלה והתמונה</span></button>
             </div>
-            <!-- סעיף 3.5א: "אין חלונות של הדפדפן" - שורת התראה במקום alert(),
-                 למקרה שבו קיר ההרשמה (4749)/התשלום (4753) נכשל לגמרי גם אחרי
-                 ניסיונות חוזרים (ר' JS openPopupGiveUpBanner). -->
-            <div class="kb-alert-banner" id="kb-popup-wall-error" style="display:none;"></div>
         </div>
 
         <!-- גבי קלפים דקורטיביים (סעיף 3.3: עומד, 2:3) - רק ≥1024px (ר' CSS).
@@ -1641,7 +1637,7 @@
                     <button type="button" class="btn-main" id="kb-register-submit">אשמח להמשיך</button>
                     <button type="button" class="kb-btn kb-btn--quiet" id="kb-register-cancel" style="align-self:center;">לא עכשיו</button>
                 </div>
-                <p class="kb-modal-text" style="text-align:center;margin-top:16px;margin-bottom:0;font-size:13px;"><span id="kb-register-terms-lead">בהמשך את/ה מאשר/ת</span> את <a href="#">תנאי השימוש</a> ואת <a href="#">מדיניות הפרטיות</a>.</p>
+                <p class="kb-modal-text" style="text-align:center;margin-top:16px;margin-bottom:0;font-size:13px;"><span id="kb-register-terms-lead">בהמשך אתה מאשר</span> את <a href="#">תנאי השימוש</a> ואת <a href="#">מדיניות הפרטיות</a>.</p>
             </div>
             <div id="kb-register-success-state" style="display:none;text-align:center;">
                 <div class="kb-onboarding-icon kb-success-icon">
@@ -1669,7 +1665,7 @@
             <label class="kb-field-label" for="kb-payment-email" style="margin-top:12px;">כתובת מייל</label>
             <input type="email" id="kb-payment-email" class="kb-field" dir="ltr" autocomplete="email" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
             <div class="kb-field-error" id="kb-payment-email-error" style="display:none;" role="alert">הכתובת לא נראית תקינה. כדאי לבדוק שוב.</div>
-            <p class="kb-modal-text" style="margin-top:10px;">בעמוד התשלום כדאי להשתמש באותה כתובת, כדי שהמסלול יתחבר אלייך/אליך.</p>
+            <p class="kb-modal-text" style="margin-top:10px;"><span id="kb-payment-same-email-note">בעמוד התשלום כדאי להשתמש באותה כתובת, כדי שהמסלול יתחבר אליך.</span></p>
             <div class="kb-alert-banner" id="kb-payment-send-error" style="display:none;"></div>
             <div class="kb-modal-actions">
                 <button type="button" class="btn-main" id="kb-payment-submit">אשמח להירשם ולהמשיך</button>
@@ -1742,10 +1738,7 @@
 
     <!-- סעיף 7.2א/3.5א/8: "נגמרו השימושים לתקופת הניסיון" - למשתמש רשום
          שנגמרו לו הקרדיטים בזמן שחלון התשלום כבוי (KB_PAYWALL_ENABLED).
-         modal רגיל שלנו, לא Elementor popup - בכוונה: כל קירות ה-Elementor
-         (4749/4753) סבלו מתזמון רישום לא אמין (ר' openPopupById/
-         elementorPopupModuleReady למעלה); חלון בשליטה מלאה שלנו נמנע
-         מכל אותה בעיה. -->
+         modal רגיל שלנו, לא Elementor popup. -->
     <div id="kb-credits-exhausted-modal" class="kb-modal-scrim" hidden>
         <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-credits-exhausted-title">
             <div class="kb-modal-handle"></div>
@@ -1955,8 +1948,7 @@
     // כתובת הבסיס של דף התשלום בקארדקום - §6.10.2: הועברה לדף המכסות
     // (DCard_Quotas::OPTION_CARDCOM_PAYMENT_URL), לא עוד קשיחה כאן. ה-
     // fallback (אותה כתובת כמו קודם) הוא רק ליתר ביטחון אם dcardSettings
-    // חסר (למשל דף ישן בקאש). עדיין בשימוש גם ע"י ה-Redirect הידני
-    // (ר' submit_success למטה, פופאפ 4753 הישן - לא נמחק עדיין, ר' §6.10).
+    // חסר (למשל דף ישן בקאש).
     const CARDCOM_PAYMENT_URL = (window.dcardSettings && dcardSettings.cardcomPaymentUrl)
         || 'https://secure.cardcom.solutions/EA/EA5/fxGKTgwmtUyAFyQOvObXIA/PaymentSP';
 
@@ -1978,28 +1970,6 @@
     // פתוחה) כדי שרק אז המכסה המקומית תיספר - ולא בכל הודעה/קלף נוסף
     // בתוך אותו סשן שכבר נספר. ר' countSessionIfNeeded למטה.
     let currentSessionCounted = false;
-
-    // תיקון מרוץ (דווח בפועל): "n.getModal is not a function" בקונסול
-    // התגלה כנובע מ-openOnboardingPopup() עצמה (ר' המסר המדויק - אין בו
-    // "(id=...)", בניגוד להודעה המקבילה ב-openPopupById) - לולאת ה-
-    // polling שלה (עד 400 ניסיונות, מתחילה בטעינת העמוד למשתמש חדש)
-    // קוראת showPopup({id:4723}) מחדש אם היא "מגיעה לתורה" בדיוק סביב
-    // הרגע שהמשתמש שולח את הטופס - גם אם הבדיקה הקיימת שם (dcardGetLS
-    // על name/gender) אמורה לתפוס את זה, דגל זיכרון סינכרוני, שנקבע
-    // כבר בשורה הראשונה האפשרית בתוך ה-capture handler של ה-submit (לא
-    // מחכה לכתיבת localStorage בפועל), סוגר את חלון התזמון חזק יותר.
-    let onboardingPopupAbort = false;
-
-    // תיקון קריסה (דווח בפועל, משתמשים חוזרים): הוכרז קודם ממש לפני
-    // cancelOnboardingPopupGuard()/keepOnboardingPopupClosed() (למטה
-    // בקובץ), אבל keepOnboardingPopupClosed() נקרא *מוקדם יותר בפועל*
-    // מתוך "page load decision" (storedName && storedGender, גם למטה
-    // אבל לפני ההכרזה ההיא) - var מתבצע hoisting לשם עצמו, אבל ה-
-    // *השמה* (= []) עדיין רצה רק כשהשורה ההיא עצמה מגיעה בזרימה -
-    // כלומר ברגע שמשתמש חוזר קרא ל-keepOnboardingPopupClosed(), המשתנה
-    // עדיין undefined (לא []), ו-.forEach קורס. הפתרון: הכרזה+אתחול כאן
-    // ממש, מוקדם מאוד בסקריפט - ודאי לפני כל קוד אחר שיכול לקרוא לו.
-    var onboardingPopupGuardTimeoutIds = [];
 
     // תיקון QA 4.3: window.dcardRestNonce מוזרק ב-wp_head (ר' dcard-ai-reader-
     // backend.php) - קיים בדרך כלל, אבל לא מובטח (למשל דף שהוגש מ-cache ישן
@@ -2209,30 +2179,6 @@
         kbOpenRegisterModal(continueFn);
     }
 
-    // תיקון (דווח בפועל - שם/אימייל עדיין לא נטענים ל-4749/4753 אחרי
-    // הניסיון הקודם): populateUserFieldInPopup מתעלם בשקט אם הקונטיינר
-    // (#elementor-popup-modal-<id>) לא קיים עדיין ב-DOM - וב-Elementor Pro
-    // פופאפ שנפתח רק תכנותית (openPopupById, בלי "On Page Load") לפעמים
-    // מרנדר את תוכנו בפועל רק כחלק מ-showPopup() עצמה, לא מראש בטעינת
-    // העמוד - כלומר הניסיון היחיד שהיה לנו *לפני* openPopupById יכול
-    // לקרות לפני שהקונטיינר בכלל קיים. אין שם event רשמי מתועד שנבדק כאן
-    // בפרויקט הזה שאפשר להסתמך עליו בלי להמר - אז במקום זה: כמה ניסיונות
-    // חזרה (retry) במרווחים לאחר הפתיחה (לא רק לפניה), מתוזמנים ישירות
-    // מתוך הקוד שלנו (לא תלויים ב-trigger/event פנימי של אלמנטור בכלל).
-    // כל ניסיון בטוח לקרוא גם אם לא היה צורך בו (guard פנימי ב-
-    // populateUserFieldInPopup בודק storedValue/container/field בעצמו).
-    function populateUserFieldsWithRetries(popupId, immediateOnly) {
-        populateNameFieldInPopup(popupId);
-        populateEmailFieldInPopup(popupId);
-        if (immediateOnly) return;
-        [150, 400, 900].forEach(function (delay) {
-            setTimeout(function () {
-                populateNameFieldInPopup(popupId);
-                populateEmailFieldInPopup(popupId);
-            }, delay);
-        });
-    }
-
     // קיר התשלום (4753) - נפתח כשהשרת מחזיר 403/code=credits_exhausted
     // (ר' session_card_selected_inner ב-class-dcard-rest-controller.php),
     // כלומר למשתמש *רשום* שכבר אין לו קרדיטים - לא אותו דבר כמו
@@ -2243,81 +2189,9 @@
     let paymentWallLastShownAt = 0;
     const PAYMENT_WALL_COOLDOWN_MS = 3000;
 
-    // תיקון: שדה האימייל בפופאפ 4753 נשאר ריק, כי שום דבר לא מילא אותו -
-    // והטופס שם, ללא email, לא נתן ל-DCard_Elementor_Hooks::on_new_record
-    // (PHP) לזהות את המשתמש בכלל, כלומר לא היה response.data.dcard* -
-    // וזה בעצם הסיבה האמיתית שגם ה-redirect לקארדקום לא קרה (ה-guard
-    // הראשון ב-submit_success החזיר מוקדם). ממלאים את השדה כאן, רגע לפני
-    // שהפופאפ נפתח - הקונטיינר שלו קיים ב-DOM גם כשהוא מוסתר (אותה הנחה
-    // שכל שאר הקוד כאן כבר מסתמך עליה ל-4723/4729/4749/4753). מנחשים
-    // את השדה בכמה אסטרטגיות (type=email קודם, name/id שמכילים "email"
-    // אחר כך) ולא שם ספציפי, כי לא ידוע מראש ה-id המדויק שהוגדר בעורך.
-    // מפעילים גם 'input' כדי שכל ולידציה חיה של אלמנטור (למשל נעילת
-    // כפתור השליחה עד שהשדה "תקין") תזהה את השינוי התכנותי.
-    // תיקון UX (4749/4753): בשני הקירות האלה המשתמש כבר ידוע לנו - שם
-    // ומגדר כבר נאספו בפופאפ ה-onboarding (4723), ואימייל נאסף/נשמר בכל
-    // הרשמה קודמת (ר' submit_success - dcardEmail). מציגים אותם מוכנים
-    // בשדות, לא מבקשים מחדש מאפס - המשתמש עדיין יכול לערוך את שניהם
-    // (ר' בקשה מקורית: "המשתמש יכול לשנות את השם וכתובת המייל").
-    //
-    // generic כי אותה לוגיקה בדיוק נדרשת גם לשם וגם לאימייל, רק סוג
-    // השדה/המפתח ב-localStorage משתנים - לא מכפילים את כל הפונקציה פעמיים.
-    function populateUserFieldInPopup(popupId, storedValue, fieldSelectors, fieldLabel) {
-        if (!storedValue) return;
-
-        const container = document.querySelector('#elementor-popup-modal-' + popupId);
-        if (!container) {
-            console.warn('[DCard Account] populateUserFieldInPopup(' + popupId + ', ' + fieldLabel + ') - container #elementor-popup-modal-' + popupId + ' not in DOM yet.');
-            return;
-        }
-
-        let field = null;
-        for (let i = 0; i < fieldSelectors.length; i++) {
-            field = container.querySelector(fieldSelectors[i]);
-            if (field) break;
-        }
-        if (!field) {
-            // דאמפ אבחון: כל ה-id/name בפועל של שדות הקלט בפופאפ הזה - כדי
-            // שאם זה עדיין נכשל, יהיה מה בדיוק רואים בפועל, לא ניחוש נוסף.
-            const actualFields = Array.prototype.map.call(
-                container.querySelectorAll('input, textarea, select'),
-                function (el) { return '(id=' + (el.id || '-') + ', name=' + (el.name || '-') + ', type=' + (el.type || '-') + ')'; }
-            );
-            console.warn('[DCard Account] populateUserFieldInPopup(' + popupId + ', ' + fieldLabel + ') - no matching input found. Fields actually present: ' + (actualFields.length ? actualFields.join(', ') : '(none)'));
-            return;
-        }
-
-        field.value = storedValue;
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-        console.log('[DCard Account] populateUserFieldInPopup(' + popupId + ', ' + fieldLabel + ') - filled from localStorage.');
-    }
-
-    function populateEmailFieldInPopup(popupId) {
-        populateUserFieldInPopup(
-            popupId,
-            dcardGetLS(DCARD_LS_KEYS.email),
-            // #form-field-user_email קודם - הסלקטור המדויק/המוסכם (ר' 4723),
-            // יותר אמין מהתאמה מעורפלת לפי substring; fuzzy matching נשאר
-            // כ-fallback אם פופאפ מסוים לא עוקב אחרי המוסכמה הזו.
-            ['#form-field-user_email', 'input[type="email"]', 'input[name*="email" i]', 'input[id*="email" i]'],
-            'email'
-        );
-    }
-
-    function populateNameFieldInPopup(popupId) {
-        populateUserFieldInPopup(
-            popupId,
-            dcardGetLS(DCARD_LS_KEYS.name),
-            ['#form-field-user_name', 'input[name*="name" i]:not([name*="email" i]):not([type="email"])', 'input[id*="name" i]:not([id*="email" i])'],
-            'name'
-        );
-    }
-
     // §6.10.2: במקום פופאפ אלמנטור 4753 - חלון kb-payment-modal שלנו
     // (ר' ההגדרה המלאה למטה, ליד kbOpenPaymentModal). anchorEl מועבר הלאה
-    // רק כדי לשמור על אותה חתימה כמו קודם (שימוש עתידי אפשרי, לא בשימוש
-    // היום כי kb-modal שלנו לא תלוי ב-elementorPopupModuleReady בכלל).
+    // רק כדי לשמור על אותה חתימה כמו קודם (שימוש עתידי אפשרי).
     // adminTesting (ר' kbHandleCreditsExhausted) - מציג תווית "מצב בדיקה"
     // בחלון במקום לדרוס את חלון "נגמרו השימושים לתקופת הניסיון".
     function triggerPaymentWall(anchorEl, adminTesting) {
@@ -2334,9 +2208,7 @@
 
     // סעיף 7.2א/3.5א/8: "נגמרו השימושים לתקופת הניסיון" - למשתמש רשום,
     // כש-KB_PAYWALL_ENABLED כבוי (ברירת המחדל בתקופת הבדיקות). modal
-    // רגיל שלנו (ר' ההערה המלאה ב-HTML, ליד kb-credits-exhausted-modal) -
-    // לא Elementor popup, אז אין כאן שום תלות ב-elementorPopupModuleReady/
-    // ניסיונות חוזרים כמו ב-triggerPaymentWall/triggerRegistrationWall.
+    // רגיל שלנו (ר' ההערה המלאה ב-HTML, ליד kb-credits-exhausted-modal).
     const kbCreditsExhaustedModal = document.getElementById('kb-credits-exhausted-modal');
     const kbCreditsExhaustedText = document.getElementById('kb-credits-exhausted-text');
     const kbCreditsExhaustedContactBtn = document.getElementById('kb-credits-exhausted-contact');
@@ -2511,9 +2383,9 @@
     let userName = "משה";
     let userGender = "male";
 
-    // אם המשתמש כבר מילא את פופאפ ה-onboarding בעבר (קלט שם/מגדר) - הערכים
-    // האלה כבר שמורים מפעם קודמת, ואין צורך לבקש אותם שוב. אם הם חסרים,
-    // פותחים את הפופאפ (ר' openOnboardingPopup למטה).
+    // אם המשתמש כבר מילא את חלון ה-onboarding (kb-onboarding-modal) בעבר
+    // (קלט שם/מגדר) - הערכים האלה כבר שמורים מפעם קודמת, ואין צורך לבקש
+    // אותם שוב. אם הם חסרים, מוצג דף הכניסה (kb-landing) שממנו נפתח החלון.
     const storedName   = dcardGetLS(DCARD_LS_KEYS.name);
     const storedGender = dcardGetLS(DCARD_LS_KEYS.gender);
 
@@ -2736,20 +2608,14 @@
 
     // שלב 2 (עיצוב, docs/design-spec.md סעיפים 6.1-6.2): פופאפ 4723 (שם+מגדר)
     // ודף הכניסה הנפרד מוחלפים בחלון kb-onboarding-modal/kb-landing הנייטיבים
-    // שבתוך הקובץ הזה - ר' התוכנית שהוצגה ואושרה. 4723 עצמו *לא נמחק*
-    // באלמנטור (לפי בקשה מפורשת) - רק מוסתר תמיד, גם למשתמש חדש, כך
-    // שה-trigger "On Page Load" הפנימי שלו (שצריך להישאר דלוק כדי שאלמנטור
-    // בכלל "יכין" את הפופאפ - ר' ההערה המקורית למעלה) לעולם לא נראה בפועל.
-    var hideStyle4723 = document.createElement('style');
-    hideStyle4723.textContent = '#elementor-popup-modal-4723 { display: none !important; }';
-    document.head.appendChild(hideStyle4723);
-
+    // שבתוך הקובץ הזה. 4723 (וכל שאר הפופאפים הישנים של אלמנטור - 4729/
+    // 4749/4753) הועברו ל-Draft באלמנטור עצמו - אין יותר צורך בעקיפות JS
+    // (הסתרת CSS כפויה/סגירה תכנותית) כדי למנוע מהם להופיע.
     const kbMainContent = document.getElementById('kb-main-content');
     const kbLanding = document.getElementById('kb-landing');
 
     if (storedName && storedGender) {
         console.log('[DCard Popup] both already saved -> skipping landing page, starting the session now');
-        keepOnboardingPopupClosed(); // רשת ביטחון - ר' ההערה המקורית, עדיין לא מזיק להשאיר
         kbMainContent.style.display = '';
         initSession();
     } else {
@@ -2967,28 +2833,22 @@
     const kbPaymentEmailError = document.getElementById('kb-payment-email-error');
     const kbPaymentSubmit = document.getElementById('kb-payment-submit');
     const kbPaymentCancel = document.getElementById('kb-payment-cancel');
+    const kbPaymentSameEmailNote = document.getElementById('kb-payment-same-email-note');
 
     function kbPlanQuotaLine(label, value, unlimited) {
         return '✓ ' + label + ': ' + (unlimited ? 'ללא הגבלה*' : ('עד ' + value + ' בחודש'));
     }
 
-    // §6.10.2: "לשנה, במקום {מחיר חודשי × 12} ₪" + "חיסכון של {אחוז}%" -
-    // מחושב כאן מהמחיר של נורית (המסלול המקביל), floor כלפי מטה (אותו
-    // כלל כמו בעמוד המכסות - "לא להבטיח יותר ממה שיש").
+    // עדכון §6.10.2 (דווח בפועל: לקוח חויב ₪467 וקיבל מסלול שונה ממה
+    // שציפה): כל המסלולים מוצגים כ"לחודש" בלבד - אין יותר "לשנה, במקום
+    // X ₪ (חיסכון של Y%)" (אותה הסרה כמו ב-render_preview_script ב-
+    // class-dcard-quotas.php).
     function kbRenderPlanCards(plans) {
         kbPaymentPlansEl.innerHTML = '';
-        const monthly = plans.find(function (p) { return 'nurit' === p.id; });
         plans.forEach(function (plan) {
             const card = document.createElement('div');
             card.style.cssText = 'border:1px solid var(--line-strong,#D9C9CD);border-radius:14px;padding:14px 16px;';
-            let priceLine = '<strong>' + plan.label + '</strong> - ' + plan.price + ' ₪';
-            if ('nurit_yearly' === plan.id && monthly && monthly.price > 0) {
-                const monthlyEquivalent = monthly.price * 12;
-                const savingsPct = Math.max(Math.floor((1 - (plan.price / monthlyEquivalent)) * 100), 0);
-                priceLine += ' לשנה, במקום ' + monthlyEquivalent.toFixed(0) + ' ₪ <span style="background:var(--blush,#F6EFE6);border-radius:20px;padding:2px 8px;font-size:12px;">חיסכון של ' + savingsPct + '%</span>';
-            } else {
-                priceLine += ( 'שנתי' === plan.period ) ? ' לשנה' : ' לחודש';
-            }
+            const priceLine = '<strong>' + plan.label + '</strong> - ' + plan.price + ' ₪ לחודש';
             card.innerHTML = '<div>' + priceLine + '</div>' +
                 '<div style="margin-top:6px;font-size:14px;color:var(--ink-soft,#4A3F43);">' + kbPlanQuotaLine('קבלת מסר', plan.credits_msg, plan.unlimited_msg) + '</div>' +
                 '<div style="font-size:14px;color:var(--ink-soft,#4A3F43);">' + kbPlanQuotaLine('דיאלוג מכוון', plan.credits_chat, plan.unlimited_chat) + '</div>';
@@ -3000,6 +2860,11 @@
     async function kbOpenPaymentModal(adminTesting) {
         kbPaymentAdminBadge.style.display = adminTesting ? '' : 'none';
         kbPaymentTitle.textContent = userName + ', נמשיך יחד?';
+        // תיקון באג גנדר (דווח בפועל - "אלייך/אליך" הוצג מילולית): אותו
+        // דפוס בינארי בדיוק כמו kbRegisterTermsLead.
+        kbPaymentSameEmailNote.textContent = ( 'female' === userGender )
+            ? 'בעמוד התשלום כדאי להשתמש באותה כתובת, כדי שהמסלול יתחבר אלייך.'
+            : 'בעמוד התשלום כדאי להשתמש באותה כתובת, כדי שהמסלול יתחבר אליך.';
         kbPaymentName.value = userName;
         kbPaymentEmail.value = dcardGetLS(DCARD_LS_KEYS.email) || '';
         kbClearFieldError(kbPaymentName, kbPaymentNameError);
@@ -3192,566 +3057,16 @@
         });
     }
 
-    // תיקון באג 3 (השורש האמיתי של "getModal is not a function" / "Cannot
-    // read properties of undefined (reading 'target')" בקונסול): זה שהאובייקט
-    // elementorProFrontend.modules.popup כבר קיים לא אומר שהפופאפ הספציפי
-    // (id=4723) כבר נרשם ואותחל אצל אלמנטור. יש שלב פנימי נוסף - אלמנטור
-    // רושם כל פופאפ כ"document" משלו תחת elementorFrontend.documentsManager
-    // - ורק אחרי שהרישום הזה הושלם, showPopup/closePopup באמת עובדים בלי
-    // לקרוס. קריאה להן לפני כן (המודול הכללי כבר קיים, אבל המסמך הספציפי עוד
-    // לא) היא בדיוק מה שגרם לקריסות שראינו בקונסול - ולמצב "לפעמים עובד
-    // ולפעמים לא" בלי שום קשר הגיוני לזמן טעינה "גס". מקור: בעיה מתועדת של
-    // אלמנטור עצמו - github.com/elementor/elementor/issues/17444.
-    // פורמלית לפי popupId - פופאפ 4723 (onboarding) ו-4729 (הוראות) כל אחד
-    // צריך את הבדיקה הזו בנפרד, כי כל אחד הוא "document" נפרד באלמנטור.
-    function elementorPopupModuleReady(popupId) {
-        return !!(
-            window.elementorProFrontend &&
-            elementorProFrontend.modules &&
-            elementorProFrontend.modules.popup &&
-            window.elementorFrontend &&
-            elementorFrontend.documentsManager &&
-            elementorFrontend.documentsManager.documents &&
-            elementorFrontend.documentsManager.documents[String(popupId)]
-        );
-    }
-
-    // תיקון באג 7: אחרי כמה סבבים שבהם elementorProFrontend.modules.popup.closePopup()
-    // "הצליח" (לא זרק) בלי לסגור בפועל כלום - מתברר שה"הצלחה" שראינו קודם
-    // (אחרי שליחת הפופאפ) כנראה לא הייתה בזכות הקריאה שלנו, אלא התנהגות
-    // ברירת מחדל של אלמנטור שסוגר פופאפים עם טופס אחרי שליחה מוצלחת.
-    // ה-API הפנימי לא אמין מספיק. הפתרון החדש: לא מנחשים API פנימי בכלל -
-    // מאתרים את כפתור הסגירה (ה-X) שאלמנטור עצמו מרנדר בתוך הפופאפ, ומדמים
-    // עליו לחיצה אמיתית (click()) - בדיוק אותו code path שמשתמש אמיתי
-    // שלוחץ על ה-X מפעיל, בלי תלות בניחוש פרמטרים. מאומת מה-HTML בפועל:
-    // <div id="elementor-popup-modal-4723">...<a class="dialog-close-button" ...>.
-    // הקונטיינר הזה קיים ב-DOM תמיד (הנראות נשלטת ב-style, לא בנוכחות
-    // האלמנט) - אז אין יותר צורך בהמתנה ל"מוכנות" כמו עם ה-API הישן.
-    function closeOnboardingPopupViaButton() {
-        var closeBtn = document.querySelector('#elementor-popup-modal-4723 .dialog-close-button');
-        if (!closeBtn) return false;
-        try {
-            closeBtn.click();
-        } catch (err) {
-            console.warn('[DCard Popup] clicking close button threw:', err);
-        }
-        return true;
-    }
-
-    // תיקון באג 8: הקונסול הראה בפירוש "close button found and clicked" בלי
-    // שום שגיאה - אבל הפופאפ נשאר גלוי בכל זאת. כלומר click() תקין טכנית
-    // לא בהכרח מפעיל את ההתנהגות הפנימית שאלמנטור קושר לכפתור הזה (ייתכן
-    // שהבדיקה הפנימית תלויה ב-event.isTrusted, או בקישור אירועים שלא
-    // מגיב ל-click() סינתטי). במקום להמשיך לנחש מנגנונים פנימיים של
-    // אלמנטור, פשוט מסתירים את קונטיינר הפופאפ ישירות עם style - עוקף
-    // לגמרי את שכבת הטיפול של אלמנטור, בלי תלות בניחוש נכון של ה-API/
-    // מנגנון האירועים הפנימי שלו. #elementor-popup-modal-4723 כבר אומת
-    // כקונטיינר האמיתי מתוך ה-HTML בפועל.
-    function forceHideOnboardingPopup() {
-        var modal = document.getElementById('elementor-popup-modal-4723');
-        if (!modal) return false;
-        modal.style.setProperty('display', 'none', 'important');
-        return true;
-    }
-
-    function closeOnboardingPopupIfOpen() {
-        var clicked = closeOnboardingPopupViaButton();
-        var forced = forceHideOnboardingPopup();
-        console.log('[DCard Popup] closeOnboardingPopupIfOpen - close button ' + (clicked ? 'found and clicked' : 'not found in DOM yet') + ', force-hide ' + (forced ? 'applied' : 'container not found'));
-    }
-
-    // תיקון באג 5: closeOnboardingPopupIfOpen יכולה לרוץ *לפני* שה-trigger
-    // "On Page Load" של אלמנטור הספיק בכלל לפתוח את הפופאפ (יכול להיות לו
-    // delay פנימי, גם אם 0 זה עדיין אסינכרוני) - ואז כפתור הסגירה עוד לא
-    // קיים/גלוי, אין מה ללחוץ עליו, ורגע אחר כך ה-trigger כן פותח אותו,
-    // בלי שנשאר מי שינסה לסגור שוב. בדיוק זה גרם לפופאפ לקפוץ שוב אחרי
-    // "שאלה חדשה" (location.reload גורם לאותו מרוץ מחדש בכל טעינה). הפתרון:
-    // לא מסתפקים בניסיון סגירה אחד - ממשיכים לנסות שוב כמה פעמים במהלך
-    // השניות הראשונות אחרי הטעינה, כדי לכסות גם פתיחה מאוחרת של ה-trigger.
-    // תיקון באג 15: closeOnboardingPopupViaButton/forceHideOnboardingPopup
-    // כבר מתוחמות (scoped) בוודאות ל-#elementor-popup-modal-4723 - לא
-    // יכולות לגעת ב-DOM של 4729 בכלל, גם טכנית. בפועל (דווח + לוג מדויק:
-    // "closeOnboardingPopupIfOpen...clicked" מופיע 6 פעמים אחרי ש-4729
-    // כבר נפתח) ההשפעה על 4729 לא מגיעה מה-DOM query שלנו, אלא מהתנהגות
-    // פנימית של אלמנטור: לחיצה (אפילו סינתטית) על .dialog-close-button
-    // של 4723 מפעילה מנגנון ניהול דיאלוגים משותף/גלובלי באלמנטור שסוגר
-    // את "הפופאפ הפעיל כרגע" - ולא בהכרח ספציפית את 4723 - וברגע ש-4729
-    // כבר נפתח, הוא הפך ל"הפעיל כרגע" מנקודת המבט הזו. ה-guardDelays
-    // (עד 5 שניות) היו ממשיכים ללחוץ על כפתור הסגירה של 4723 הרבה אחרי
-    // שהשרשור כולו כבר עבר ל-4729.
-    //
-    // הפתרון: לא עוד DOM query "מדויק יותר" (היא כבר מדויקת) - עוצרים את
-    // כל הטיימאאוטים שעדיין ממתינים מה-guard הזה, ברגע שעוברים לפתוח
-    // פופאפ אחר (ר' cancelOnboardingPopupGuard, נקרא מתוך ה-submit_success
-    // handler של השרשור, ממש לפני openPopupById(4729)). שימוש חוזר
-    // קודם ב-keepOnboardingPopupClosed() (מהעמסת העמוד, למשתמש חוזר) לא
-    // נוגע בזה בכלל - שם אין פתיחת פופאפ אחר אחריו שדורשת ביטול.
-    //
-    // (ההכרזה/אתחול בפועל של onboardingPopupGuardTimeoutIds הועברו
-    // למעלה בסקריפט, ליד onboardingPopupAbort - תיקון קריסה: var כאן
-    // היה undefined עדיין בזמן קריאה מוקדמת ל-keepOnboardingPopupClosed()
-    // ממשתמש חוזר, לפני ששורת ה-var הזו עצמה הייתה מגיעה בזרימה.)
-    function cancelOnboardingPopupGuard() {
-        // Safeguard: גם אם משהו ישתנה בעתיד ויגרום לזה להיות לא-מערך
-        // (undefined/null/כל דבר אחר) - לא קורסים, רק מתעלמים בשקט.
-        if (Array.isArray(onboardingPopupGuardTimeoutIds)) {
-            onboardingPopupGuardTimeoutIds.forEach(function (id) { clearTimeout(id); });
-        }
-        onboardingPopupGuardTimeoutIds = [];
-    }
-
-    function keepOnboardingPopupClosed() {
-        cancelOnboardingPopupGuard(); // קריאה חופפת לא מכפילה טיימאאוטים
-        var guardDelays = [0, 300, 700, 1200, 2000, 3000, 5000];
-        guardDelays.forEach(function (delay) {
-            onboardingPopupGuardTimeoutIds.push(setTimeout(function () {
-                closeOnboardingPopupIfOpen();
-            }, delay));
-        });
-    }
-
-    // גרסה כללית (לא רק 4723) של closeOnboardingPopupViaButton/
-    // forceHideOnboardingPopup - אותה שיטה בדיוק (לחיצה על כפתור הסגירה
-    // האמיתי + הסתרה כפויה ב-CSS, scoped לקונטיינר הספציפי לפי ID), כדי
-    // לסגור כל פופאפ אחר (4749/4753 וכו') בלי להסתמך על ה-API הפנימי
-    // הלא-אמין של אלמנטור (ר' תיקון באג 13/14 למעלה). forceCloseOnboarding
-    // Popup/keepOnboardingPopupClosed נשארות ייעודיות ל-4723 (עם ה-guard
-    // loop שלהן) ולא נוגעות בפונקציה הזו - זו רק לסגירה חד-פעמית של
-    // פופאפ אחר, בלי לולאת retry.
-    function forceClosePopupById(popupId) {
-        var selector = '#elementor-popup-modal-' + popupId;
-        var closeBtn = document.querySelector(selector + ' .dialog-close-button');
-        if (closeBtn) {
-            try {
-                closeBtn.click();
-            } catch (err) {
-                console.warn('[DCard Popup] forceClosePopupById(' + popupId + ') - clicking close button threw:', err);
-            }
-        }
-        var modal = document.querySelector(selector);
-        if (modal) {
-            modal.style.setProperty('display', 'none', 'important');
-        }
-        console.log('[DCard Popup] forceClosePopupById(' + popupId + ') - close button ' + (closeBtn ? 'found and clicked' : 'not found') + ', force-hide ' + (modal ? 'applied' : 'container not found'));
-    }
-
-    // תיקון באג 1: קריאה חד-פעמית (if/else) כאן נכשלה בשקט ברוב הפעמים, כי
-    // ה-<script> הזה (בתוך ווידג'ט ה-HTML) רץ ברגע שהדפדפן מגיע אליו -
-    // בדרך כלל *לפני* שה-bundle של Elementor Pro (שמגדיר elementorProFrontend)
-    // סיים להיטען ולהתאתחל במקום אחר בעמוד. לכן, בניסיון להריץ קוד בזמן אמת
-    // (בלי מטמון שמזרז טעינה) - בדיוק מצב ה-incognito+ניקוי-cache שדווח -
-    // זה כמעט תמיד נכשל. הפתרון: לבדוק שוב כל 150ms עד שהמודול מוכן.
-    //
-    // תיקון נוסף: 10 שניות (67 ניסיונות) התבררו כלא מספיקות בטעינה ראשונה
-    // "קרה" לגמרי (שום דבר עדיין לא ב-cache של הדפדפן - לא Elementor, לא
-    // Elementor Pro, לא התבנית) - בדיוק המקרה שדווח: בכניסה הראשונה הפופאפ
-    // לא נפתח בכלל (המודול לא הספיק להיטען תוך 10 שניות), ואחרי ריענון
-    // (שבו הקבצים כבר ב-cache הרגיל של הדפדפן, לא קשור ל-localStorage שלנו)
-    // זה כן עבד. הוארך ל-60 שניות (400 ניסיונות) כדי לכסות גם טעינה ראשונה
-    // איטית בלי לוותר מוקדם מדי.
-    //
-    // תיקון באג 2 (חשוב לא פחות): התנאי storedName && storedGender נבדק פעם
-    // אחת בלבד, למעלה בסקריפט, *לפני* שסבב הניסיונות האסינכרוני הזה בכלל
-    // מתחיל. אם המודול מתעכב כמה שניות (בדיוק אותה בעיית תזמון מבאג 1) -
-    // ובזמן הזה המשתמש מספיק למלא את הפופאפ ולשלוח אותו - הקריאה המושהית כאן
-    // הייתה פונה ופותחת מחדש פופאפ שכבר נסגר, כי שום דבר לא בדק מחדש אם
-    // המשתמש כבר שמר את הפרטים בינתיים. זה בדיוק מה שגרם לפופאפ "לקפוץ שוב"
-    // מיד אחרי שליחה. התיקון: לבדוק שוב, ברגע שממש עומדים לפתוח (לא רק
-    // בתחילת הסקריפט), אם הערכים כבר נשמרו - ואם כן, לוותר על הפתיחה.
-    function openOnboardingPopup(attemptsLeft) {
-        if (typeof attemptsLeft === 'undefined') attemptsLeft = 400; // ~60 שניות ב-150ms לבדיקה
-
-        if (onboardingPopupAbort) {
-            console.log('[DCard Popup] openOnboardingPopup: aborted (onboarding form submit already started) - skipping open.');
-            return;
-        }
-
-        if (dcardGetLS(DCARD_LS_KEYS.name) && dcardGetLS(DCARD_LS_KEYS.gender)) {
-            console.log('[DCard Popup] openOnboardingPopup: data got saved in the meantime - skipping open (attemptsLeft=' + attemptsLeft + ')');
-            return; // המשתמש כבר שלח את הפופאפ בינתיים - אין מה לפתוח יותר.
-        }
-
-        if (elementorPopupModuleReady(4723)) {
-            console.log('[DCard Popup] calling showPopup({id:4723}) (document ready, attemptsLeft=' + attemptsLeft + ')');
-            try {
-                elementorProFrontend.modules.popup.showPopup({ id: 4723 });
-            } catch (err) {
-                console.warn('[DCard Popup] showPopup threw despite readiness check:', err);
-            }
-            return;
-        }
-
-        if (attemptsLeft <= 0) {
-            console.warn('[DCard] Elementor popup API never became available after ~60s - cannot open onboarding popup (post=4723).');
-            return;
-        }
-
-        setTimeout(function () {
-            openOnboardingPopup(attemptsLeft - 1);
-        }, 150);
-    }
-
-    // תיקון באג 12 (ניקוי): לפי לוגים בדפדפן בפועל, הלולאה המקורית כאן
-    // (עד 400 ניסיונות, 60 שניות) נכנסה בכל מקרה לריצה ממושכת מול
-    // 4729 בזמן שהפופאפ הראשון עדיין "התנדנד" בין פתוח/סגור - זה (ולא רק
-    // הניחוש בתיקון באג 11) תרם לחוסר היציבות שדווח. לכן כאן, בשרשור
-    // מתוך submit_success בלבד, נשאר רק *ניסיון בדיקה/פתיחה בודד* - לא
-    // סבב polling. בדיקת מוכנות (elementorPopupModuleReady) נשארת (לא
-    // מוסרת כליל) כי קריאה ל-showPopup על document שעדיין לא נרשם
-    // באלמנטור מוכחת כקורסת (תיקון באג 3 למעלה) - ויתור מלא על הבדיקה
-    // הזו היה מחזיר קריסה ישירה, לא רק "לא נפתח".
-    // תיקון (דווח בפועל: "לחיצה על 'קבלת מסר אישי' אחרי שהמכסה האנונימית
-    // נגמרה - שום דבר לא קורה") - הגרסה הקודמת ויתרה מיד אם הפופאפ עדיין
-    // לא נרשם ע"י Elementor, בלי שום ניסיון חוזר ובלי שום משוב למשתמש -
-    // בפועל זה נראה בדיוק כמו "לחצתי ולא קרה כלום". עכשיו: כמה ניסיונות
-    // חזרה במרווחים גדלים (אותו דפוס כמו populateUserFieldsWithRetries
-    // למעלה - לא לולאה אינסופית, מספר קבוע של ניסיונות), ואם גם אחריהם
-    // הפופאפ עדיין לא מוכן - לפחות הודעה למשתמש במקום שתיקה מוחלטת.
-    function openPopupById(popupId, onGiveUp, retryDelaysMs) {
-        if (elementorPopupModuleReady(popupId)) {
-            console.log('[DCard Popup] calling showPopup({id:' + popupId + '}) once');
-            try {
-                elementorProFrontend.modules.popup.showPopup({ id: popupId });
-            } catch (err) {
-                console.warn('[DCard Popup] showPopup threw despite readiness check (id=' + popupId + '):', err);
-            }
-            return;
-        }
-        const delays = retryDelaysMs || [300, 800, 1500];
-        if (delays.length === 0) {
-            // סעיף 3.5א ("חלון אלמנטור לא נטען"): "לרשום ב-console את מזהה
-            // הפופאפ ואת הסיבה" - מפרט כאן *איזה* תנאי מתוך
-            // elementorPopupModuleReady בדיוק נכשל, לא רק "לא מוכן".
-            let reason;
-            if (!window.elementorProFrontend || !elementorProFrontend.modules || !elementorProFrontend.modules.popup) {
-                reason = 'elementorProFrontend.modules.popup לא נטען (Elementor Pro JS)';
-            } else if (!window.elementorFrontend || !elementorFrontend.documentsManager || !elementorFrontend.documentsManager.documents) {
-                reason = 'elementorFrontend.documentsManager לא נטען';
-            } else {
-                reason = 'documentsManager.documents[' + popupId + '] חסר - הפופאפ לא שויך/נרשם לעמוד הזה';
-            }
-            console.warn('[DCard Popup] popup document (id=' + popupId + ') never became ready after retries. reason: ' + reason);
-            // סעיף 3.5א: "אין חלונות של הדפדפן" - לא alert(), אלא שורת התראה
-            // שה-caller אחראי להציג במקום המתאים להקשר שלו (ר' triggerRegistrationWall).
-            if (onGiveUp) onGiveUp();
-            return;
-        }
-        console.warn('[DCard Popup] popup document (id=' + popupId + ') not registered yet by Elementor - retrying in ' + delays[0] + 'ms.');
-        setTimeout(function () {
-            openPopupById(popupId, onGiveUp, delays.slice(1));
-        }, delays[0]);
-    }
-
-    // דגל ל-submit_success (ר' תיקון באג 10 למטה) - מסמן שהשליחה האחרונה
-    // שתפסנו ב-capture הייתה באמת טופס ה-onboarding, כדי שמאזין ה-
-    // submit_success הגלובלי (שרץ על כל טופס בעמוד) יידע אם להגיב.
-    let onboardingFormJustSubmitted = false;
-
-    // תיקון באג 11 (מניעת הפעלה כפולה): בניגוד ל-onboardingFormJustSubmitted,
-    // שמתאפס בחזרה ל-false בכל פעם (ומאפשר להגיב לשליחה הבאה אם תהיה) -
-    // popupChained הוא מנעול חד-כיווני, שלא מתאפס לעולם. הגנה נוספת למקרה
-    // שבו submit_success מופעל יותר מפעם אחת מהפעלת אלמנטור עבור אותה
-    // שליחה בודדת (quirk מתועד בכמה גרסאות של אלמנטור) - בלי המנעול הזה,
-    // קריאה כפולה ל-keepOnboardingPopupClosed()/openPopupById(4729) יכולה
-    // לגרום לאותו "הבהוב" שכבר תוקן, רק מסיבה שונה.
-    let popupChained = false;
-
-    // שמירת השם/מגדר שהוזנו בפופאפ ברגע השליחה. מאזין גלובלי (delegated,
-    // capture) במקום סלקטור קבוע לכפתור/טופס - כי הפופאפ מוזרק ל-DOM ע"י
-    // Elementor Popup Builder (לא חלק מה-HTML הזה), וכך זה עובד בלי תלות
-    // בזמן ההזרקה או במבנה המדויק שלו. capture=true כדי לתפוס את ה-submit
-    // גם אם ה-JS הפנימי של Elementor עוצר את ה-bubbling אחרי ה-preventDefault
-    // שלו (preventDefault לא מבטל את ההרצה של מאזינים שכבר נרשמו ב-capture).
-    document.addEventListener('submit', function (e) {
-        const form = e.target;
-        if (!form || typeof form.querySelector !== 'function') return;
-
-        // תיקון באג (דווח בפועל - "4749 בסיום מעלה את 4729 בלופ"): ה-handler
-        // הזה היה מזהה "זה טופס ה-onboarding" רק לפי *שמות שדות* (user_name
-        // וכו'), בלי לבדוק *באיזה פופאפ* הטופס בכלל נמצא. פופאפ 4749 (קיר
-        // ההרשמה/Grace) מכיל גם הוא שדה user_name (כדי להציג/לקלוט שם -
-        // ר' populateNameFieldInPopup) - אז שליחתו הופעלה בטעות כאילו זו
-        // שליחת ה-onboarding (4723), וזה בדיוק מה שפתח את 4729 (פופאפ
-        // ההוראות של ה-onboarding, לא קשור בכלל ל-4749) בכל שליחה. התיקון:
-        // דורשים שהטופס הנשלח יהיה *בתוך* #elementor-popup-modal-4723
-        // ספציפית, לפני שבכלל בודקים שמות שדות - התאמת שם שדה דומה בטופס
-        // אחר (4749, או כל טופס עתידי) לא תפעיל יותר את השרשור הזה.
-        if (!form.closest('#elementor-popup-modal-4723')) return;
-
-        // סלקטורים ל-Elementor Form - שני דפוסים נתמכים בכוונה, כי לא ברור
-        // מראש איזה סוג שדה הוגדר בפועל בעורך בלי לראות את ה-HTML שנרנדר:
-        // 1. שדה בודד (Select/Radio עם ID יחיד) בשם user_gender, שהערך שלו
-        //    הוא ישירות 'male'/'female' - הדפוס המומלץ כרגע (ר' הנחיות
-        //    ההגדרה באלמנטור בתשובה) - פשוט יותר, בלי תלות ב-value בעברית.
-        // 2. שתי checkbox/radio נפרדות שחולקות name אחד, מבדלות רק לפי
-        //    סיומת ה-ID (-0/-1) - הדפוס שנמצא בעבר בפופאפ קודם, שבו ה-value
-        //    היה טקסט עברי ("פנייה בלשון זכר"), לא "male"/"female". נשאר
-        //    כ-fallback, לא הוסר - לא עולה כסף לתמוך בשניהם.
-        const nameField        = form.querySelector('#form-field-user_name, [name="form_fields[user_name]"]');
-        const genderSingleField = form.querySelector('#form-field-user_gender');
-        const genderMaleBox    = form.querySelector('#form-field-user_gender-0');
-        const genderFemaleBox  = form.querySelector('#form-field-user_gender-1');
-        if (!nameField && !genderSingleField && !genderMaleBox && !genderFemaleBox) return; // לא טופס ה-onboarding - לא נוגעים
-
-        // ר' תיקון המרוץ למעלה (onboardingPopupAbort) - נקבע ברגע הראשון
-        // האפשרי בתוך ה-handler הזה, סינכרונית, לפני כל קוד אחר (כולל
-        // preventDefault/שמירת localStorage) - סוגר את חלון התזמון
-        // בצורה הדוקה ביותר שאפשר נגד openOnboardingPopup().
-        onboardingPopupAbort = true;
-
-        console.log('[DCard Popup] onboarding form submit detected. nameField found:', !!nameField, 'genderSingleField found:', !!genderSingleField, 'genderMaleBox found:', !!genderMaleBox, 'genderFemaleBox found:', !!genderFemaleBox);
-
-        // preventDefault משלנו - לא מתוך הנחה שה-JS הפנימי של Elementor
-        // יתפוס את ה-submit הזה בזמן. אם ה-JS שלו (שמיירט את השליחה
-        // ועושה AJAX) טרם נטען/אותחל - בדיוק אותה בעיית תזמון שכבר תוקנה
-        // אצלנו כמה פעמים בסקריפט הזה - הדפדפן נופל בחזרה לשליחת טופס
-        // אמיתית (ניווט/טעינת עמוד מחדש), וזה בדיוק מה שמחזיר את ה-trigger
-        // "On Page Load" לפעולה שוב ומציג את הפופאפ מחדש אחרי שליחה. קריאה
-        // משלנו ל-preventDefault כאן (capture, רץ ראשון) חוסמת את הנפילה-
-        // לאחור הזו באופן מוחלט, בלי תלות בתזמון של Elementor - preventDefault
-        // לא עוצר propagation, אז ה-handler הפנימי של Elementor עדיין ירוץ
-        // כרגיל ויבצע את ה-AJAX שלו בעצמו (אם/כשהוא כבר מוכן).
-        e.preventDefault();
-
-        // ולידציית שם (QA: "לאפשר רק אותיות וכל סוגי המקפים") - אותיות
-        // עברית/לועזית, רווחים (שם פרטי+משפחה) וכל הגרסאות הנפוצות של מקף
-        // (מקף רגיל, מקף-מבטא עברי, en/em dash). מספרים/סימנים/<script>
-        // וכו' נדחים כאן, לפני שהם בכלל נשמרים ל-localStorage או נשלחים
-        // הלאה - גם stopPropagation (לא רק preventDefault) כדי שה-AJAX
-        // הפנימי של Elementor לא ישלח את הטופס הלא-תקין בכל זאת.
-        const DCARD_NAME_PATTERN = /^[A-Za-zא-ת\s\-‐‑‒–—־]+$/;
-        if (nameField && nameField.value.trim() && !DCARD_NAME_PATTERN.test(nameField.value.trim())) {
-            console.log('[DCard Popup] onboarding name failed validation - blocking submit:', nameField.value);
-            e.stopPropagation();
-            onboardingPopupAbort = false;
-            let errEl = form.querySelector('.dcard-name-error');
-            if (!errEl) {
-                errEl = document.createElement('div');
-                errEl.className = 'dcard-name-error';
-                errEl.style.cssText = 'color:#c0392b;font-size:13px;margin-top:4px;';
-                nameField.insertAdjacentElement('afterend', errEl);
-            }
-            errEl.textContent = 'השם יכול לכלול רק אותיות, רווחים ומקפים.';
-            nameField.focus();
-            return;
-        }
-
-        if (nameField && nameField.value.trim()) {
-            dcardSetLS(DCARD_LS_KEYS.name, nameField.value.trim());
-            userName = nameField.value.trim(); // ר' תיקון באג 9 - מזין את הסשן הראשון בפועל, לא רק טעינות עתידיות
-        }
-
-        // דפוס 1 (מומלץ): שדה בודד, value ישירות 'male'/'female' - trim+
-        // toLowerCase כי לא בטוח שהעורך ישמור בדיוק את ה-casing הזה.
-        // דפוס 2 (fallback): checkbox, לא radio - עקרונית אפשר ששתיהן
-        // יסומנו או ששתיהן לא. "נקבה" מקבלת עדיפות אם שתיהן מסומנות; אם
-        // אף אחת לא מסומנת ואין גם שדה בודד - לא שומרים מגדר בכלל (ואז
-        // הפופאפ עדיין ייפתח שוב בפעם הבאה, כי אין עדיין ערך שמור - דורש
-        // שהמשתמש בפועל יבחר).
-        const singleGenderValue = genderSingleField ? String(genderSingleField.value).trim().toLowerCase() : '';
-        if ('male' === singleGenderValue || 'female' === singleGenderValue) {
-            dcardSetLS(DCARD_LS_KEYS.gender, singleGenderValue);
-            userGender = singleGenderValue;
-        } else if (genderFemaleBox && genderFemaleBox.checked) {
-            dcardSetLS(DCARD_LS_KEYS.gender, 'female');
-            userGender = 'female';
-        } else if (genderMaleBox && genderMaleBox.checked) {
-            dcardSetLS(DCARD_LS_KEYS.gender, 'male');
-            userGender = 'male';
-        }
-
-        console.log('[DCard Popup] after save - localStorage name:', JSON.stringify(dcardGetLS(DCARD_LS_KEYS.name)), 'gender:', JSON.stringify(dcardGetLS(DCARD_LS_KEYS.gender)));
-
-        // תיקון באג 9: משתמש חדש - initSession() עוד לא רצה בכלל (ר' ההערה
-        // למעלה ליד הקריאה המקורית). עכשיו, אחרי ש-userName/userGender כבר
-        // מעודכנים מהשדות שבאמת מולאו, זה הרגע לקרוא לה - כך שהסשן הראשון-
-        // אי-פעם נוצר עם הפרטים האמיתיים, לא עם ברירות המחדל. sessionInitiated
-        // מונע קריאה כפולה אם איכשהו הפופאפ נשלח גם אצל משתמש שכבר אותחל.
-        if (!sessionInitiated) {
-            console.log('[DCard Popup] submit handler - starting session now with real userName/userGender');
-            initSession();
-        }
-
-        // תיקון באג 10 ("הבהוב" - 4729 נפתח ומיד נסגר): הניסיון להגדיר את
-        // השרשור כ-Action מובנה באלמנטור (Actions After Submit > Open
-        // Popup) יצר לופ (אלמנטור כנראה הפעיל את הפעולה גם כ"סגירה" של
-        // הפופאפ הנוכחי וגם כ"פתיחה" בצורה שהתנגשה בעצמה) - הוסר משם
-        // לגמרי. השרשור חוזר לקוד שלנו, אבל לא מתוזמן מכאן (מה-submit
-        // הגולמי) - רק מתוך מאזין jQuery 'submit_success' (למטה), האירוע
-        // הרשמי שאלמנטור Pro מפעיל בעצמו *אחרי* שה-AJAX שלו כבר הסתיים
-        // בהצלחה. onboardingFormJustSubmitted מסמן לאותו מאזין שזה באמת
-        // הטופס שלנו ולא טופס אחר בעמוד.
-        console.log('[DCard Popup] submit handler - marking onboarding form as submitted, waiting for Elementor submit_success');
-        onboardingFormJustSubmitted = true;
-    }, true);
-
-    // תיקון באג 14: closePopup({}, e) חזר וקרס בדרך חדשה כל פעם שנוסה -
-    // תיקון באג 3: בלי event בכלל; תיקון באג 7: "הצליח" בלי לסגור בפועל;
-    // תיקון באג 13 הנוכחי: "n.getModal is not a function", שמתברר (ר'
-    // openOnboardingPopup למעלה ותיקון המרוץ שם) שבעצם נבע ממרוץ מול
-    // openOnboardingPopup, לא מה-event שמועבר. אבל בהינתן כמה פעמים
-    // ה-API הישיר הזה כשל בדרכים שונות ולא קשורות, הגיע הזמן להפסיק
-    // להסתמך עליו בכלל בשרשור הזה. הסגירה הבטוחה (keepOnboardingPopupClosed
-    // - לחיצה על כפתור הסגירה האמיתי + הסתרה כפויה ב-CSS, שתי דרכים
-    // שאינן תלויות באובייקט ה-Modal הפנימי של אלמנטור) היא עכשיו הדרך
-    // *הראשית* כאן, לא fallback שרק מופעל אם ה-API נכשל.
-    if (typeof jQuery !== 'undefined') {
-        jQuery(document).on('submit_success', function (e) {
-            if (!onboardingFormJustSubmitted) return; // לא טופס ה-onboarding - מתעלמים
-            onboardingFormJustSubmitted = false;
-
-            if (popupChained) return; // ר' תיקון באג 11 למעלה - מנעול חד-כיווני נגד הפעלה כפולה
-            popupChained = true;
-
-            console.log('[DCard Popup] Elementor submit_success fired - closing onboarding popup (4723) via keepOnboardingPopupClosed() (safe DOM close, not the Elementor API)');
-            keepOnboardingPopupClosed();
-
-            console.log('[DCard Popup] opening instructions popup (4729) 100ms after submit_success, to let the close animation finish');
-            setTimeout(function () {
-                // ר' תיקון באג 15 למעלה - מבטל כל ניסיון סגירה שעדיין מתוזמן
-                // על 4723 *לפני* שפותחים את 4729, כדי שאף לחיצה מאוחרת על
-                // כפתור הסגירה של 4723 לא תגיע אחרי ש-4729 כבר "הפופאפ הפעיל".
-                cancelOnboardingPopupGuard();
-                openPopupById(4729);
-            }, 100);
-        });
-    } else {
-        console.warn('[DCard Popup] jQuery not found - cannot listen for submit_success. Popup chaining for 4729 will not run.');
-    }
-
-    // Anti account-sharing (שלב 3): מאזין עצמאי ונפרד מזה שלמעלה - לא
-    // קשור לפופאפ ה-onboarding, לא תלוי ב-onboardingFormJustSubmitted/
-    // popupChained (אלה ספציפיים לטופס השם/מגדר). מאזין לכל submit_success
-    // באתר ופשוט שומר dcardUserId/dcardDeviceToken אם הם קיימים בתשובה -
-    // כך שהוא מתעלם בשקט מכל שליחת טופס אחרת (כולל טופס ה-onboarding
-    // עצמו), בלי צורך לזהות "איזה טופס" במפורש.
-    //
-    // response.data.dcard* מגיע מ-$ajax_handler->add_response_data() שרץ
-    // בתוך class-dcard-elementor-hooks.php (PHP, elementor_pro/forms/
-    // new_record) - לא מ-/register (ר' ההערה המלאה שם להסבר המלא למה
-    // ה-webhook עצמו לא יכול להחזיר את זה לדפדפן בשום צורה). לא אומת
-    // live - חשוב לבדוק ב-console שה-response.data מכיל בפועל את
-    // dcardDeviceToken אחרי שליחת טופס ההרשמה, ולתקן את הנתיב (למשל אם
-    // אלמנטור עוטף את זה ב-response.data.data או מבנה דומה) אם לא.
-    // תיקון: פופאפ ה-onboarding (שם+מגדר, בלי אימייל) נתקע/לא נסגר אחרי
-    // שליחה (דווח בפועל) - התשובה שהשרת מחזיר לו לא מכילה שום שדה dcard*
-    // בכלל (ההרשמה/הנפקת הטוקן רצות רק מתוך elementor_pro/forms/
-    // new_record כשנמצא שדה email בטופס - ר' class-dcard-elementor-
-    // hooks.php; לטופס הזה אין email, אז הוא פשוט לא רלוונטי למאזין הזה).
-    // ה-guard הראשון למטה (!response.data.dcardDeviceToken) אמור כבר
-    // למנוע קריסה בשרשרת && הקצרה - אבל try/catch מלא מסביב לכל גוף
-    // ה-handler הוא רשת ביטחון מוחלטת: לא "יכול" לקרוס בשום אופן, ועוד
-    // יותר חשוב - שגיאה לא-צפויה כאן לא עוצרת listeners אחרים שנרשמו על
-    // אותו submit_success (quirk מתועד ב-jQuery: חריגה שלא נתפסת
-    // בהנדלר אחד יכולה לעצור הנדלרים הבאים באותה הפעלת trigger - כולל,
-    // אם זה מה שקרה בפועל, את הסגירה של פופאפ ה-onboarding עצמה).
-    if (typeof jQuery !== 'undefined') {
-        jQuery(document).on('submit_success', function (e, response) {
-          try {
-            if (!response || !response.data || !response.data.dcardDeviceToken) return;
-
-            dcardSetLS(DCARD_LS_KEYS.userId, String(response.data.dcardUserId));
-            dcardSetLS(DCARD_LS_KEYS.deviceToken, response.data.dcardDeviceToken);
-            // תיקון: האימייל לא היה נשמר בכלל - DCARD_LS_KEYS.email כבר
-            // קיים (מוגדר למעלה), פשוט לא מולא אף פעם. dcardEmail מגיע
-            // מ-DCard_Elementor_Hooks::on_new_record (PHP) - הערך שהוא
-            // *בפועל* קלט מהטופס, לא ניחוש של שם שדה כאן ב-JS.
-            if (response.data.dcardEmail) {
-                dcardSetLS(DCARD_LS_KEYS.email, response.data.dcardEmail);
-            }
-
-            // תיקון: is_payment_popup() בצד השרת (לפי $record->get('post_id'))
-            // לא זיהה נכון את 4753 בפועל - formKind חזר 'lead' גם לטופס
-            // התשלום, ש-redirect לקארדקום תלוי בו לחלוטין. לא מסתפקים
-            // בתשובת השרת כמקור יחיד - בודקים גם מה-DOM: אם הטופס שבאמת
-            // נשלח (e.target, שהוא ה-<form> עצמו לפי jQuery) נמצא בתוך
-            // #elementor-popup-modal-4753, זה *בוודאות* טופס התשלום, לא
-            // משנה מה השרת חשב - דורסים forKind בהתאם. הפוך לא נדרש
-            // (אין "בטעות payment במקום lead" מדווח) - רק הכיוון הזה.
-            var formKind = response.data.dcardFormKind;
-            try {
-                if (e && e.target && typeof e.target.closest === 'function' && e.target.closest('#elementor-popup-modal-4753')) {
-                    console.log('[DCard Account] DOM check: submitted form is inside #elementor-popup-modal-4753 - overriding formKind to "payment" regardless of server value (' + formKind + ').');
-                    formKind = 'payment';
-                }
-            } catch (domErr) {
-                console.warn('[DCard Account] DOM-based formKind check threw - keeping server value:', domErr);
-            }
-
-            console.log('[DCard Account] device token saved from submit_success (userId=' + response.data.dcardUserId + ', formKind=' + formKind + ')');
-
-            // חלק 1 (תיקון לולאה + הפרדת פופאפים): dcardFormKind מגיע
-            // מ-DCard_Elementor_Hooks::is_payment_popup() בצד השרת (לא
-            // מנוחשים כאן ב-JS איזה פופאפ זה היה) - 'payment' = פופאפ
-            // 4753 (התשלום הסופי). לטופס תשלום: שומרים את הטוקן ועוצרים
-            // כאן *לחלוטין* - לא מתחילים סשן, לא ממשיכים שום דבר - נותנים
-            // לאלמנטור עצמו לנווט לקארדקום (ה-Redirect המוגדר על הטופס
-            // הזה, בפעולה נפרדת שרצה אחרי submit_success). כל טופס אחר
-            // (כולל Grace/4749) ממשיך כרגיל - בפועל "להמשיך כרגיל" כאן
-            // פירושו פשוט לא לעצור כלום, בדיוק כמו לפני השינוי הזה: אין
-            // קריאה אוטומטית חדשה ל-initSession()/לשליפת קלף מכאן - זה
-            // היה בדיוק סוג ה"ניסיון חוזר אוטומטי" שתוקן בבאג הלולאה
-            // הקודם. המשתמש פשוט מנסה את הפעולה שנחסמה (קבלת מסר/שליחת
-            // שאלה) שוב בעצמו, ועם הקרדיטים החדשים (ר' DCard_Plans
-            // למעלה) היא תעבור בהצלחה בפעם הזו.
-            // תיקון: טופס ה-Grace/Lead (4749) היה נשאר פתוח לאחר שליחה -
-            // ה-branch הזה היה היעדר לגמרי (רק 'payment' נסגר בעבר).
-            // בניגוד ל-4723 (שיש לו keepOnboardingPopupClosed הייעודי עם
-            // guard loop, כי שם יש גם trigger "On Page Load" לדאוג לו) -
-            // 4749/4753 נפתחים רק תכנותית (triggerRegistrationWall/
-            // submit לקארדקום), אז סגירה חד-פעמית (forceClosePopupById,
-            // ר' למעלה) מספיקה - אין "trigger מתחרה" שידרוש guard loop.
-            if ('lead' === formKind) {
-                console.log('[DCard Account] lead/Grace form (4749) - token saved, closing the popup so the user can return to drawing cards.');
-                forceClosePopupById(4749);
-                // לא עוצרים (אין return) - "להמשיך כרגיל" בפועל: שום פעולה
-                // נוספת נדרשת מכאן, המשתמש ינסה את הפעולה שנחסמה שוב
-                // בעצמו (ר' תיקון החסימה המקומית למטה ב-btnPathMessage/
-                // btnSend - עם הטוקן השמור, הבדיקה המקומית לא תחסום יותר).
-            }
-
-            if ('payment' === formKind) {
-                console.log('[DCard Account] payment form (4753) - token saved, redirecting to Cardcom ourselves (Elementor\'s own Redirect action was removed - it can\'t read localStorage to build the URL dynamically).');
-
-                // forceClosePopupById - לא closePopup({}, e) - ר' תיקון
-                // באג 13/14 למעלה: ה-API הישיר הזה כשל בדרכים שונות
-                // ולא קשורות כל פעם שנוסה (כולל קורבנות צד: "n.getModal
-                // is not a function" על פופאפ *אחר*). לא עוד try/catch
-                // עם API גולמי - ישר הדרך הבטוחה, בדיוק כמו לעיל ל-4749.
-                forceClosePopupById(4753);
-
-                // response.data.dcardUserId הוא המקור הטרי ביותר (מגיע
-                // ישר מהתשובה הזו) - עדיף על לקרוא בחזרה מ-localStorage
-                // (ששמרנו אליו רק שורות מעלה, אבל אין טעם לקרוא במקום
-                // להשתמש בערך שכבר בידינו). dcardGetLS כ-fallback בלבד,
-                // ליתר ביטחון, אם מאיזושהי סיבה השדה הזה חסר בתשובה הזו.
-                const userId = response.data.dcardUserId || dcardGetLS(DCARD_LS_KEYS.userId);
-                if (!userId) {
-                    console.error('[DCard Account] no userId available - cannot build the Cardcom redirect URL. Staying on the page.');
-                    return;
-                }
-
-                // תיקון: קארדקום לא מחזירה ExternalId בכלל במוצר הזה -
-                // ReturnValue הוא הפרמטר הסטנדרטי של קארדקום עצמה ל"נוסע
-                // סמוי" שחוזר בדיוק כמו שנשלח ב-IPN (ר' payment_webhook_
-                // inner ב-class-dcard-rest-controller.php, שקורא אותו
-                // משם כעת) - לא תלוי באימייל, שיכול להשתנות במסך התשלום.
-                const cardcomRedirectUrl = CARDCOM_PAYMENT_URL + '?ReturnValue=' + encodeURIComponent(userId);
-                // דרוש: לבדוק בעיניים שה-ReturnValue באמת מצורף לפני
-                // שהדף עוזב - ר' החקירה למה קארדקום לא מחזירה אותו ב-IPN.
-                console.log('[DCard Account] redirecting to Cardcom:', cardcomRedirectUrl);
-                window.location.href = cardcomRedirectUrl;
-                return;
-            }
-          } catch (err) {
-              // ר' ההערה מעל ה-listener הזה - חריגה כאן לא אמורה לעולם
-              // להגיע לכאן בפועל (ה-guard בתחילת הפונקציה מטפל בכל מקרה
-              // הצפוי), אבל אם בכל זאת קרה משהו לא צפוי - נרשם ל-console
-              // ונבלע בשקט, לא מופץ החוצה כדי לא לפגוע בהנדלרים אחרים.
-              console.error('[DCard Account] unexpected error in submit_success handler (swallowed, not propagated):', err);
-          }
-        });
-    }
+    // ניקוי (§6.10 הושלם - כל ארבעת הפופאפים הישנים של אלמנטור הועברו
+    // ל-Draft): הוסרו כאן כל המנגנונים שהיו ייעודיים לפופאפים 4723/4729/
+    // 4749/4753 - elementorPopupModuleReady, closeOnboardingPopupViaButton/
+    // forceHideOnboardingPopup/keepOnboardingPopupClosed, openOnboardingPopup,
+    // openPopupById/forceClosePopupById, מאזין ה-submit שזיהה שליחת טופס
+    // 4723 ושרשור הפתיחה של 4729 אחריו, והמאזין הישן על submit_success
+    // ש-4753/4749 בלבד הפעילו (ששמר userId/deviceToken ועשה בעצמו את
+    // ה-redirect לקארדקום לטופס התשלום הישן). כל התפקוד הזה כבר קיים
+    // במקבילים הנייטיביים (kb-onboarding-modal/kb-register-modal/
+    // kb-payment-modal) - ר' ההערות המלאות עליהם למעלה בקובץ.
 
     // 1ב. הכתבה קולית (Web Speech API) - כפתורי מיקרופון בתיבת השאלה ובצ'אט.
     // סעיף 3.5א: כל שגיאה מוצגת כ"שורת התראה" מתחת לשדה (לא alert), עם

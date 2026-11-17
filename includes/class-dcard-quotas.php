@@ -16,9 +16,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * תיקון §6.10.2 ("ניהול · דף המכסות: מסלולים ומחירים") - כל מסלול בתשלום
  * (נרקיס/נורית/נורית שנתי - עדיין 3 שורות קבועות, לא "הוספת מסלול" גנרית)
  * מקבל עכשיו גם: פעיל, שם לתצוגה, מחיר, "להציג ללא הגבלה" (נפרד למסר/
- * דיאלוג, ר' DCard_Plans::is_unlimited), ו-ProductID בקארדקום. "תקופה"
- * נשארת טקסט קבוע (לא שדה) - ר' DCard_Plans::period_label_for_plan.
+ * דיאלוג, ר' DCard_Plans::is_unlimited), ו-ProductID בקארדקום.
  * כתובת התשלום המשותפת ("עמוד התשלום") עברה לכאן מקוד קשיח ב-JS.
+ *
+ * עדכון §6.10.2 (דווח בפועל: לקוח חויב ₪467 וקיבל מסלול שונה ממה שציפה) -
+ * כל המסלולים מוצגים עכשיו כ"חודשיים" בלבד ("לחודש") - אין יותר שדה/
+ * עמודת "תקופה" ואין חישוב חיסכון שנתי ("לשנה, במקום X, חיסכון Y%") - ר'
+ * ההסבר המלא ב-render_preview_script(). זו רק הצגה (לא שינוי בפועל
+ * ל-DCard_Plans::plan_duration_days/plan_period_days, שנשארים כפי שהיו).
  */
 class DCard_Quotas {
 
@@ -364,7 +369,7 @@ class DCard_Quotas {
 	 * שמתעדכנת ב-JS (ר' render_preview_script). class="dcard-plan-row"
 	 * ו-data-plan תואמים לשם מפתח ה-JS בתחתית render_page().
 	 */
-	private static function render_paid_plan_row( $plan_id, $cfg, $period_label ) {
+	private static function render_paid_plan_row( $plan_id, $cfg ) {
 		$active         = (bool) get_option( $cfg['active'], 1 );
 		$label          = get_option( $cfg['label'], $cfg['default_label'] );
 		$price          = get_option( $cfg['price'], 0 );
@@ -377,17 +382,18 @@ class DCard_Quotas {
 		<tr class="dcard-plan-row" data-plan="<?php echo esc_attr( $plan_id ); ?>">
 			<td><input type="checkbox" name="<?php echo esc_attr( $cfg['active'] ); ?>" value="1" <?php checked( $active ); ?> /></td>
 			<td><input type="text" class="regular-text dcard-plan-label" name="<?php echo esc_attr( $cfg['label'] ); ?>" value="<?php echo esc_attr( $label ); ?>" style="width:120px;" /></td>
-			<td><?php echo esc_html( $period_label ); ?></td>
 			<td><input type="number" min="0" step="1" class="small-text dcard-plan-price" name="<?php echo esc_attr( $cfg['price'] ); ?>" value="<?php echo esc_attr( $price ); ?>" /> ₪</td>
 			<td>
 				<input type="number" min="0" step="1" class="small-text dcard-plan-msg" name="<?php echo esc_attr( $cfg['msg_credits'] ); ?>" value="<?php echo esc_attr( $msg_value ); ?>" />
 				<?php if ( $msg_value > 1000 ) : ?><br /><span style="color:#a3262a;">⚠ מספר גבוה מאוד - ייתכן שזה 999999 ישן. כדאי להזין מספר שימוש-הוגן אמיתי.</span><?php endif; ?>
 				<br /><label><input type="checkbox" class="dcard-plan-unlimited-msg" name="<?php echo esc_attr( $cfg['unlimited_msg'] ); ?>" value="1" <?php checked( $unlimited_msg ); ?> /> להציג ללא הגבלה</label>
+				<br /><strong class="dcard-plan-unlimited-zero-warn" data-field="msg" style="color:#a3262a;<?php echo ( $unlimited_msg && 0 === $msg_value ) ? '' : 'display:none;'; ?>">⚠ "ללא הגבלה" מסומן עם מספר 0 - המשתמש לא יוכל להשתמש!</strong>
 			</td>
 			<td>
 				<input type="number" min="0" step="1" class="small-text dcard-plan-chat" name="<?php echo esc_attr( $cfg['chat_credits'] ); ?>" value="<?php echo esc_attr( $chat_value ); ?>" />
 				<?php if ( $chat_value > 1000 ) : ?><br /><span style="color:#a3262a;">⚠ מספר גבוה מאוד - ייתכן שזה 999999 ישן. כדאי להזין מספר שימוש-הוגן אמיתי.</span><?php endif; ?>
 				<br /><label><input type="checkbox" class="dcard-plan-unlimited-chat" name="<?php echo esc_attr( $cfg['unlimited_chat'] ); ?>" value="1" <?php checked( $unlimited_chat ); ?> /> להציג ללא הגבלה</label>
+				<br /><strong class="dcard-plan-unlimited-zero-warn" data-field="chat" style="color:#a3262a;<?php echo ( $unlimited_chat && 0 === $chat_value ) ? '' : 'display:none;'; ?>">⚠ "ללא הגבלה" מסומן עם מספר 0 - המשתמש לא יוכל להשתמש!</strong>
 			</td>
 			<td><input type="text" class="small-text dcard-plan-product-id" name="<?php echo esc_attr( $cfg['product_id'] ); ?>" value="<?php echo esc_attr( $product_id ); ?>" /></td>
 			<td class="dcard-plan-preview" style="max-width:220px;font-size:12px;color:#555;"></td>
@@ -433,8 +439,7 @@ class DCard_Quotas {
 						<tr>
 							<th scope="col">פעיל</th>
 							<th scope="col">שם לתצוגה</th>
-							<th scope="col">תקופה</th>
-							<th scope="col">מחיר</th>
+							<th scope="col">מחיר (לחודש)</th>
 							<th scope="col">מקס' קבלות מסר</th>
 							<th scope="col">מקס' דיאלוגים</th>
 							<th scope="col">ProductID בקארדקום</th>
@@ -444,7 +449,7 @@ class DCard_Quotas {
 					<tbody>
 						<?php
 						foreach ( $paid_cfg as $plan_id => $cfg ) {
-							self::render_paid_plan_row( $plan_id, $cfg, DCard_Plans::period_label_for_plan( $plan_id ) );
+							self::render_paid_plan_row( $plan_id, $cfg );
 						}
 						?>
 					</tbody>
@@ -499,19 +504,18 @@ class DCard_Quotas {
 
 	/**
 	 * עמודת "כך זה יוצג" + הערת "ללא הגבלה, בשימוש הוגן" - מתעדכנות
-	 * בזמן הקלדה, בלי AJAX (כל הנתונים כבר בדף). אחוז החיסכון במסלול
-	 * השנתי מחושב כאן מול המחיר החודשי של "נורית" (המסלול המקביל),
-	 * floor כלפי מטה (§6.10.2: "כדי שלא נבטיח יותר ממה שיש").
+	 * בזמן הקלדה, בלי AJAX (כל הנתונים כבר בדף).
+	 *
+	 * עדכון §6.10.2: כל המסלולים מוצגים כ"לחודש" בלבד - אין יותר חישוב
+	 * "לשנה, במקום X ₪ (חיסכון של Y%)" (הוסר יחד עם עמודת "תקופה" -
+	 * ר' ההערה המלאה למעלה ב-class). גם מוסיפה כאן, בזמן הקלדה, את אותה
+	 * אזהרה בולטת שה-PHP כבר מציג ב-render_paid_plan_row() על טעינת הדף -
+	 * "ללא הגבלה" מסומן עם מספר 0.
 	 */
 	private static function render_preview_script( $paid_cfg ) {
-		$yearly_plan_id  = DCard_Plans::NURIT_YEARLY;
-		$monthly_plan_id = DCard_Plans::NURIT;
 		?>
 		<script>
 		(function () {
-			var YEARLY_PLAN = <?php echo wp_json_encode( $yearly_plan_id ); ?>;
-			var MONTHLY_PLAN = <?php echo wp_json_encode( $monthly_plan_id ); ?>;
-
 			function rowData(row) {
 				return {
 					plan: row.dataset.plan,
@@ -537,22 +541,15 @@ class DCard_Quotas {
 
 				rows.forEach(function (row) {
 					var d = byPlan[row.dataset.plan];
-					var lines = [d.label + ' - ' + d.price + ' ₪'];
-					var period = row.children[2].textContent.trim();
-					if (d.plan === YEARLY_PLAN && byPlan[MONTHLY_PLAN]) {
-						var monthlyEquivalent = byPlan[MONTHLY_PLAN].price * 12;
-						if (monthlyEquivalent > 0) {
-							var savingsPct = Math.floor((1 - (d.price / monthlyEquivalent)) * 100);
-							lines[0] += ' לשנה, במקום ' + monthlyEquivalent.toFixed(0) + ' ₪ (חיסכון של ' + Math.max(savingsPct, 0) + '%)';
-						} else {
-							lines[0] += ' ל' + period;
-						}
-					} else {
-						lines[0] += ' ל' + period;
-					}
+					var lines = [d.label + ' - ' + d.price + ' ₪ לחודש'];
 					lines.push(quotaLine('קבלת מסר', d.msg, d.unlimitedMsg));
 					lines.push(quotaLine('דיאלוג מכוון', d.chat, d.unlimitedChat));
 					row.querySelector('.dcard-plan-preview').innerHTML = lines.join('<br>');
+
+					var msgWarn = row.querySelector('.dcard-plan-unlimited-zero-warn[data-field="msg"]');
+					if (msgWarn) msgWarn.style.display = (d.unlimitedMsg && 0 === d.msg) ? '' : 'none';
+					var chatWarn = row.querySelector('.dcard-plan-unlimited-zero-warn[data-field="chat"]');
+					if (chatWarn) chatWarn.style.display = (d.unlimitedChat && 0 === d.chat) ? '' : 'none';
 
 					if (d.unlimitedMsg) unlimitedNotes.push({ type: 'msg', n: d.msg });
 					if (d.unlimitedChat) unlimitedNotes.push({ type: 'chat', n: d.chat });

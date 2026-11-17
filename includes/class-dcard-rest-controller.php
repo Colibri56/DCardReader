@@ -1762,6 +1762,45 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'InvoiceNumber חסר' ), 400 );
 		}
 
+		// תיקון (§6.10.2, דווח בפועל: לקוח חויב ₪467 וקיבל מסלול נרקיס):
+		// הסכום והמסלול נקבעים אצלנו רק לפי ה-ProductID שמגיע ב-IPN - קארדקום
+		// עצמה היא זו שבאמת גובה (ר' ההערה ב-DCard_Plans::public_plan_data),
+		// כך ששום דבר כאן לא "בוחר" מחיר. נרשם ביומן בכל IPN מוצלח, ואם
+		// הסכום שונה מהמחיר שמוגדר בדף המכסות למסלול הזה - גם התראה ביומן
+		// וגם מייל ל-admin_email, כדי לתפוס פער כזה מיד ולא רק כש-נוריתה
+		// שמה לב בעצמה בעמוד הלקוחות.
+		$expected_price = DCard_Plans::price_for_plan( $plan_id );
+		DCard_Logger::info( 'POST /webhook/ipn-update - IPN accepted for our product', array(
+			'product_id'      => $product_id,
+			'amount'          => $amount,
+			'plan_id'         => $plan_id,
+			'expected_price'  => $expected_price,
+		) );
+		if ( $expected_price > 0 && abs( $amount - $expected_price ) > 0.01 ) {
+			DCard_Logger::warning( 'POST /webhook/ipn-update - charged amount does not match plan price in דף המכסות', array(
+				'product_id'     => $product_id,
+				'plan_id'        => $plan_id,
+				'amount'         => $amount,
+				'expected_price' => $expected_price,
+			) );
+
+			$admin_email = get_option( 'admin_email' );
+			if ( $admin_email ) {
+				wp_mail(
+					$admin_email,
+					'הקורא בקלפים - אי-התאמה בין הסכום שחויב למחיר המוגדר',
+					sprintf(
+						"התקבל תשלום בקארדקום (חשבונית %s, מק\"ט %s, מסלול %s) על סך %s ₪, אבל המחיר המוגדר למסלול הזה בדף המכסות הוא %s ₪.\n\nכדאי לבדוק: האם המחיר בדף המכסות לא עודכן, או שהמוצר/המחיר בקארדקום עצמו לא תואם למה שמוגדר אצלנו.",
+						$cardcom_transaction_id,
+						$product_id,
+						$plan_id,
+						$amount,
+						$expected_price
+					)
+				);
+			}
+		}
+
 		// strtotime בעדינות: תאריך לא תקין/בפורמט לא מוכר -> null (לא
 		// '1970-01-01' מטעה) - record_if_new() עצמה כבר יודעת להשתמש ב-
 		// "עכשיו" כברירת מחדל כש-null מועבר לה.
