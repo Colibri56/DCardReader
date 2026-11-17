@@ -36,6 +36,23 @@ if ( ! defined( 'DCARD_WEBHOOK_SECRET' ) ) {
 	define( 'DCARD_WEBHOOK_SECRET', 'MySecretDcardKey2026' );
 }
 
+// §6.11 (ביטול מנוי) + docs/cardcom-api/: קריאה ל-API של הוראות הקבע של
+// קארדקום (Operation=Update, RecurringPayments.IsActive=false) דורשת כתובת
+// API, UserName וסיסמה - אין להם ערך אמיתי כאן בכוונה (בניגוד ל-
+// DCARD_WEBHOOK_SECRET למעלה שעוד לא עבר את אותו ניקוי). הערכים האמיתיים
+// מוגדרים רק ב-wp-config.php של production (כלל 6 ב-CLAUDE.md); עד אז
+// נשארים ריקים, וכל קוד שמשתמש בהם (עוד לא נכתב - ר' תוכנית Phase A/C
+// ל"האזור שלי") צריך לבדוק שהם לא ריקים לפני קריאה בפועל ל-API.
+if ( ! defined( 'DCARD_CARDCOM_API_URL' ) ) {
+	define( 'DCARD_CARDCOM_API_URL', '' );
+}
+if ( ! defined( 'DCARD_CARDCOM_API_USERNAME' ) ) {
+	define( 'DCARD_CARDCOM_API_USERNAME', '' );
+}
+if ( ! defined( 'DCARD_CARDCOM_API_PASSWORD' ) ) {
+	define( 'DCARD_CARDCOM_API_PASSWORD', '' );
+}
+
 // 2. תיקון (WordPress Site Health - "אותר סשן PHP פעיל"): session_start()
 // גלובלי על *כל* בקשה (כולל REST API, cron, admin-ajax, ה-webhook מקארדקום)
 // נעל קובץ PHP session לכל בקשה מאותו סשן, עד ש-session_write_close()

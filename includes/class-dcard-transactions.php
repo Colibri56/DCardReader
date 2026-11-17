@@ -95,4 +95,24 @@ class DCard_Transactions {
 
 		return (int) $wpdb->insert_id;
 	}
+
+	/**
+	 * §6.11 ("היסטוריית תשלומים", Phase B) - רשימת חיובים למשתמש, מהחדש
+	 * לישן. אין עמודת קישור לחשבונית בטבלה הזו היום (קארדקום לא מחזירה
+	 * אותו ב-IPN בפורמט הנוכחי) - לכן ה-caller תמיד מציג בלי קישור
+	 * "חשבונית", בהתאם להערה בספק העיצוב ("אם קארדקום מחזירה קישור").
+	 */
+	public static function list_for_user( $user_id, $limit = 20 ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT plan_id, amount, currency, transaction_date FROM ' . self::table() . ' WHERE user_id = %d ORDER BY transaction_date DESC LIMIT %d',
+				$user_id,
+				$limit
+			),
+			ARRAY_A
+		);
+	}
 }

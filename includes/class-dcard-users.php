@@ -399,6 +399,33 @@ class DCard_Users {
 	}
 
 	/**
+	 * §6.11 ("הפרטים שלי", Phase B) - עדכון שם/לשון פנייה/טלפון ע"י המשתמש
+	 * עצמו (לא דרך webhook). ולידציית השם (DCARD_NAME_PATTERN) כבר נעשית
+	 * ב-caller (class-dcard-rest-controller.php), כמו בכל שאר נקודות הכניסה
+	 * שמקבלות שם - כאן רק כתיבה ל-DB, כמו update_phone_if_empty למעלה.
+	 * טלפון ריק מותר (השדה "לא חובה"), בניגוד ל-update_phone_if_empty
+	 * שלא דורס טלפון קיים - כאן זו עריכה מפורשת של המשתמש, אז דורסים
+	 * תמיד למה שנשלח (כולל ריקון השדה).
+	 */
+	public static function update_profile( $user_id, $name, $gender, $phone ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return false !== $wpdb->update(
+			self::table(),
+			array(
+				'name'       => $name,
+				'gender'     => in_array( $gender, array( 'male', 'female' ), true ) ? $gender : null,
+				'phone'      => $phone,
+				'updated_at' => current_time( 'mysql', true ),
+			),
+			array( 'id' => $user_id ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
 	 * בדיקה לפני פריסת קלף: יש קרדיט פנוי *במאגר הרלוונטי*? $type: 'msg'
 	 * (קבלת מסר) או 'chat' (שיחה מפתחת) - ר' הערת ה-class המלאה ב-
 	 * DCard_Plans על הפיצול בין שני המאגרים ואיך הם מתקזזים. מסלולים ללא

@@ -1010,6 +1010,17 @@
         display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
     }
     .kb-radio-group { display: flex; gap: 10px; margin-bottom: 18px; }
+    /* סעיף 6.2: כפתורי רדיו רגילים (לא kb-radio-card) - בלי מסגרת ובלי
+       רקע, עיגול 20px + טקסט 16px, 28px רווח ביניהם, אזור לחיצה 44px. */
+    .kb-gender-radio-group { display: flex; gap: 28px; margin-bottom: 18px; }
+    .kb-gender-radio {
+        display: flex; align-items: center; gap: 8px; min-height: 44px;
+        font-family: 'Rubik', sans-serif; font-size: 16px; color: var(--ink) !important;
+        cursor: pointer;
+    }
+    .kb-gender-radio input[type="radio"] {
+        width: 20px; height: 20px; accent-color: var(--bordeaux); cursor: pointer; margin: 0;
+    }
     /* color: var(--ink) !important - דווח בפועל: הטקסט הופיע לבן/בלתי
        קריא; כנראה נבלע ע"י סגנון גלובלי של התבנית/אלמנטור על <button>
        (אותה תופעה שכבר טופלה ב-!important במקומות אחרים בקובץ הזה). */
@@ -1027,6 +1038,31 @@
     .kb-radio-card[aria-pressed="true"] {
         border: 2px solid var(--bordeaux); background: var(--blush); color: var(--ink) !important;
     }
+
+    /* סעיף 6.11 "האזור שלי" - מסך מלא (לא kb-modal), עמודה ממורכזת
+       ברוחב 560px במחשב, כמו שאר הדף בטלפון. */
+    .kb-account-screen {
+        position: fixed; inset: 0; background: var(--paper); z-index: 60;
+        display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .kb-account-header {
+        display: flex; align-items: center; gap: 12px; padding: 16px;
+        border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--paper);
+    }
+    .kb-account-back {
+        width: 40px; height: 40px; border: none; background: none; cursor: pointer;
+        font-size: 20px; color: var(--ink) !important; display: flex; align-items: center; justify-content: center;
+    }
+    .kb-account-body { padding: 20px 16px 40px; max-width: 560px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+    .kb-account-section { margin-bottom: 32px; }
+    .kb-account-section-title { font-size: 19px; font-weight: 500; margin: 0 0 14px; }
+    .kb-account-card { border: 1px solid var(--line-strong); border-radius: 14px; padding: 16px; }
+    .kb-account-progress-row { margin-top: 12px; }
+    .kb-account-progress-label { font-size: 14px; color: var(--ink-soft); margin-bottom: 4px; }
+    .kb-account-progress-track { height: 8px; background: var(--blush); border-radius: 4px; overflow: hidden; }
+    .kb-account-progress-fill { height: 100%; background: var(--bordeaux); border-radius: 4px; }
+    .kb-account-tx-row { display: flex; justify-content: space-between; font-size: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .kb-account-tx-row:last-child { border-bottom: none; }
 
     #kb-main-content { display: flex; flex-direction: column; gap: 30px; }
 
@@ -1602,9 +1638,9 @@
             <label class="kb-field-label" for="kb-onboarding-name">שם</label>
             <textarea id="kb-onboarding-name" class="kb-field" rows="1" style="width:100%;padding:12px 14px;margin-bottom:16px;"></textarea>
             <div class="kb-field-label">איך לפנות אליך?</div>
-            <div class="kb-radio-group" role="radiogroup" aria-label="לשון פנייה">
-                <button type="button" class="kb-radio-card" id="kb-gender-male" aria-pressed="false">בלשון זכר</button>
-                <button type="button" class="kb-radio-card" id="kb-gender-female" aria-pressed="false">בלשון נקבה</button>
+            <div class="kb-gender-radio-group" role="radiogroup" aria-label="לשון פנייה">
+                <label class="kb-gender-radio"><input type="radio" name="kb-onboarding-gender" id="kb-gender-male" value="male">בלשון זכר</label>
+                <label class="kb-gender-radio"><input type="radio" name="kb-onboarding-gender" id="kb-gender-female" value="female">בלשון נקבה</label>
             </div>
             <div id="kb-onboarding-error" style="display:none;color:#c0392b;font-size:13px;margin:-8px 0 16px;"></div>
             <div class="kb-modal-actions">
@@ -1627,7 +1663,7 @@
                 <p class="kb-modal-text" style="text-align:center;">רק נא למלא את הפרטים שלך, לצורכי בקרה ושיפור השירות.</p>
                 <label class="kb-field-label" for="kb-register-name">שם</label>
                 <input type="text" id="kb-register-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
-                <div class="kb-field-error" id="kb-register-name-error" style="display:none;" role="alert">השם יכול לכלול רק אותיות, רווחים ומקפים.</div>
+                <div class="kb-field-error" id="kb-register-name-error" style="display:none;" role="alert">השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.</div>
                 <label class="kb-field-label" for="kb-register-email" style="margin-top:12px;">כתובת מייל</label>
                 <input type="email" id="kb-register-email" class="kb-field" dir="ltr" autocomplete="email" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
                 <div class="kb-field-error" id="kb-register-email-error" style="display:none;" role="alert">הכתובת לא נראית תקינה. כדאי לבדוק שוב.</div>
@@ -1658,10 +1694,11 @@
             <h2 class="kb-modal-title" id="kb-payment-title" style="text-align:center;"></h2>
             <p class="kb-modal-text" style="text-align:center;">אמרתי לך כבר קודם שאני אוהב שהשיחות שלנו <strong>תומכות ועוזרות להתקדם בחיים</strong>. יחד עם זה, כמו הרבה דברים בחיים, אני עולה כסף, ועד עכשיו נורית שילמה עליי.</p>
             <p class="kb-modal-text" style="text-align:center;">אני מזמין אותך להמשיך ולהשתמש באפליקציה, ואני <strong>יודע מניסיון רב</strong> שהשימוש ימשיך לתת לך ערך רב ולאורך זמן. בניתי שלושה מסלולים, ורק צריך לבחור את המתאים לך ביותר.</p>
+            <div style="font-size:16px;font-weight:500;margin-top:10px;">המסלולים לבחירתך</div>
             <div id="kb-payment-plans" style="display:flex;flex-direction:column;gap:10px;margin:14px 0;"></div>
             <label class="kb-field-label" for="kb-payment-name">שם</label>
             <input type="text" id="kb-payment-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
-            <div class="kb-field-error" id="kb-payment-name-error" style="display:none;" role="alert">השם יכול לכלול רק אותיות, רווחים ומקפים.</div>
+            <div class="kb-field-error" id="kb-payment-name-error" style="display:none;" role="alert">השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.</div>
             <label class="kb-field-label" for="kb-payment-email" style="margin-top:12px;">כתובת מייל</label>
             <input type="email" id="kb-payment-email" class="kb-field" dir="ltr" autocomplete="email" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
             <div class="kb-field-error" id="kb-payment-email-error" style="display:none;" role="alert">הכתובת לא נראית תקינה. כדאי לבדוק שוב.</div>
@@ -1692,17 +1729,76 @@
     <div id="kb-menu-overlay" class="kb-menu-overlay" hidden>
         <div class="kb-menu-panel" role="dialog" aria-modal="true" aria-label="תפריט">
             <button type="button" class="kb-menu-close" id="kb-menu-close-btn" aria-label="סגירה">&times;</button>
+            <!-- סעיף 5: "'האזור שלי' מופיע בראש התפריט, רק למשתמש רשום" -
+                 מוסתר כברירת מחדל, נחשף ע"י kbUpdateMenuAccountLinkVisibility()
+                 (ר' למטה) לפי dcardIsRegistered(). -->
+            <button type="button" class="kb-menu-item" id="kb-menu-my-account" hidden>האזור שלי</button>
             <button type="button" class="kb-menu-item" id="kb-menu-how-it-works">איך זה עובד</button>
             <button type="button" class="kb-menu-item" id="kb-menu-guidelines">טיפים לשאלה טובה</button>
             <button type="button" class="kb-menu-item" id="kb-menu-about">אודות</button>
-            <!-- "כתבו לנו" - טרם מחובר ליעד אמיתי (הטופס הקיים חי רק בעורך
-                 אלמנטור, אין לו ID נגיש מכאן) - ר' הערה ב-kbOpenContact(). -->
             <button type="button" class="kb-menu-item" id="kb-menu-contact">כתבו לנו</button>
             <div class="kb-menu-footer">
                 <a href="#">מדיניות פרטיות</a>
                 <a href="#">תנאי שימוש</a>
                 <a href="#">הצהרת נגישות</a>
             </div>
+        </div>
+    </div>
+
+    <!-- סעיף 6.11 "האזור שלי" (Phase B - חלקים לקריאה/עריכה, בלי ביטול
+         מנוי/מחיקת חשבון בפועל, ר' ההערה המלאה ב-kbOpenAccountScreen). מסך
+         מלא, לא kb-modal - עובד כ"שכבה" מעל kb-main-content, באותו דפוס
+         של kb-reading-screen (hidden, מוחלף ל-display:flex ב-JS). -->
+    <div id="kb-account-screen" class="kb-account-screen" hidden>
+        <div class="kb-account-header">
+            <button type="button" class="kb-account-back" id="kb-account-back-btn" aria-label="חזרה">→</button>
+            <h2 class="kb-modal-title" style="margin:0;">האזור שלי</h2>
+        </div>
+        <div id="kb-account-body" class="kb-account-body">
+
+            <!-- 1. המסלול שלי -->
+            <section class="kb-account-section">
+                <h3 class="kb-account-section-title">המסלול שלי</h3>
+                <div id="kb-account-plan-card" class="kb-account-card"></div>
+                <p class="kb-modal-text" style="margin-top:10px;">רוצה להחליף מסלול? <a href="#" id="kb-account-change-plan-link">כתבו לנו</a></p>
+                <!-- ביטול מנוי אמיתי (קריאה ל-API של קארדקום) הוא Phase C -
+                     עדיין לא קיים endpoint לכך, לכן הקישור מפנה ל"כתבו לנו"
+                     בינתיים, לא לתהליך ביטול עצמי. -->
+                <p id="kb-account-cancel-row" class="kb-modal-text" style="display:none;"><a href="#" id="kb-account-cancel-link" style="color:var(--muted);font-size:14px;">ביטול המנוי</a></p>
+            </section>
+
+            <!-- 2. הפרטים שלי -->
+            <section class="kb-account-section">
+                <h3 class="kb-account-section-title">הפרטים שלי</h3>
+                <label class="kb-field-label" for="kb-account-name">שם</label>
+                <input type="text" id="kb-account-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
+                <div class="kb-field-error" id="kb-account-name-error" style="display:none;" role="alert"></div>
+                <div class="kb-field-label" style="margin-top:12px;">איך לפנות אליך?</div>
+                <div class="kb-gender-radio-group" role="radiogroup" aria-label="לשון פנייה">
+                    <label class="kb-gender-radio"><input type="radio" name="kb-account-gender" id="kb-account-gender-male" value="male">בלשון זכר</label>
+                    <label class="kb-gender-radio"><input type="radio" name="kb-account-gender" id="kb-account-gender-female" value="female">בלשון נקבה</label>
+                </div>
+                <label class="kb-field-label" for="kb-account-phone" style="margin-top:12px;">טלפון (לא חובה)</label>
+                <input type="tel" id="kb-account-phone" class="kb-field" dir="ltr" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
+                <div class="kb-alert-banner" id="kb-account-details-error" style="display:none;"></div>
+                <button type="button" class="btn-main" id="kb-account-save-details" style="margin-top:14px;">שמירת השינויים</button>
+                <p class="kb-modal-text" style="margin-top:14px;">מייל: <span id="kb-account-email-readonly" dir="ltr"></span><br>לשינוי כתובת המייל, <a href="#" id="kb-account-change-email-link">כתבו לנו</a>.</p>
+            </section>
+
+            <!-- 3. היסטוריית תשלומים -->
+            <section class="kb-account-section">
+                <h3 class="kb-account-section-title">היסטוריית תשלומים</h3>
+                <div id="kb-account-transactions"></div>
+            </section>
+
+            <!-- 4. החשבון -->
+            <section class="kb-account-section">
+                <h3 class="kb-account-section-title">החשבון</h3>
+                <p class="kb-modal-text">בשלב הזה אין עדיין כניסה ממכשיר אחר. אחרי התנתקות, כדי לחזור לחשבון צריך לכתוב לנו.</p>
+                <button type="button" class="kb-btn kb-btn--quiet" id="kb-account-logout">התנתקות מהמכשיר הזה</button>
+                <!-- מחיקת חשבון (Phase D) - לא מיושמת עדיין, ר' docs/design-spec.md §6.11. -->
+            </section>
+
         </div>
     </div>
 
@@ -2642,6 +2738,7 @@
     const kbMenuGuidelines = document.getElementById('kb-menu-guidelines');
     const kbMenuAbout = document.getElementById('kb-menu-about');
     const kbMenuContact = document.getElementById('kb-menu-contact');
+    const kbMenuMyAccount = document.getElementById('kb-menu-my-account');
     const kbInfoModal = document.getElementById('kb-info-modal');
     const kbInfoTitle = document.getElementById('kb-info-title');
     const kbInfoBody = document.getElementById('kb-info-body');
@@ -2671,25 +2768,25 @@
         });
     }
 
-    // בחירת לשון פנייה (סעיף 6.2) - "כרטיסי רדיו", ומשנה את טקסט כפתור
+    // בחירת לשון פנייה (סעיף 6.2) - כפתורי רדיו רגילים, ומשנה את טקסט כפתור
     // השליחה בהתאם (לפני בחירה: "בואו נתחיל", אחרי: "בואי/בוא נתחיל").
     let kbSelectedGender = null;
     function kbSetGenderChoice(gender) {
         kbSelectedGender = gender;
-        kbGenderMaleBtn.setAttribute('aria-pressed', String('male' === gender));
-        kbGenderFemaleBtn.setAttribute('aria-pressed', String('female' === gender));
         kbOnboardingSubmit.textContent = ( 'female' === gender ) ? 'בואי נתחיל' : ( 'male' === gender ) ? 'בוא נתחיל' : 'בואו נתחיל';
     }
-    kbGenderMaleBtn.addEventListener('click', function () { kbSetGenderChoice('male'); });
-    kbGenderFemaleBtn.addEventListener('click', function () { kbSetGenderChoice('female'); });
+    kbGenderMaleBtn.addEventListener('change', function () { if (kbGenderMaleBtn.checked) kbSetGenderChoice('male'); });
+    kbGenderFemaleBtn.addEventListener('change', function () { if (kbGenderFemaleBtn.checked) kbSetGenderChoice('female'); });
 
     // אותה ולידציית שם כמו הטופס הישן (4723) - ר' DCARD_NAME_PATTERN למטה.
-    const DCARD_NAME_PATTERN = /^[A-Za-zא-ת\s\-‐‑‒–—־]+$/;
+    // עודכן (סעיף 6.2): גרש מותר בשם (ג'יל, ז'אן) - '/׳/’.
+    const DCARD_NAME_PATTERN = /^[A-Za-zא-ת\s\-‐‑‒–—־'׳’]+$/;
+    const DCARD_NAME_ERROR = 'השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.';
     kbOnboardingSubmit.addEventListener('click', function () {
         const name = kbOnboardingName.value.trim();
         kbOnboardingError.style.display = 'none';
         if (!name || !DCARD_NAME_PATTERN.test(name)) {
-            kbOnboardingError.textContent = 'השם יכול לכלול רק אותיות, רווחים ומקפים.';
+            kbOnboardingError.textContent = 'השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.';
             kbOnboardingError.style.display = '';
             kbOnboardingName.focus();
             return;
@@ -2765,7 +2862,7 @@
         const name = kbRegisterName.value.trim();
         const email = kbRegisterEmail.value.trim();
         if (!name || !DCARD_NAME_PATTERN.test(name)) {
-            kbShowFieldError(kbRegisterName, kbRegisterNameError, 'השם יכול לכלול רק אותיות, רווחים ומקפים.');
+            kbShowFieldError(kbRegisterName, kbRegisterNameError, 'השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.');
             return;
         }
         if (!EMAIL_REGEX.test(email)) {
@@ -2900,7 +2997,7 @@
         const name = kbPaymentName.value.trim();
         const email = kbPaymentEmail.value.trim();
         if (!name || !DCARD_NAME_PATTERN.test(name)) {
-            kbShowFieldError(kbPaymentName, kbPaymentNameError, 'השם יכול לכלול רק אותיות, רווחים ומקפים.');
+            kbShowFieldError(kbPaymentName, kbPaymentNameError, 'השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.');
             return;
         }
         if (!EMAIL_REGEX.test(email)) {
@@ -2945,8 +3042,14 @@
         }
     });
 
-    // תפריט ☰ (סעיף 5) - "האזור שלי" לא מוצג בשלב הזה, לפי ההנחיה.
+    // תפריט ☰ (סעיף 5) - "האזור שלי" מוצג רק למשתמש רשום (dcardIsRegistered,
+    // כלומר יש לו userId+deviceToken שמורים - ר' הערת ה-class המקבילה
+    // ב-DCard_Users על ההבדל מ-wp_users אמיתי).
+    function kbUpdateMenuAccountLinkVisibility() {
+        kbMenuMyAccount.hidden = !dcardIsRegistered();
+    }
     function kbOpenMenu() {
+        kbUpdateMenuAccountLinkVisibility();
         kbMenuOverlay.hidden = false;
         kbMenuCloseBtn.focus();
     }
@@ -2972,10 +3075,14 @@
         if (e.target === kbInfoModal) kbInfoModal.hidden = true;
     });
 
+    // סעיף 5 (תפריט ☰): חמישה שלבים, שונה מגרסת שלושת השלבים בדף הכניסה
+    // (6.1, KB_LANDING_HOW_IT_WORKS/HTML הקיים שם).
     const KB_HOW_IT_WORKS_HTML = '<ol class="kb-landing-steps">' +
-        '<li><span class="kb-step-num">1</span><div><strong>כותבים שאלה.</strong> על משהו שמעסיק אותך עכשיו: עבודה, קשרים, החלטה, הרגל.</div></li>' +
-        '<li><span class="kb-step-num">2</span><div><strong>שולפים קלף.</strong> הקלפים מתערבבים, ואתם בוחרים קלף אקראי.</div></li>' +
-        '<li><span class="kb-step-num">3</span><div><strong>קבלת תשובה.</strong> הקורא בקלפים מכוון אתכם לתשובה המדויקת עבורכם.</div></li>' +
+        '<li><span class="kb-step-num">1</span><div><strong>כותבים שאלה.</strong> על משהו שמעסיק אתכם עכשיו: עבודה, קשרים, החלטה, הרגל.</div></li>' +
+        '<li><span class="kb-step-num">2</span><div><strong>בוחרים דרך.</strong> "דיאלוג מכוון" לשיחה מעמיקה ומפתחת, או "קבלת מסר אישי" למסר אחד קצר.</div></li>' +
+        '<li><span class="kb-step-num">3</span><div><strong>שולפים קלף.</strong> הקלפים מתערבבים, ואתם בוחרים קלף אקראי.</div></li>' +
+        '<li><span class="kb-step-num">4</span><div><strong>מקבלים תשובה.</strong> הקורא בקלפים מכוון אתכם לתשובה המדויקת עבורכם.</div></li>' +
+        '<li><span class="kb-step-num">5</span><div><strong>ממשיכים לשוחח.</strong> בדיאלוג המכוון מתפתחת שיחה של שאלות ותשובות שמעוררות מחשבה.</div></li>' +
         '</ol>';
     kbMenuHowItWorks.addEventListener('click', function () {
         kbOpenInfoModal('איך זה עובד', KB_HOW_IT_WORKS_HTML);
@@ -3002,9 +3109,173 @@
         kbOpenContactModal();
     });
 
+    // ============================================================
+    // סעיף 6.11: "האזור שלי" (Phase B - חלקים לקריאה/עריכה בלבד).
+    // ביטול מנוי אמיתי (קריאה ל-API של קארדקום, Phase C) ומחיקת חשבון
+    // (Phase D) עדיין לא קיימים בשרת - הקישורים שלהם כאן מפנים ל"כתבו
+    // לנו" בינתיים, לא לתהליך עצמאי (ר' docs/design-spec.md §6.11).
+    // ============================================================
+    const kbAccountScreen = document.getElementById('kb-account-screen');
+    const kbAccountBackBtn = document.getElementById('kb-account-back-btn');
+    const kbAccountPlanCard = document.getElementById('kb-account-plan-card');
+    const kbAccountChangePlanLink = document.getElementById('kb-account-change-plan-link');
+    const kbAccountChangeEmailLink = document.getElementById('kb-account-change-email-link');
+    const kbAccountCancelLink = document.getElementById('kb-account-cancel-link');
+    const kbAccountName = document.getElementById('kb-account-name');
+    const kbAccountNameError = document.getElementById('kb-account-name-error');
+    const kbAccountGenderMale = document.getElementById('kb-account-gender-male');
+    const kbAccountGenderFemale = document.getElementById('kb-account-gender-female');
+    const kbAccountPhone = document.getElementById('kb-account-phone');
+    const kbAccountEmailReadonly = document.getElementById('kb-account-email-readonly');
+    const kbAccountSaveDetails = document.getElementById('kb-account-save-details');
+    const kbAccountTransactions = document.getElementById('kb-account-transactions');
+    const kbAccountLogout = document.getElementById('kb-account-logout');
+
+    function kbAccountQuotaLine(label, used, max, unlimited) {
+        if (unlimited) {
+            return '<div class="kb-account-progress-row"><div class="kb-account-progress-label">' + label + ': ללא הגבלה</div></div>';
+        }
+        const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
+        return '<div class="kb-account-progress-row">' +
+            '<div class="kb-account-progress-label">' + label + ': ' + used + ' מתוך ' + max + '</div>' +
+            '<div class="kb-account-progress-track" role="progressbar" aria-valuenow="' + used + '" aria-valuemin="0" aria-valuemax="' + max + '">' +
+            '<div class="kb-account-progress-fill" style="width:' + pct + '%;"></div></div></div>';
+    }
+
+    function kbFormatAccountDate(mysqlDate) {
+        if (!mysqlDate) return '';
+        try {
+            return new Date(mysqlDate.replace(' ', 'T') + 'Z').toLocaleDateString('he-IL');
+        } catch (e) {
+            return mysqlDate;
+        }
+    }
+
+    async function kbLoadAccountDetails() {
+        kbAccountPlanCard.innerHTML = '<p class="kb-modal-text">טוען…</p>';
+        kbAccountTransactions.innerHTML = '<p class="kb-modal-text">טוען…</p>';
+        try {
+            const res = await fetch('/wp-json/dcard/v1/account/details', { method: 'GET', headers: dcardHeaders() });
+            const data = await res.json();
+            if (!data || !data.success) {
+                kbAccountPlanCard.innerHTML = '<p class="kb-modal-text">לא הצלחנו לטעון את הפרטים כרגע.</p>';
+                kbAccountTransactions.innerHTML = '';
+                return;
+            }
+
+            // חלק 1: המסלול שלי
+            const isFree = ('free' === data.current_plan);
+            let planHtml = '<div><strong>' + data.plan_label + '</strong>' + (isFree ? '' : (' - ' + data.plan_price + ' ₪ לחודש')) + '</div>';
+            if (!isFree && data.plan_expires_at) {
+                planHtml += '<div class="kb-modal-text" style="margin:4px 0 0;">החיוב הבא: ' + kbFormatAccountDate(data.plan_expires_at) + '</div>';
+            }
+            // current_credits_* זה מה שנשאר, לא המקסימום - ה"משומש" לפס
+            // ההתקדמות (used מתוך max) הוא ההפרש מול credits_*_max.
+            let quotaHtml = kbAccountQuotaLine('קבלות מסר', data.credits_msg_max - data.current_credits_msg, data.credits_msg_max, data.unlimited_msg) +
+                kbAccountQuotaLine('דיאלוגים מכוונים', data.credits_chat_max - data.current_credits_chat, data.credits_chat_max, data.unlimited_chat);
+            if (data.next_credit_reset_at) {
+                quotaHtml += '<div class="kb-modal-text" style="margin-top:6px;">מתחדש ב־' + kbFormatAccountDate(data.next_credit_reset_at) + '</div>';
+            }
+            kbAccountPlanCard.innerHTML = planHtml + quotaHtml;
+            if (isFree) {
+                kbAccountPlanCard.innerHTML += '<button type="button" class="btn-main" style="margin-top:12px;" id="kb-account-join-plan-btn">הצטרפות למסלול</button>';
+                const joinBtn = document.getElementById('kb-account-join-plan-btn');
+                if (joinBtn) {
+                    joinBtn.addEventListener('click', function () {
+                        kbCloseAccountScreen();
+                        kbOpenPaymentModal(false);
+                    });
+                }
+            }
+
+            // חלק 2: הפרטים שלי
+            kbAccountName.value = data.name || '';
+            kbAccountGenderMale.checked = ('male' === data.gender);
+            kbAccountGenderFemale.checked = ('female' === data.gender);
+            kbAccountPhone.value = data.phone || '';
+            kbAccountEmailReadonly.textContent = data.email || '';
+
+            // חלק 3: היסטוריית תשלומים
+            if (!data.transactions || !data.transactions.length) {
+                kbAccountTransactions.innerHTML = '<p class="kb-modal-text">עוד לא היו תשלומים.</p>';
+            } else {
+                kbAccountTransactions.innerHTML = data.transactions.map(function (tx) {
+                    return '<div class="kb-account-tx-row"><span>' + kbFormatAccountDate(tx.transaction_date) + ' - ' + tx.plan_label + '</span><span>' + tx.amount + ' ₪</span></div>';
+                }).join('');
+            }
+        } catch (err) {
+            console.warn('[DCard Account] failed to load /account/details:', err);
+            kbAccountPlanCard.innerHTML = '<p class="kb-modal-text">לא הצלחנו לטעון את הפרטים כרגע.</p>';
+            kbAccountTransactions.innerHTML = '';
+        }
+    }
+
+    function kbOpenAccountScreen() {
+        kbCloseMenu();
+        kbAccountScreen.hidden = false;
+        kbLoadAccountDetails();
+    }
+    function kbCloseAccountScreen() {
+        kbAccountScreen.hidden = true;
+    }
+    kbMenuMyAccount.addEventListener('click', kbOpenAccountScreen);
+    kbAccountBackBtn.addEventListener('click', kbCloseAccountScreen);
+
+    [kbAccountChangePlanLink, kbAccountChangeEmailLink, kbAccountCancelLink].forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            kbCloseAccountScreen();
+            kbOpenContactModal();
+        });
+    });
+
+    kbAccountSaveDetails.addEventListener('click', async function () {
+        const name = kbAccountName.value.trim();
+        const gender = kbAccountGenderMale.checked ? 'male' : (kbAccountGenderFemale.checked ? 'female' : '');
+        const phone = kbAccountPhone.value.trim();
+        kbClearFieldError(kbAccountName, kbAccountNameError);
+        if (!name || !DCARD_NAME_PATTERN.test(name)) {
+            kbShowFieldError(kbAccountName, kbAccountNameError, DCARD_NAME_ERROR);
+            return;
+        }
+        kbHideAlertBanner('kb-account-details-error');
+        kbAccountSaveDetails.disabled = true;
+        try {
+            const res = await fetch('/wp-json/dcard/v1/account/update-details', {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ name: name, gender: gender, phone: phone })
+            });
+            const data = await res.json();
+            if (!data || !data.success) {
+                kbShowAlertBanner(kbAccountPhone, 'kb-account-details-error', 'השמירה נכשלה בגלל תקלה בחיבור.', function () { kbAccountSaveDetails.click(); });
+                return;
+            }
+            dcardSetLS(DCARD_LS_KEYS.name, name);
+            if (gender) dcardSetLS(DCARD_LS_KEYS.gender, gender);
+            userName = name;
+            if (gender) userGender = gender;
+            kbUpdateHomeTexts();
+        } catch (err) {
+            kbShowAlertBanner(kbAccountPhone, 'kb-account-details-error', 'השמירה נכשלה בגלל תקלה בחיבור.', function () { kbAccountSaveDetails.click(); });
+        } finally {
+            kbAccountSaveDetails.disabled = false;
+        }
+    });
+
+    kbAccountLogout.addEventListener('click', function () {
+        if (!confirm('בשלב הזה אין עדיין כניסה ממכשיר אחר. אחרי התנתקות, כדי לחזור לחשבון צריך לכתוב לנו. להתנתק בכל זאת?')) return;
+        try {
+            localStorage.removeItem(DCARD_LS_KEYS.userId);
+            localStorage.removeItem(DCARD_LS_KEYS.deviceToken);
+        } catch (e) { /* פרטי/חסום */ }
+        window.location.reload();
+    });
+
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
-        if (!kbMenuOverlay.hidden) kbCloseMenu();
+        if (!kbAccountScreen.hidden) kbCloseAccountScreen();
+        else if (!kbMenuOverlay.hidden) kbCloseMenu();
         else if (!kbInfoModal.hidden) kbInfoModal.hidden = true;
         else if (!kbGuidelinesModal.hidden) kbGuidelinesModal.hidden = true;
         else if (!kbEndSessionModal.hidden) kbEndSessionModal.hidden = true;

@@ -48,6 +48,10 @@ class DCard_REST_Controller {
 
 	const NAMESPACE_ = 'dcard/v1';
 
+	// סעיף 6.2: אותו תבנית בדיוק כמו DCARD_NAME_PATTERN בצד הלקוח
+	// (elementor-code.html) - אותיות עברית/לועזית, רווח, מקף וגרש ('/׳/’).
+	const NAME_PATTERN = '/^[A-Za-z\x{05D0}-\x{05EA}\s\-\x{2010}-\x{2015}\x{05BE}\'\x{05F3}\x{2019}]+$/u';
+
 	// Appended as an extra system instruction (DCard_AI_Gateway::run_turn's
 	// $extra_system_instruction) when mode === 'message'. Placed after the
 	// cached system prompt block, so it doesn't invalidate the cache.
@@ -320,6 +324,30 @@ class DCard_REST_Controller {
 			'methods'             => 'GET',
 			'callback'            => array( $this, 'account_status' ),
 			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+		) );
+
+		// §6.11 ("האזור שלי", Phase B) - גרסה מורחבת של /account/status:
+		// שם/מייל/לשון פנייה/טלפון, תווית ומחיר המסלול, next_credit_reset_at
+		// והיסטוריית תשלומים. /account/status עצמה נשארת כמו שהיא (נקראת
+		// בכל טעינת עמוד, ר' ההערה עליה) - לא מעמיסים עליה שדות שרק מסך
+		// "האזור שלי" צריך.
+		register_rest_route( self::NAMESPACE_, '/account/details', array(
+			'methods'             => 'GET',
+			'callback'            => array( $this, 'account_details' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+		) );
+
+		// §6.11 ("הפרטים שלי", Phase B) - עדכון שם/לשון פנייה/טלפון ע"י
+		// המשתמש עצמו. מייל נשאר לקריאה בלבד בשלב הזה (ר' ההערה בעיצוב).
+		register_rest_route( self::NAMESPACE_, '/account/update-details', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'account_update_details' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+			'args'                => array(
+				'name'   => array( 'required' => false ),
+				'gender' => array( 'required' => false ),
+				'phone'  => array( 'required' => false ),
+			),
 		) );
 
 		register_rest_route( self::NAMESPACE_, '/session/end', array(
@@ -1416,6 +1444,13 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'כתובת אימייל לא תקינה או חסרה' ), 400 );
 		}
 
+		// סעיף 6.2: אותו כלל בדיוק כמו ה-DCARD_NAME_PATTERN בצד הלקוח -
+		// אותיות (עברית/לועזית), רווח, מקף וגרש. שם ריק מותר (חלק מקריאות
+		// ה-webhook הישנות של אלמנטור לא שולחות שם בכלל).
+		if ( '' !== $name && ! preg_match( self::NAME_PATTERN, $name ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.' ), 400 );
+		}
+
 		// Anti account-sharing (שלב 3): register_and_issue_device_token
 		// עושה upsert + הנפקת device_token חדש באותה קריאה - ר' ההערה
 		// המלאה עליה ב-class-dcard-users.php למה זו נקודת הכניסה
@@ -1597,6 +1632,36 @@ class DCard_REST_Controller {
 				'actual_ip'   => $actual_ip,
 				'expected_ip' => $cardcom_known_ip,
 			) );
+		}
+
+		// 0c. סעיף 6.11 (הכנה ל-Phase A - שמירת RecurringId): התראות ממודול
+		// הוראת הקבע של קארדקום (docs/cardcom-api/README.md) נדחות היום ב-1.
+		// למטה כי הן מגיעות עם "Secret" (אות גדולה) ולא "secret" כמו ב-IPN
+		// הרגיל - עד כה רק המפתחות נרשמו ביומן (ר' 'received_keys' ב-1.),
+		// לא הערכים, ולכן אי אפשר לדעת מה RecurringId/IsActive/וכו' האמיתיים
+		// בחיוב הבא בלי לרשום את התוכן המלא פעם אחת. מזוהה לפי RecurringId -
+		// מפתח שקיים רק בפורמט הזה, לא ב-IPN של עסקה רגילה. ממוסך: כל ערך
+		// של מפתח שם/תוכן שלו מרמז על רגישות (Secret, כרטיס אשראי, מייל,
+		// טלפון) - לא חושפים רגיש, אבל כל שאר הערכים - כולל RecurringId,
+		// RecordType, IsActive עצמם - נשארים גלויים כי בשבילם זו בדיוק
+		// המטרה של הלוג הזה.
+		if ( null !== $request->get_param( 'RecurringId' ) ) {
+			$mask_sensitive_ipn_value = function ( $value ) {
+				$value = (string) $value;
+				$len   = strlen( $value );
+				if ( $len <= 4 ) {
+					return str_repeat( '*', $len );
+				}
+				return substr( $value, 0, 2 ) . str_repeat( '*', $len - 4 ) . substr( $value, -2 );
+			};
+			$sensitive_key_pattern = '/secret|card|cvv|email|mobile|phone|password/i';
+			$masked_params         = array();
+			foreach ( $request->get_params() as $param_key => $param_value ) {
+				$masked_params[ $param_key ] = preg_match( $sensitive_key_pattern, $param_key )
+					? $mask_sensitive_ipn_value( $param_value )
+					: $param_value;
+			}
+			DCard_Logger::info( 'POST /webhook/ipn-update - standing-order (recurring) notification received (full content, sensitive fields masked)', $masked_params );
 		}
 
 		// 1. אבטחה: secret יכול להגיע ב-query string (למשל webhook/ipn-update?secret=...)
@@ -1935,6 +2000,93 @@ class DCard_REST_Controller {
 			'current_credits_chat'=> (int) $user['current_credits_chat'],
 			'plan_expires_at'     => $user['plan_expires_at'],
 		), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// GET /account/details (§6.11, Phase B)
+	// ---------------------------------------------------------------
+	public function account_details( WP_REST_Request $request ) {
+		return $this->safely( 'account_details', function () use ( $request ) {
+			return $this->account_details_inner( $request );
+		} );
+	}
+
+	private function account_details_inner( WP_REST_Request $request ) {
+		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+		$user         = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( ! $user ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
+		}
+
+		$plan_id        = $user['current_plan'];
+		$transactions   = DCard_Transactions::list_for_user( (int) $user['id'] );
+		$transactions   = array_map( function ( $row ) {
+			return array(
+				'plan_id'          => $row['plan_id'],
+				'plan_label'       => DCard_Plans::label_for_plan( $row['plan_id'] ),
+				'amount'           => (float) $row['amount'],
+				'currency'         => $row['currency'],
+				'transaction_date' => $row['transaction_date'],
+			);
+		}, $transactions ? $transactions : array() );
+
+		return new WP_REST_Response( array(
+			'success'              => true,
+			'user_id'              => (int) $user['id'],
+			'email'                => $user['email'],
+			'name'                 => $user['name'],
+			'gender'               => $user['gender'],
+			'phone'                => $user['phone'],
+			'current_plan'         => $plan_id,
+			'plan_label'           => DCard_Plans::label_for_plan( $plan_id ),
+			'plan_price'           => DCard_Plans::price_for_plan( $plan_id ),
+			'current_credits_msg'  => (int) $user['current_credits_msg'],
+			'current_credits_chat' => (int) $user['current_credits_chat'],
+			// §6.11: "קבלות מסר: 12 מתוך 80" - הפס צריך גם את המקסימום של
+			// המסלול, לא רק את מה שנשאר (current_credits_* זה מה שנשאר).
+			'credits_msg_max'      => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
+			'credits_chat_max'     => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
+			'unlimited_msg'        => DCard_Plans::is_unlimited( $plan_id, 'msg' ),
+			'unlimited_chat'       => DCard_Plans::is_unlimited( $plan_id, 'chat' ),
+			'plan_expires_at'      => $user['plan_expires_at'],
+			'next_credit_reset_at' => $user['next_credit_reset_at'],
+			'transactions'         => $transactions,
+		), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// POST /account/update-details (§6.11 "הפרטים שלי", Phase B)
+	// ---------------------------------------------------------------
+	public function account_update_details( WP_REST_Request $request ) {
+		return $this->safely( 'account_update_details', function () use ( $request ) {
+			return $this->account_update_details_inner( $request );
+		} );
+	}
+
+	private function account_update_details_inner( WP_REST_Request $request ) {
+		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+		$user         = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( ! $user ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
+		}
+
+		$name   = sanitize_text_field( (string) $request->get_param( 'name' ) );
+		$gender = (string) $request->get_param( 'gender' );
+		$phone  = sanitize_text_field( (string) $request->get_param( 'phone' ) );
+
+		// אותה ולידציית שם בדיוק כמו ב-/register (סעיף 6.2, DCARD_NAME_PATTERN).
+		if ( '' !== $name && ! preg_match( self::NAME_PATTERN, $name ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.' ), 400 );
+		}
+
+		$updated = DCard_Users::update_profile( (int) $user['id'], $name, $gender, $phone );
+		if ( ! $updated ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת הפרטים' ), 500 );
+		}
+
+		return new WP_REST_Response( array( 'success' => true, 'name' => $name, 'gender' => $gender, 'phone' => $phone ), 200 );
 	}
 
 	// ---------------------------------------------------------------
