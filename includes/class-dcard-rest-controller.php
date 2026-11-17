@@ -1789,9 +1789,39 @@ class DCard_REST_Controller {
 		// 6. עדכון בפועל: מסלול+קרדיטים (DCard_Users::set_plan - קורא ל-
 		// DCard_Plans::credits_for_plan, לא קשיח), תפוגה (30/365 יום לפי
 		// המק"ט - ר' DCard_Plans::plan_duration_days), וטלפון (רק אם ריק).
-		$expires_at = gmdate( 'Y-m-d H:i:s', strtotime( '+' . DCard_Plans::plan_duration_days( $plan_id ) . ' days' ) );
-		DCard_Users::set_plan( $user['id'], $plan_id, $expires_at );
+		$expires_at   = gmdate( 'Y-m-d H:i:s', strtotime( '+' . DCard_Plans::plan_duration_days( $plan_id ) . ' days' ) );
+		$plan_updated = DCard_Users::set_plan( $user['id'], $plan_id, $expires_at );
 		DCard_Users::update_phone_if_empty( $user['id'], $phone );
+
+		// תיקון (דווח בפועל, ר' set_plan() לפרטים מלאים): עסקה אושרה
+		// ונרשמה ב-transactions, אבל set_plan() נכשל (למשל DB error) בלי
+		// שאף אחד ידע - הלוג כתב "הצלחה" בכל מקרה. עכשיו: אם set_plan()
+		// נכשל בפועל, לא מדווחים "הצלחה" לא ללוג ולא לקארדקום, ונשלח מייל
+		// ל-admin_email (אותו דפוס כמו "תשלום בלי שיוך למשתמש" למעלה) -
+		// זה בדיוק המקרה שה-"עדכון מסלול ידני" בעמוד הלקוחות קיים לתקן.
+		if ( ! $plan_updated ) {
+			DCard_Logger::error( 'POST /webhook/ipn-update - set_plan failed, user plan NOT actually updated despite successful payment', array(
+				'user_id'                => $user['id'],
+				'plan_id'                => $plan_id,
+				'cardcom_transaction_id' => $cardcom_transaction_id,
+			) );
+
+			$admin_email = get_option( 'admin_email' );
+			if ( $admin_email ) {
+				wp_mail(
+					$admin_email,
+					'הקורא בקלפים - תשלום התקבל אבל עדכון המסלול נכשל',
+					sprintf(
+						"התקבל תשלום בקארדקום (חשבונית %s, משתמש #%d, מסלול %s) אבל עדכון המסלול בבסיס הנתונים נכשל (ר' הלוג לפרטים).\n\nיש לתקן ידנית: עמוד לקוחות (Settings > קורא בקלפים > לקוחות) > \"עדכון מסלול ידני\" למשתמש הזה.",
+						$cardcom_transaction_id,
+						$user['id'],
+						$plan_id
+					)
+				);
+			}
+
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'עדכון מסלול נכשל' ), 500 );
+		}
 
 		// תיקון: לפני כן לא היה שום לוג על הצלחה - רק על כשלים. בלי זה,
 		// "האם ה-webhook בכלל התקבל והעודכן?" דרש בדיקת DB ישירה כל פעם.

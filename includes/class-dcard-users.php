@@ -271,7 +271,15 @@ class DCard_Users {
 		// מתאריך התשלום בפועל, לא מתאריך קבוע. ר' run_renewal_and_expiry_
 		// check() למטה, שמשתמשת בשדה הזה בעיקר עבור מסלול שנתי (מסלול
 		// חודשי "מתאפס לבד" בכל IPN דרך קריאה זו).
-		return false !== $wpdb->update(
+		//
+		// תיקון (דווח בפועל: עסקה אושרה בקארדקום אבל המסלול לא עודכן, בלי
+		// שום שגיאה בלוג): $wpdb->update() מחזיר false *רק* על שגיאת SQL
+		// בפועל (למשל עמודה חסרה אחרי deploy שלא העלה את DCARD_DB_VERSION,
+		// ר' ההערה המלאה שם) - לא על "0 שורות השתנו". בעבר הערך הזה נזרק
+		// לגמרי, אז הקריאה כאן "הצליחה" כלפי כל הקוראים גם כששום UPDATE לא
+		// קרה בפועל. עכשיו נבדק ונרשם במפורש - ר' גם payment_webhook_inner
+		// שמשתמש בערך המוחזר כדי להחליט מה לדווח לקארדקום ולמנהל.
+		$result = $wpdb->update(
 			self::table(),
 			array(
 				'current_plan'         => $plan_id,
@@ -285,6 +293,17 @@ class DCard_Users {
 			array( '%s', '%d', '%d', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
+
+		if ( false === $result ) {
+			DCard_Logger::error( 'DCard_Users::set_plan - DB update failed, plan NOT actually changed', array(
+				'user_id'  => $user_id,
+				'plan_id'  => $plan_id,
+				'db_error' => $wpdb->last_error,
+			) );
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
@@ -306,8 +325,12 @@ class DCard_Users {
 			$now
 		) );
 		foreach ( $expired_ids as $user_id ) {
-			self::set_plan( (int) $user_id, DCard_Plans::FREE, null );
-			DCard_Logger::info( 'dcard_daily_cleanup - plan expired (3 days grace passed), downgraded to free', array( 'user_id' => (int) $user_id ) );
+			// set_plan() עצמה כבר רושמת error אם ה-UPDATE נכשל - הלוג הזה
+			// נרשם רק על הצלחה אמיתית, לא "בכל מקרה" (ר' ההערה המלאה ב-
+			// set_plan() על התיקון הזה).
+			if ( self::set_plan( (int) $user_id, DCard_Plans::FREE, null ) ) {
+				DCard_Logger::info( 'dcard_daily_cleanup - plan expired (3 days grace passed), downgraded to free', array( 'user_id' => (int) $user_id ) );
+			}
 		}
 
 		// 2. איפוס חודשי: רק משתמשים שעדיין בתשלום אחרי שלב 1 (מסלול חודשי
@@ -320,7 +343,7 @@ class DCard_Users {
 		), ARRAY_A );
 		foreach ( $due as $row ) {
 			$plan_id = $row['current_plan'];
-			$wpdb->update(
+			$result  = $wpdb->update(
 				self::table(),
 				array(
 					'current_credits_msg'  => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
@@ -332,6 +355,18 @@ class DCard_Users {
 				array( '%d', '%d', '%s', '%s' ),
 				array( '%d' )
 			);
+
+			// תיקון (אותו דפוס בדיוק כמו set_plan()): לא עוד לוג "הצלחה"
+			// בלי לבדוק את $result בפועל.
+			if ( false === $result ) {
+				DCard_Logger::error( 'dcard_daily_cleanup - monthly credit reset DB update failed', array(
+					'user_id'  => (int) $row['id'],
+					'plan_id'  => $plan_id,
+					'db_error' => $wpdb->last_error,
+				) );
+				continue;
+			}
+
 			DCard_Logger::info( 'dcard_daily_cleanup - monthly credit reset', array( 'user_id' => (int) $row['id'], 'plan_id' => $plan_id ) );
 		}
 	}

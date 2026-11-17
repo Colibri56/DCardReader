@@ -23,7 +23,12 @@ define( 'DCARD_PLUGIN_URL', TCR_CORE_URL );
 // מאגר הקרדיטים למסר/שיחה מפתחת, ר' class-dcard-users.php) - עדכון
 // הגרסה הזה הוא מה שגורם ל-maybe_upgrade() למטה להריץ את ה-dbDelta
 // שמוסיף אותן בפועל על אתר חי, לא רק על התקנה חדשה.
-define( 'DCARD_DB_VERSION', '1.3.0' );
+// עודכן 1.4.0 - עמודת next_credit_reset_at (ר' class-dcard-users.php) -
+// *** כלל: כל שינוי במבנה טבלה (עמודה/אינדקס/טבלה חדשה) חייב להעלות את
+// המספר הזה, אחרת dbDelta לא ירוץ שוב על אתר חי קיים (ר' maybe_upgrade()
+// למטה - בודקת שוויון מול dcard_db_version השמור, לא מריצה dbDelta אם
+// הוא כבר תואם) - תוקן בפועל אחרי שעמודה חדשה "נשכחה" כך על staging. ***
+define( 'DCARD_DB_VERSION', '1.4.0' );
 
 // *** אבטחה: ר' ההערה המלאה שהייתה ב-dcard-ai-reader-backend.php - מומלץ
 // לעבור בהזדמנות לסוד המוגדר רק ב-wp-config.php, לא כאן. ***
@@ -88,6 +93,14 @@ add_action( 'admin_menu', function () {
 	}
 	if ( class_exists( 'DCard_Customers_Admin' ) ) {
 		DCard_Customers_Admin::register_menu();
+	}
+} );
+
+// "עדכון מסלול ידני" בעמוד הלקוחות (ר' class-dcard-customers-admin.php) -
+// קוראת ל-set_plan() בדיוק כמו ה-webhook, לתיקון עסקה שנכשלה/לא שויכה.
+add_action( 'admin_post_dcard_manual_set_plan', function () {
+	if ( class_exists( 'DCard_Customers_Admin' ) ) {
+		DCard_Customers_Admin::handle_manual_set_plan();
 	}
 } );
 
