@@ -1384,6 +1384,13 @@
         background: none; border: none; border-bottom: 1px solid var(--line); color: var(--ink);
         cursor: pointer; text-align: right; padding: 0;
     }
+    /* תיקון (נמצא תוך בדיקת staging של "האזור שלי" - אותה מלכודת בדיוק
+       שתוקנה ב-.kb-account-screen[hidden] למעלה): עד עכשיו shown=true
+       תמיד לכל פריטי התפריט, כי אף פריט לא נבדק פעם עם hidden עליו בפועל -
+       kb-menu-my-account הוא הראשון. בלי השורה הזו, kbUpdateMenuAccountLinkVisibility()
+       מסתיר אותו ב-JS (hidden=true) בלי אפקט, ו"האזור שלי" מופיע גם
+       למשתמש אנונימי. */
+    .kb-menu-item[hidden] { display: none; }
     .kb-menu-footer { margin-top: 24px; font-size: 15px; color: var(--muted); display: flex; flex-direction: column; gap: 10px; }
     .kb-menu-footer a { color: var(--muted); }
     @media (min-width: 768px) {
