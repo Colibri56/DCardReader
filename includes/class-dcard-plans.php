@@ -32,6 +32,10 @@ class DCard_Plans {
 	const NARKIS       = 'narkis';
 	const NURIT        = 'nurit';
 	const NURIT_YEARLY = 'nurit_yearly'; // אותם קרדיטים כמו NURIT, רק תוקף 365 יום במקום 30
+	// סעיף 6.11: מסלול בתשלום שפג/בוטל ולא חודש - עובר לכאן, לא ל-FREE.
+	// 0 קרדיטים קבועים (כמו FREE), אבל לא מסלול לרכישה ולא ברשימת
+	// paid_plan_ids() - "פסאודו-מסלול" של מצב חשבון, לא מוצר.
+	const CANCELLED    = 'cancelled';
 
 	/**
 	 * משך תוקף בימים לכל מסלול בתשלום - קבוע לפי המסלול (§6.10.2: "תקופה
@@ -80,6 +84,11 @@ class DCard_Plans {
 				'label'        => self::label_for_plan( self::NURIT_YEARLY ),
 				'credits_msg'  => self::nurit_yearly_msg_credits(),
 				'credits_chat' => self::nurit_yearly_chat_credits(),
+			),
+			self::CANCELLED    => array(
+				'label'        => self::label_for_plan( self::CANCELLED ),
+				'credits_msg'  => 0,
+				'credits_chat' => 0,
 			),
 		);
 	}
@@ -163,7 +172,8 @@ class DCard_Plans {
 			return '' !== trim( $label ) ? $label : $default;
 		}
 		$fallback = array(
-			self::FREE => 'חינמי',
+			self::FREE      => 'חינמי',
+			self::CANCELLED => 'מבוטל',
 		);
 		return isset( $fallback[ $plan_id ] ) ? $fallback[ $plan_id ] : $plan_id;
 	}

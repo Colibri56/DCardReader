@@ -51,6 +51,9 @@ class DCard_Users {
 			current_credits_chat INT NOT NULL DEFAULT 0,
 			plan_expires_at DATETIME NULL,
 			next_credit_reset_at DATETIME NULL,
+			cancelled_at DATETIME NULL,
+			cancel_reason VARCHAR(190) NULL,
+			cancel_requested_at DATETIME NULL,
 			session_token VARCHAR(64) NULL,
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
@@ -279,18 +282,33 @@ class DCard_Users {
 		// לגמרי, אז הקריאה כאן "הצליחה" כלפי כל הקוראים גם כששום UPDATE לא
 		// קרה בפועל. עכשיו נבדק ונרשם במפורש - ר' גם payment_webhook_inner
 		// שמשתמש בערך המוחזר כדי להחליט מה לדווח לקארדקום ולמנהל.
+		$row = array(
+			'current_plan'         => $plan_id,
+			'current_credits_msg'  => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
+			'current_credits_chat' => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
+			'plan_expires_at'      => $expires_at,
+			'next_credit_reset_at' => gmdate( 'Y-m-d H:i:s', strtotime( '+30 days' ) ),
+			'updated_at'           => current_time( 'mysql', true ),
+		);
+		$formats = array( '%s', '%d', '%d', '%s', '%s', '%s' );
+
+		// סעיף 6.11: מעבר לכל מסלול אמיתי (לא CANCELLED עצמו, ר' הקריאה
+		// מתוך run_renewal_and_expiry_check למעלה) מנקה סימוני ביטול
+		// ישנים - למשל הרשמה מחדש אחרי ביטול, או שינוי ידני של admin.
+		if ( DCard_Plans::CANCELLED !== $plan_id ) {
+			$row['cancelled_at']         = null;
+			$row['cancel_reason']        = null;
+			$row['cancel_requested_at']  = null;
+			$formats[]                   = '%s';
+			$formats[]                   = '%s';
+			$formats[]                   = '%s';
+		}
+
 		$result = $wpdb->update(
 			self::table(),
-			array(
-				'current_plan'         => $plan_id,
-				'current_credits_msg'  => DCard_Plans::credits_for_plan( $plan_id, 'msg' ),
-				'current_credits_chat' => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
-				'plan_expires_at'      => $expires_at,
-				'next_credit_reset_at' => gmdate( 'Y-m-d H:i:s', strtotime( '+30 days' ) ),
-				'updated_at'           => current_time( 'mysql', true ),
-			),
+			$row,
 			array( 'id' => $user_id ),
-			array( '%s', '%d', '%d', '%s', '%s', '%s' ),
+			$formats,
 			array( '%d' )
 		);
 
@@ -319,17 +337,26 @@ class DCard_Users {
 
 		// 1. תפוגה: plan_expires_at + 3 ימי חסד עבר ועדיין לא שולם מחדש
 		// (אחרת set_plan() מה-IPN כבר היה מעדכן plan_expires_at קדימה).
+		// עדכון §6.11: עוברים ל-CANCELLED, לא ל-FREE - "משתמש שמנוי שלו
+		// בוטל (או לא חודש) עובר למצב cancelled עם 0 שימושים, לא למסלול
+		// החינמי". אותה התנהגות בלי קשר אם הביטול בוקש במפורש
+		// (cancel_requested_at) או שהחיוב פשוט נכשל/לא חודש - שני המקרים
+		// "פגו" מבחינת plan_expires_at, וזה כל מה שהשאילתה הזו בודקת.
+		// cancelled_at נקבע כאן (לא ב-account/cancel, שעדיין רק "מבקש" -
+		// ר' ההערה המלאה שם) כי זה הרגע שבו המנוי *בפועל* מפסיק.
 		$expired_ids = $wpdb->get_col( $wpdb->prepare(
-			"SELECT id FROM " . self::table() . " WHERE current_plan != %s AND plan_expires_at IS NOT NULL AND DATE_ADD(plan_expires_at, INTERVAL 3 DAY) <= %s",
+			"SELECT id FROM " . self::table() . " WHERE current_plan NOT IN (%s, %s) AND plan_expires_at IS NOT NULL AND DATE_ADD(plan_expires_at, INTERVAL 3 DAY) <= %s",
 			DCard_Plans::FREE,
+			DCard_Plans::CANCELLED,
 			$now
 		) );
 		foreach ( $expired_ids as $user_id ) {
 			// set_plan() עצמה כבר רושמת error אם ה-UPDATE נכשל - הלוג הזה
 			// נרשם רק על הצלחה אמיתית, לא "בכל מקרה" (ר' ההערה המלאה ב-
 			// set_plan() על התיקון הזה).
-			if ( self::set_plan( (int) $user_id, DCard_Plans::FREE, null ) ) {
-				DCard_Logger::info( 'dcard_daily_cleanup - plan expired (3 days grace passed), downgraded to free', array( 'user_id' => (int) $user_id ) );
+			if ( self::set_plan( (int) $user_id, DCard_Plans::CANCELLED, null ) ) {
+				$wpdb->update( self::table(), array( 'cancelled_at' => $now ), array( 'id' => (int) $user_id ), array( '%s' ), array( '%d' ) );
+				DCard_Logger::info( 'dcard_daily_cleanup - plan expired (3 days grace passed), moved to cancelled', array( 'user_id' => (int) $user_id ) );
 			}
 		}
 
@@ -337,8 +364,9 @@ class DCard_Users {
 		// כבר "מתאפס לבד" בכל IPN דרך set_plan() - זה בעיקר רלוונטי
 		// למסלול שנתי, ר' ההערה המלאה ב-todo.md).
 		$due = $wpdb->get_results( $wpdb->prepare(
-			"SELECT id, current_plan FROM " . self::table() . " WHERE current_plan != %s AND next_credit_reset_at IS NOT NULL AND next_credit_reset_at <= %s",
+			"SELECT id, current_plan FROM " . self::table() . " WHERE current_plan NOT IN (%s, %s) AND next_credit_reset_at IS NOT NULL AND next_credit_reset_at <= %s",
 			DCard_Plans::FREE,
+			DCard_Plans::CANCELLED,
 			$now
 		), ARRAY_A );
 		foreach ( $due as $row ) {
@@ -421,6 +449,29 @@ class DCard_Users {
 			),
 			array( 'id' => $user_id ),
 			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * §6.11 "ביטול המנוי" - מצב ביניים (ר' ההערה המלאה ב-account_cancel_
+	 * inner ב-class-dcard-rest-controller.php): שומר רק את הבקשה עצמה,
+	 * לא משנה current_plan/plan_expires_at. המעבר בפועל ל-CANCELLED קורה
+	 * רק דרך run_renewal_and_expiry_check בתפוגה.
+	 */
+	public static function request_cancellation( $user_id, $reason ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return false !== $wpdb->update(
+			self::table(),
+			array(
+				'cancel_requested_at' => current_time( 'mysql', true ),
+				'cancel_reason'       => $reason ? $reason : null,
+				'updated_at'          => current_time( 'mysql', true ),
+			),
+			array( 'id' => $user_id ),
+			array( '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 	}

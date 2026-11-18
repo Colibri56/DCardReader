@@ -1061,11 +1061,20 @@
     .kb-account-header {
         display: flex; align-items: center; gap: 10px; padding: 14px 18px;
     }
+    /* עדכון §6.11: "כפתור חזרה בולט... חץ וליד המילה 'חזרה'", לא עיגול-
+       אייקון בלבד. */
     .kb-account-back {
-        width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong);
-        background: var(--surface); cursor: pointer;
+        height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line-strong);
+        background: var(--surface); color: var(--ink) !important; cursor: pointer; font-size: 16px;
+        font-family: 'Rubik', sans-serif; gap: 6px;
         display: flex; align-items: center; justify-content: center; flex: none;
     }
+    /* תיקון (דווח בפועל: קישורי "כתבו לנו"/"חשבונית" בתוך הכרטיסים הלבנים
+       הציגו ורוד - color של התבנית על <a> גלובלי, לא var(--bordeaux)) -
+       קישורי טקסט רגילים (בלי class ייעודי כמו kb-account-quiet-link)
+       בתוך מסך "האזור שלי" צריכים את אותו !important כדי לנצח את הכלל
+       הגלובלי. */
+    .kb-account-screen a { color: var(--bordeaux) !important; }
     .kb-account-body { padding: 10px 20px 40px; max-width: 560px; width: 100%; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 30px; }
     .kb-account-section { display: flex; flex-direction: column; gap: 12px; }
     .kb-account-section-title { font-size: 18px; font-weight: 500; margin: 0; }
@@ -1093,6 +1102,12 @@
         cursor: pointer;
     }
     .kb-cancel-reason-pill[aria-pressed="true"] { border-color: var(--bordeaux); background: var(--blush); }
+    /* עדכון §6.11: "ריחוף על הכפתור המשני לא ממלא אותו: רק רקע --blush,
+       הטקסט והמסגרת נשארים בורדו" - מנטרל את ריחוף btn-outline הגלובלי
+       של התבנית (שכנראה ממלא ברקע בורדו מלא, הופך את הטקסט ללבן). */
+    #kb-cancel-modal .btn-outline:hover {
+        background: var(--blush) !important; color: var(--bordeaux) !important; border-color: var(--bordeaux) !important;
+    }
 
     #kb-main-content { display: flex; flex-direction: column; gap: 30px; }
 
@@ -1788,8 +1803,10 @@
          של kb-reading-screen (hidden, מוחלף ל-display:flex ב-JS). -->
     <div id="kb-account-screen" class="kb-account-screen" hidden>
         <div class="kb-account-header">
-            <button type="button" class="kb-account-back" id="kb-account-back-btn" aria-label="חזרה">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A2326" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+            <!-- עדכון §6.11: כפתור חזרה בולט (חץ + המילה "חזרה"), לא עיגול-אייקון בלבד. -->
+            <button type="button" class="kb-account-back" id="kb-account-back-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+                חזרה
             </button>
             <h1 style="margin:0;font-size:22px;font-weight:500;">האזור שלי</h1>
         </div>
@@ -1799,11 +1816,11 @@
             <section class="kb-account-section" aria-labelledby="kb-account-plan-title">
                 <h2 id="kb-account-plan-title" class="kb-account-section-title">המסלול שלי</h2>
                 <div id="kb-account-plan-card" class="kb-account-card"></div>
-                <!-- ביטול מנוי אמיתי (קריאה ל-API של קארדקום) הוא Phase C -
-                     עדיין לא קיים endpoint לכך. הקישור כאן פותח את חלון
-                     האישור (לפי "הדמיה 2" ב-docs/account-reference.html),
-                     אבל "כן, לבטל" בתוכו לא מבטל שום דבר בפועל עדיין -
-                     ר' kbCancelConfirmBtn למטה. -->
+                <!-- "ביטול המנוי" פותח את חלון האישור (הדמיה 2) וקורא
+                     בפועל ל-POST /account/cancel - מצב ביניים (ר' ההערה
+                     המלאה ב-account_cancel_inner, class-dcard-rest-
+                     controller.php): שומר את הבקשה ומודיע למנהל, לא
+                     מבטל בפועל בקארדקום עדיין (אין עדיין API מחובר). -->
                 <button type="button" class="kb-account-quiet-link" id="kb-account-cancel-link" style="display:none;color:var(--muted) !important;">ביטול המנוי</button>
             </section>
 
@@ -1825,9 +1842,12 @@
                     <input type="tel" id="kb-account-phone" class="kb-field" dir="ltr" placeholder="050-0000000" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
                     <div class="kb-alert-banner" id="kb-account-details-error" style="display:none;"></div>
                     <button type="button" class="btn-main" id="kb-account-save-details">שמירת השינויים</button>
+                    <!-- עדכון §6.11: "מייל: לקריאה בלבד, בלי קישור" - גם הקישור
+                         "לשינוי כתובת המייל" הוסר (לא רק השדה הפך ללא ניתן
+                         לעריכה, כמו קודם). -->
                     <div>
                         <span class="kb-field-label">מייל</span>
-                        <p class="kb-modal-text" style="margin:2px 0 0;"><span id="kb-account-email-readonly" dir="ltr"></span><br>לשינוי כתובת המייל, <a href="#" id="kb-account-change-email-link">כתבו לנו</a>.</p>
+                        <p class="kb-modal-text" style="margin:2px 0 0;" dir="ltr"><span id="kb-account-email-readonly"></span></p>
                     </div>
                 </div>
             </section>
@@ -1838,10 +1858,11 @@
                 <div id="kb-account-transactions" class="kb-account-card" style="padding:4px 18px;"></div>
             </section>
 
-            <!-- 4. החשבון - docs/account-reference.html חלק 1 (בלי כרטיס לבן, קישורים בלבד) -->
+            <!-- 4. החשבון - עדכון §6.11: "התנתקות מהמכשיר הזה: מוסתר בשלב
+                 הזה" - הכפתור (וה-confirm() שהיה בו) הוסר לגמרי, לא רק
+                 מוסתר ב-CSS, כדי לא להשאיר קוד מת. -->
             <section class="kb-account-section" aria-labelledby="kb-account-section-title">
                 <h2 id="kb-account-section-title" class="kb-account-section-title">החשבון</h2>
-                <button type="button" class="kb-account-quiet-link" id="kb-account-logout">התנתקות מהמכשיר הזה</button>
                 <!-- מחיקת חשבון בפועל (Phase D) לא קיימת עדיין - הקישור
                      פותח "כתבו לנו" בינתיים, ר' kbAccountDeleteLink למטה. -->
                 <button type="button" class="kb-account-quiet-link" id="kb-account-delete-link" style="color:#A3262A !important;">מחיקת החשבון</button>
@@ -1850,10 +1871,7 @@
         </div>
     </div>
 
-    <!-- חלון "לבטל את המנוי?" - docs/account-reference.html "הדמיה 2".
-         kb-modal-scrim רגיל (כבר עם [hidden] תקין, ר' ההערה המלאה למעלה
-         ליד .kb-account-screen). "כן, לבטל את המנוי" לא קורא לשום API -
-         Phase C (ביטול אמיתי מול קארדקום) עדיין לא קיים, ר' kbCancelConfirmBtn. -->
+    <!-- חלון "לבטל את המנוי?" - docs/account-reference.html "הדמיה 2". -->
     <div id="kb-cancel-modal" class="kb-modal-scrim" hidden>
         <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-cancel-title">
             <div class="kb-modal-handle"></div>
@@ -1868,6 +1886,7 @@
                     <button type="button" class="kb-cancel-reason-pill" data-reason="אחר" aria-pressed="false">אחר</button>
                 </div>
             </fieldset>
+            <div class="kb-alert-banner" id="kb-cancel-send-error" style="display:none;"></div>
             <div class="kb-modal-actions">
                 <button type="button" class="btn-outline" id="kb-cancel-confirm-btn">כן, לבטל את המנוי</button>
                 <button type="button" class="btn-main" id="kb-cancel-stay-btn">להישאר במנוי</button>
@@ -1941,12 +1960,19 @@
             <div id="kb-email-form-state">
                 <h2 class="kb-modal-title" id="kb-email-title" style="text-align:center;">שליחת השיחה במייל</h2>
                 <p class="kb-modal-text" id="kb-email-explain" style="text-align:center;"></p>
-                <label class="kb-field-label" for="kb-email-input">כתובת מייל</label>
-                <input type="email" id="kb-email-input" class="kb-field" dir="ltr" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
-                <div class="kb-field-error" id="kb-email-field-error" style="display:none;" role="alert"></div>
-                <div class="kb-checkbox-row">
-                    <input type="checkbox" id="kb-email-remember" checked>
-                    <label for="kb-email-remember">לזכור את הכתובת לפעם הבאה</label>
+                <!-- עדכון §6.7: "לא שדה ולא ניתנת לשינוי" - שורה קבועה עם
+                     הכתובת הרשומה. משתמש רשום תמיד יש לו מייל (אי אפשר
+                     להגיע לשיחה בלי הרשמה), אבל אם בכל זאת אין מייל ידוע
+                     (kb-email-known-row מוסתרת), מוצג שדה כמו בחלון
+                     ההרשמה - ר' kbOpenEmailModal. -->
+                <div id="kb-email-known-row" style="text-align:center;margin-bottom:18px;">
+                    <span class="kb-field-label">השיחה תישלח אל:</span>
+                    <div id="kb-email-known-address" dir="ltr" style="font-weight:500;font-size:16px;"></div>
+                </div>
+                <div id="kb-email-fallback-row" style="display:none;">
+                    <label class="kb-field-label" for="kb-email-input">כתובת מייל</label>
+                    <input type="email" id="kb-email-input" class="kb-field" dir="ltr" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
+                    <div class="kb-field-error" id="kb-email-field-error" style="display:none;" role="alert"></div>
                 </div>
                 <div class="kb-alert-banner" id="kb-email-send-error" style="display:none;"></div>
                 <div class="kb-modal-actions">
@@ -1959,7 +1985,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
                 </div>
                 <h2 class="kb-modal-title">השיחה נשלחה</h2>
-                <p class="kb-modal-text">העותק בדרך לתיבת הדואר שלך. אם הוא לא מגיע תוך כמה דקות, כדאי לבדוק גם בתיקיית הספאם.</p>
+                <p class="kb-modal-text" id="kb-email-success-text"></p>
                 <div class="kb-modal-actions">
                     <button type="button" class="btn-main" id="kb-email-back-to-chat">חזרה לשיחה</button>
                 </div>
@@ -3027,9 +3053,14 @@
     }
 
     let kbPaymentPlansCache = null;
-    async function kbOpenPaymentModal(adminTesting) {
+    // returningCancelled (סעיף 6.11): משתמש שחוזר במצב CANCELLED מקבל כותרת
+    // שונה ("טוב לראות אותך שוב"), לא "נמשיך יחד?" - ר' קריאה מ-account/status
+    // סנכרון הטעינה למעלה.
+    async function kbOpenPaymentModal(adminTesting, returningCancelled) {
         kbPaymentAdminBadge.style.display = adminTesting ? '' : 'none';
-        kbPaymentTitle.textContent = userName + ', נמשיך יחד?';
+        kbPaymentTitle.textContent = returningCancelled
+            ? (userName + ', טוב לראות אותך שוב')
+            : (userName + ', נמשיך יחד?');
         // תיקון באג גנדר (דווח בפועל - "אלייך/אליך" הוצג מילולית): אותו
         // דפוס בינארי בדיוק כמו kbRegisterTermsLead.
         kbPaymentSameEmailNote.textContent = ( 'female' === userGender )
@@ -3183,18 +3214,17 @@
     });
 
     // ============================================================
-    // סעיף 6.11: "האזור שלי" (Phase B - חלקים לקריאה/עריכה בלבד, לפי
-    // docs/account-reference.html). ביטול מנוי אמיתי מול קארדקום (Phase C)
-    // ומחיקת חשבון בפועל (Phase D) עדיין לא קיימים בשרת: חלון הביטול
-    // (קישור+modal) בנוי לפי ה"הדמיה 2" של docs/account-reference.html,
-    // אבל "כן, לבטל את המנוי" בתוכו לא קורא לשום API עדיין - ר' למטה.
-    // מחיקת חשבון פותחת "כתבו לנו" בינתיים, כמו שינוי מייל.
+    // סעיף 6.11: "האזור שלי" (Phase B, לפי docs/account-reference.html
+    // ועדכון האחרון של design-spec.md). ביטול מנוי קורא בפועל ל-POST
+    // /account/cancel, אבל זה עדיין "מצב ביניים" בלי API אמיתי של
+    // קארדקום - ר' ההערה המלאה ב-account_cancel_inner, class-dcard-rest-
+    // controller.php. מחיקת חשבון בפועל (Phase D) לא קיימת - פותחת
+    // "כתבו לנו".
     // ============================================================
     const kbAccountScreen = document.getElementById('kb-account-screen');
     const kbAccountBackBtn = document.getElementById('kb-account-back-btn');
     const kbAccountPlanCard = document.getElementById('kb-account-plan-card');
     const kbAccountCancelLink = document.getElementById('kb-account-cancel-link');
-    const kbAccountChangeEmailLink = document.getElementById('kb-account-change-email-link');
     const kbAccountDeleteLink = document.getElementById('kb-account-delete-link');
     const kbAccountName = document.getElementById('kb-account-name');
     const kbAccountNameError = document.getElementById('kb-account-name-error');
@@ -3204,18 +3234,20 @@
     const kbAccountEmailReadonly = document.getElementById('kb-account-email-readonly');
     const kbAccountSaveDetails = document.getElementById('kb-account-save-details');
     const kbAccountTransactions = document.getElementById('kb-account-transactions');
-    const kbAccountLogout = document.getElementById('kb-account-logout');
 
-    // docs/account-reference.html חלק 1, שורות ההתקדמות: "{תווית}" / "{נשאר}
-    // מתוך {מקס}" בשורה אחת, ומתחת פס ה-progress. "ללא הגבלה" בלי פס.
-    function kbAccountQuotaLine(label, used, max, unlimited) {
+    // עדכון §6.11: "used = max(0, quota - remaining)", ואם remaining >
+    // quota (מכסה שונתה אחרי הרכישה) quota = remaining - אף פעם לא
+    // מספר שלילי, ואין יותר שורת "מתחדש ב־" ליד הכותרת.
+    function kbAccountQuotaLine(label, remaining, quota, unlimited) {
         if (unlimited) {
             return '<div class="kb-account-progress-label-row"><span>' + label + '</span><span>ללא הגבלה</span></div>';
         }
-        const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
+        if (remaining > quota) quota = remaining;
+        const used = Math.max(0, quota - remaining);
+        const pct = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 0;
         return '<div style="display:flex;flex-direction:column;gap:6px;">' +
-            '<div class="kb-account-progress-label-row"><span>' + label + '</span><span>' + used + ' מתוך ' + max + '</span></div>' +
-            '<div class="kb-account-progress-track" role="progressbar" aria-valuenow="' + used + '" aria-valuemin="0" aria-valuemax="' + max + '" aria-label="' + label + '">' +
+            '<div class="kb-account-progress-label-row"><span>' + label + '</span><span>' + used + ' מתוך ' + quota + '</span></div>' +
+            '<div class="kb-account-progress-track" role="progressbar" aria-valuenow="' + used + '" aria-valuemin="0" aria-valuemax="' + quota + '" aria-label="' + label + '">' +
             '<div class="kb-account-progress-fill" style="width:' + pct + '%;"></div></div></div>';
     }
 
@@ -3244,45 +3276,62 @@
             }
             kbAccountCurrentData = data;
 
-            // חלק 1: המסלול שלי - docs/account-reference.html חלק 1
+            // חלק 1: המסלול שלי - docs/account-reference.html
             const isFree = ('free' === data.current_plan);
+            const isCancelled = ('cancelled' === data.current_plan);
+            const cancelPending = !!data.cancel_requested_at && !isCancelled;
             let planHtml = '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
                 '<div style="display:flex;flex-direction:column;gap:4px;">' +
-                '<span style="font-size:20px;font-weight:500;">' + data.plan_label + '</span>' +
-                (!isFree && data.plan_expires_at ? '<span style="font-size:14px;color:var(--muted);">החיוב הבא: ' + kbFormatAccountDate(data.plan_expires_at) + '</span>' : '') +
-                '</div>';
-            if (!isFree) {
+                '<span style="font-size:20px;font-weight:500;">' + data.plan_label + '</span>';
+            // תגית "בוטל · פעיל עד {תאריך}" - §6.11 "אחרי ביטול" (מצב
+            // ביניים: ברגע שהבקשה נשמרה, לא רק אחרי אישור קארדקום בפועל -
+            // ר' ההערה המלאה ב-account_cancel_inner).
+            if (cancelPending && data.plan_expires_at) {
+                planHtml += '<span style="display:inline-block;font-size:12px;font-weight:500;color:var(--bordeaux);background:var(--blush);border-radius:999px;padding:2px 10px;width:fit-content;">בוטל · פעיל עד ' + kbFormatAccountDate(data.plan_expires_at) + '</span>';
+            } else if (!isFree && !isCancelled && data.plan_expires_at) {
+                planHtml += '<span style="font-size:14px;color:var(--muted);">החיוב הבא: ' + kbFormatAccountDate(data.plan_expires_at) + '</span>';
+            }
+            planHtml += '</div>';
+            if (!isFree && !isCancelled) {
                 planHtml += '<div style="display:flex;flex-direction:column;align-items:flex-end;">' +
                     '<span style="font-size:22px;font-weight:600;">' + data.plan_price + ' ₪</span>' +
                     '<span style="font-size:13px;color:var(--muted);">לחודש</span></div>';
             }
             planHtml += '</div>';
-            planHtml += '<div style="display:flex;flex-direction:column;gap:12px;padding-top:4px;">' +
-                '<span style="font-size:14px;color:var(--muted);">השימוש החודש' + (data.next_credit_reset_at ? ' · מתחדש ב־' + kbFormatAccountDate(data.next_credit_reset_at) : '') + '</span>' +
-                // current_credits_* זה מה שנשאר, לא המקסימום - "used" לפס
-                // ההתקדמות הוא ההפרש מול credits_*_max.
-                kbAccountQuotaLine('קבלות מסר', data.credits_msg_max - data.current_credits_msg, data.credits_msg_max, data.unlimited_msg) +
-                kbAccountQuotaLine('דיאלוגים מכוונים', data.credits_chat_max - data.current_credits_chat, data.credits_chat_max, data.unlimited_chat) +
-                '</div>';
-            planHtml += '<p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted);">רוצה להחליף מסלול? <a href="#" id="kb-account-change-plan-link">כתבו לנו</a></p>';
-            if (isFree) {
+            if (!isCancelled) {
+                planHtml += '<div style="display:flex;flex-direction:column;gap:12px;padding-top:4px;">' +
+                    '<span style="font-size:14px;color:var(--muted);">השימוש החודש</span>' +
+                    kbAccountQuotaLine('קבלות מסר', data.current_credits_msg, data.credits_msg_max, data.unlimited_msg) +
+                    kbAccountQuotaLine('דיאלוגים מכוונים', data.current_credits_chat, data.credits_chat_max, data.unlimited_chat) +
+                    '</div>';
+            }
+            if (cancelPending) {
+                planHtml += '<p style="margin:0;font-size:14px;line-height:1.6;color:var(--ink);">המנוי בוטל. אפשר להמשיך להשתמש עד ' + kbFormatAccountDate(data.plan_expires_at) + ', ולא יהיו חיובים נוספים. אישור נשלח ' + (('female' === userGender) ? 'אלייך' : 'אליך') + ' במייל.</p>';
+            } else if (!isFree && !isCancelled) {
+                planHtml += '<p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted);">רוצה להחליף מסלול? <a href="#" id="kb-account-change-plan-link">כתבו לנו</a></p>';
+            }
+            if (isFree || isCancelled) {
                 planHtml += '<button type="button" class="btn-main" id="kb-account-join-plan-btn">הצטרפות למסלול</button>';
             }
             kbAccountPlanCard.innerHTML = planHtml;
-            document.getElementById('kb-account-change-plan-link').addEventListener('click', function (e) {
-                e.preventDefault();
-                kbCloseAccountScreen();
-                kbOpenContactModal();
-            });
-            if (isFree) {
-                document.getElementById('kb-account-join-plan-btn').addEventListener('click', function () {
+            const changePlanLink = document.getElementById('kb-account-change-plan-link');
+            if (changePlanLink) {
+                changePlanLink.addEventListener('click', function (e) {
+                    e.preventDefault();
                     kbCloseAccountScreen();
-                    kbOpenPaymentModal(false);
+                    kbOpenContactModal();
                 });
             }
-            // "ביטול המנוי" מוצג רק במסלול בתשלום (לפי docs/account-reference.html,
-            // לא קיים בכלל אצל משתמש חינמי).
-            kbAccountCancelLink.style.display = isFree ? 'none' : '';
+            const joinBtn = document.getElementById('kb-account-join-plan-btn');
+            if (joinBtn) {
+                joinBtn.addEventListener('click', function () {
+                    kbCloseAccountScreen();
+                    kbOpenPaymentModal(false, isCancelled);
+                });
+            }
+            // "ביטול המנוי" מוצג רק במסלול בתשלום פעיל, בלי בקשת ביטול
+            // ממתינה כבר קיימת.
+            kbAccountCancelLink.style.display = (isFree || isCancelled || cancelPending) ? 'none' : '';
 
             // חלק 2: הפרטים שלי
             kbAccountName.value = data.name || '';
@@ -3291,14 +3340,13 @@
             kbAccountPhone.value = data.phone || '';
             kbAccountEmailReadonly.textContent = data.email || '';
 
-            // חלק 3: היסטוריית תשלומים
+            // חלק 3: היסטוריית תשלומים - עדכון §6.11: שורה אחת
+            // "{תאריך} · {שם המסלול}", לא שתי שורות נפרדות.
             if (!data.transactions || !data.transactions.length) {
                 kbAccountTransactions.innerHTML = '<p class="kb-modal-text" style="padding:14px 0;">עוד לא היו תשלומים.</p>';
             } else {
                 kbAccountTransactions.innerHTML = data.transactions.map(function (tx) {
-                    return '<div class="kb-account-tx-row"><span style="display:flex;flex-direction:column;">' +
-                        '<span>' + kbFormatAccountDate(tx.transaction_date) + '</span>' +
-                        '<span style="font-size:13px;color:var(--muted);">' + tx.plan_label + '</span></span>' +
+                    return '<div class="kb-account-tx-row"><span>' + kbFormatAccountDate(tx.transaction_date) + ' · ' + tx.plan_label + '</span>' +
                         '<span style="font-weight:500;">' + tx.amount + ' ₪</span></div>';
                 }).join('');
             }
@@ -3334,11 +3382,6 @@
     kbMenuMyAccount.addEventListener('click', kbOpenAccountScreen);
     kbAccountBackBtn.addEventListener('click', kbCloseAccountScreen);
 
-    kbAccountChangeEmailLink.addEventListener('click', function (e) {
-        e.preventDefault();
-        kbCloseAccountScreen();
-        kbOpenContactModal();
-    });
     kbAccountDeleteLink.addEventListener('click', function (e) {
         e.preventDefault();
         kbCloseAccountScreen();
@@ -3346,10 +3389,10 @@
     });
 
     // חלון "לבטל את המנוי?" (docs/account-reference.html "הדמיה 2").
-    // "כן, לבטל את המנוי" לא מבטל שום דבר בפועל - Phase C (קריאה אמיתית
-    // ל-API של קארדקום, ר' תוכנית §6.11) עדיין לא קיימת. במקום לדמות
-    // ביטול שלא קרה באמת, הכפתור סוגר את החלון ומפנה ל"כתבו לנו" - אותו
-    // דפוס בדיוק כמו שינוי מייל/מסלול במסך הזה.
+    // "כן, לבטל את המנוי" קורא בפועל ל-POST /account/cancel - מצב ביניים
+    // (ר' ההערה המלאה ב-account_cancel_inner): שומר את הבקשה ומודיע
+    // למנהל, לא מבטל עדיין בפועל בקארדקום (אין עדיין API מחובר - ר'
+    // DCARD_CARDCOM_API_* ב-the-card-reader-core.php).
     const kbCancelModal = document.getElementById('kb-cancel-modal');
     const kbCancelText = document.getElementById('kb-cancel-text');
     const kbCancelReasonPills = document.querySelectorAll('.kb-cancel-reason-pill');
@@ -3360,11 +3403,14 @@
     function kbOpenCancelModal() {
         const expiresAt = kbAccountCurrentData && kbAccountCurrentData.plan_expires_at
             ? kbFormatAccountDate(kbAccountCurrentData.plan_expires_at) : '';
+        // עדכון §6.11: המשפט "אחרי התאריך הזה תעברי למסלול החינמי" הוסר -
+        // אחרי ביטול המשתמש עובר למצב "מבוטל", לא לחינמי.
         kbCancelText.innerHTML = ('female' === userGender)
-            ? 'המנוי יישאר פעיל עד <strong>' + expiresAt + '</strong>, ולא תחויבי שוב. אחרי התאריך הזה תעברי למסלול החינמי.'
-            : 'המנוי יישאר פעיל עד <strong>' + expiresAt + '</strong>, ולא תחויב שוב. אחרי התאריך הזה תעבור למסלול החינמי.';
+            ? 'המנוי יישאר פעיל עד <strong>' + expiresAt + '</strong>, ולא תחויבי שוב.'
+            : 'המנוי יישאר פעיל עד <strong>' + expiresAt + '</strong>, ולא תחויב שוב.';
         kbCancelSelectedReason = null;
         kbCancelReasonPills.forEach(function (pill) { pill.setAttribute('aria-pressed', 'false'); });
+        kbHideAlertBanner('kb-cancel-send-error');
         kbCancelModal.hidden = false;
     }
     function kbCloseCancelModal() {
@@ -3386,10 +3432,27 @@
     kbCancelModal.addEventListener('click', function (e) {
         if (e.target === kbCancelModal) kbCloseCancelModal();
     });
-    kbCancelConfirmBtn.addEventListener('click', function () {
-        kbCloseCancelModal();
-        kbCloseAccountScreen();
-        kbOpenContactModal();
+    kbCancelConfirmBtn.addEventListener('click', async function () {
+        kbHideAlertBanner('kb-cancel-send-error');
+        kbCancelConfirmBtn.disabled = true;
+        try {
+            const res = await fetch('/wp-json/dcard/v1/account/cancel', {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ reason: kbCancelSelectedReason || '' })
+            });
+            const data = await res.json();
+            if (!data || !data.success) {
+                kbShowAlertBanner(kbCancelReasonPills[0], 'kb-cancel-send-error', 'הביטול לא נשלח בגלל תקלה בחיבור.', function () { kbCancelConfirmBtn.click(); });
+                return;
+            }
+            kbCloseCancelModal();
+            kbLoadAccountDetails();
+        } catch (err) {
+            kbShowAlertBanner(kbCancelReasonPills[0], 'kb-cancel-send-error', 'הביטול לא נשלח בגלל תקלה בחיבור.', function () { kbCancelConfirmBtn.click(); });
+        } finally {
+            kbCancelConfirmBtn.disabled = false;
+        }
     });
 
     kbAccountSaveDetails.addEventListener('click', async function () {
@@ -3426,14 +3489,8 @@
         }
     });
 
-    kbAccountLogout.addEventListener('click', function () {
-        if (!confirm('בשלב הזה אין עדיין כניסה ממכשיר אחר. אחרי התנתקות, כדי לחזור לחשבון צריך לכתוב לנו. להתנתק בכל זאת?')) return;
-        try {
-            localStorage.removeItem(DCARD_LS_KEYS.userId);
-            localStorage.removeItem(DCARD_LS_KEYS.deviceToken);
-        } catch (e) { /* פרטי/חסום */ }
-        window.location.reload();
-    });
+    // "התנתקות מהמכשיר הזה" הוסרה (סעיף 6.11: "מוסתר בשלב הזה" - בלי
+    // כניסה בקוד, מי שמתנתק לא יכול לחזור לבד) - ר' ההערה ב-HTML.
 
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
@@ -3484,6 +3541,14 @@
         }).then(function (res) { return res.json(); }).then(function (data) {
             if (data && data.success) {
                 console.log('[DCard Account] synced account status on load - plan=' + data.current_plan + ', credits=' + data.current_credits);
+                // סעיף 6.11: "בכניסה הבאה, ברגע שהוא מזוהה, נפתח מיד חלון
+                // ההצטרפות" - למשתמש שמנויו עבר ל-CANCELLED (פג/בוטל ולא
+                // חודש). נפתח רק פעם אחת לכל טעינת עמוד (אין צורך ב-flag
+                // נוסף ב-localStorage - אם המשתמש סוגר את החלון, טעינה
+                // הבאה תפתח אותו שוב, בכוונה, עד שהוא נרשם מחדש).
+                if ('cancelled' === data.current_plan) {
+                    kbOpenPaymentModal(false, true);
+                }
             } else {
                 console.warn('[DCard Account] account status sync returned no success - deviceToken may be stale:', data);
             }
@@ -5413,49 +5478,16 @@
     const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     // כפתור: שליחת הדיאלוג במייל
-    // תיקון (דווח בפועל: ReferenceError בקונסול בכל טעינת דף) - שאריות
-    // מהשינוי ב-commit 2492fad ("שלב 4"), ששינה שם מ-endSessionBtns[0/1]
-    // (NodeList לפי אינדקס) ל-btnEndSession/btnEmailChat (שמות ייעודיים) -
-    // כל המופעים חוץ מהזה עודכנו; endSessionBtns עצמו לא קיים יותר בכלל.
-    btnEmailChat.addEventListener('click', async () => {
-        // אין כאן פופאפ אמיתי - prompt() הדפדפן, שתומך בערך ברירת מחדל
-        // כפרמטר שני. אם כבר נשמרה כתובת מפעם קודמת, היא מוצגת מוכנה בתיבה.
-        const savedEmail = dcardGetLS(DCARD_LS_KEYS.email) || '';
-        const userEmail = prompt("לאיזו כתובת אימייל לשלוח את התיעוד?", savedEmail);
-        if (!userEmail) return;
-
-        if (!EMAIL_REGEX.test(userEmail.trim())) {
-            alert("הכתובת שהוזנה לא נראית תקינה. נסה שוב.");
-            return;
-        }
-
-        dcardSetLS(DCARD_LS_KEYS.email, userEmail);
-
-        // תמונות הקלפים שנשלפו בפועל בסשן, לפי סדר השליפה - יוטמעו במייל.
-        const cardImages = Array.from(document.querySelectorAll('#cards-container .card-display')).map(img => img.src);
-
-        // תיקון QA 3.2: קודם הקריאה הזו לא נבדקה בכלל (לא try/catch, לא
-        // בדיקת emailSent בתגובה) - המשתמש תמיד ראה "נשלח בהצלחה", גם אם
-        // ה-fetch נכשל ברשת וגם אם wp_mail() נכשל בצד השרת (data.emailSent
-        // === false). עכשיו שתי הדרכים האלה מדווחות בנפרד, בלי לטעון הצלחה
-        // שלא קרתה בפועל.
-        sessionEndedExplicitly = true; // ר' ההערה ליד ההכרזה - מונע כפילות מול מאזין ה-pagehide
-        try {
-            const res = await fetch(`${API_BASE}/end`, {
-                method: 'POST',
-                headers: dcardHeaders(),
-                body: JSON.stringify({ session_token: sessionToken, email: userEmail, cardImages: cardImages, exit_type: 'explicit' })
-            });
-            const data = await res.json();
-            if (data.emailSent) {
-                alert("הדיאלוג נשלח בהצלחה לכתובת: " + userEmail);
-            } else {
-                alert("לא הצלחנו לשלוח את המייל לכתובת שהוזנה. אפשר לנסות שוב, או לוודא שהכתובת נכונה.");
-            }
-        } catch (e) {
-            alert("אירעה שגיאת תקשורת ולא הצלחנו לשלוח את המייל. נסה שוב.");
-        }
-    });
+    // תיקון חמור (דווח בפועל: alert("הדיאלוג נשלח בהצלחה...") מופיע
+    // בכל שליחה במייל) - btnEmailChat החזיק *שני* מאזיני click: הישן
+    // (prompt/alert, שגם קרא ל-/session/end וסימן את הסשן כ-completed
+    // בלי שהמשתמש ביקש לסיים!) וה-חדש (kbOpenEmailModal, סעיף 6.7,
+    // שקורא ל-/session/email-transcript ולא מסיים סשן). שניהם רצו על
+    // כל לחיצה. זה כנראה גם מסביר דיווח קודם על שליפת קלף/מייל/משוב
+    // שנכשלים ביחד באותה שיחה: אחרי "שליחה במייל" הסשן כבר "נגמר" בשרת
+    // מהמאזין הישן, כך שכל קריאה הבאה (קלף נוסף, משוב) על אותו session_
+    // token נכשלת. המאזין הישן הוסר כליל - btnEmailChat.addEventListener
+    // ('click', kbOpenEmailModal) למטה (סעיף 7) הוא היחיד שנשאר.
 
     // תיקון (התבקש: לתעד "נטישה שקטה" - משתמש שמנהל שיחה ופשוט סוגר טאב/
     // מנווט הלאה, בלי ללחוץ על "סיום ויציאה"/"שליחת הדיאלוג במייל"/"שאלה
@@ -5552,25 +5584,41 @@
     const kbEmailModal = document.getElementById('kb-email-modal');
     const kbEmailFormState = document.getElementById('kb-email-form-state');
     const kbEmailSuccessState = document.getElementById('kb-email-success-state');
+    const kbEmailKnownRow = document.getElementById('kb-email-known-row');
+    const kbEmailKnownAddress = document.getElementById('kb-email-known-address');
+    const kbEmailFallbackRow = document.getElementById('kb-email-fallback-row');
     const kbEmailInput = document.getElementById('kb-email-input');
     const kbEmailFieldError = document.getElementById('kb-email-field-error');
-    const kbEmailRemember = document.getElementById('kb-email-remember');
     const kbEmailSubmit = document.getElementById('kb-email-submit');
     const kbEmailCancel = document.getElementById('kb-email-cancel');
     const kbEmailBackToChat = document.getElementById('kb-email-back-to-chat');
     const kbEmailExplain = document.getElementById('kb-email-explain');
+    const kbEmailSuccessText = document.getElementById('kb-email-success-text');
 
+    // עדכון §6.7: הכתובת "לא שדה ולא ניתנת לשינוי" - משתמש רשום תמיד יש
+    // לו מייל ידוע (dcardGetLS), אז מוצגת שורה קבועה בלבד. רק אם במקרה
+    // אין מייל ידוע (לא אמור לקרות למשתמש שעבר הרשמה) חוזרים לשדה חופשי,
+    // כמו בחלון ההרשמה.
     function kbOpenEmailModal() {
         kbEmailExplain.textContent = ( 'female' === userGender )
             ? 'נשלח אלייך עותק של השאלה, הקלפים שיצאו והשיחה כולה, כדי שתוכלי לחזור אליה מתי שתרצי.'
             : 'נשלח אליך עותק של השאלה, הקלפים שיצאו והשיחה כולה, כדי שתוכל לחזור אליה מתי שתרצה.';
-        kbEmailInput.value = dcardGetLS(DCARD_LS_KEYS.email) || '';
+        const knownEmail = dcardGetLS(DCARD_LS_KEYS.email) || '';
+        if (knownEmail) {
+            kbEmailKnownAddress.textContent = knownEmail;
+            kbEmailKnownRow.style.display = '';
+            kbEmailFallbackRow.style.display = 'none';
+        } else {
+            kbEmailKnownRow.style.display = 'none';
+            kbEmailFallbackRow.style.display = '';
+            kbEmailInput.value = '';
+        }
         kbClearFieldError(kbEmailInput, kbEmailFieldError);
         kbHideAlertBanner('kb-email-send-error');
         kbEmailFormState.style.display = '';
         kbEmailSuccessState.style.display = 'none';
         kbEmailModal.hidden = false;
-        kbEmailInput.focus();
+        kbEmailSubmit.focus();
     }
     function kbCloseEmailModal() {
         kbEmailModal.hidden = true;
@@ -5593,18 +5641,20 @@
     });
 
     kbEmailSubmit.addEventListener('click', async function () {
-        const email = kbEmailInput.value.trim();
+        const usingFallback = ('none' !== kbEmailFallbackRow.style.display);
+        const email = usingFallback ? kbEmailInput.value.trim() : (dcardGetLS(DCARD_LS_KEYS.email) || '');
         if (!EMAIL_REGEX.test(email)) {
-            kbShowFieldError(kbEmailInput, kbEmailFieldError, 'הכתובת לא נראית תקינה. כדאי לבדוק שאין רווחים ושיש @');
+            if (usingFallback) {
+                kbShowFieldError(kbEmailInput, kbEmailFieldError, 'הכתובת לא נראית תקינה. כדאי לבדוק שאין רווחים ושיש @');
+            }
             return;
         }
-        kbClearFieldError(kbEmailInput, kbEmailFieldError);
-        kbHideAlertBanner('kb-email-send-error');
-        kbEmailSubmit.disabled = true;
-
-        if (kbEmailRemember.checked) {
+        if (usingFallback) {
+            kbClearFieldError(kbEmailInput, kbEmailFieldError);
             dcardSetLS(DCARD_LS_KEYS.email, email);
         }
+        kbHideAlertBanner('kb-email-send-error');
+        kbEmailSubmit.disabled = true;
 
         // תמונות הקלפים שנשלפו בפועל בסשן, לפי סדר השליפה - יוטמעו במייל.
         const cardImages = Array.from(document.querySelectorAll('#cards-container .card-display')).map(img => img.src);
@@ -5617,14 +5667,16 @@
             });
             const data = await res.json();
             if (data.emailSent) {
+                // עדכון §6.7: "העותק בדרך אל {מייל}" - לא נוסח כללי.
+                kbEmailSuccessText.textContent = 'העותק בדרך אל ' + email + '. אם הוא לא מגיע תוך כמה דקות, כדאי לבדוק גם בתיקיית הספאם.';
                 kbEmailFormState.style.display = 'none';
                 kbEmailSuccessState.style.display = '';
                 kbEmailBackToChat.focus();
             } else {
-                kbShowAlertBanner(kbEmailInput, 'kb-email-send-error', 'המייל לא נשלח בגלל תקלה בחיבור.', function () { kbEmailSubmit.click(); });
+                kbShowAlertBanner(usingFallback ? kbEmailInput : kbEmailKnownRow, 'kb-email-send-error', 'המייל לא נשלח בגלל תקלה בחיבור.', function () { kbEmailSubmit.click(); });
             }
         } catch (e) {
-            kbShowAlertBanner(kbEmailInput, 'kb-email-send-error', 'המייל לא נשלח בגלל תקלה בחיבור.', function () { kbEmailSubmit.click(); });
+            kbShowAlertBanner(usingFallback ? kbEmailInput : kbEmailKnownRow, 'kb-email-send-error', 'המייל לא נשלח בגלל תקלה בחיבור.', function () { kbEmailSubmit.click(); });
         } finally {
             kbEmailSubmit.disabled = false;
         }

@@ -28,7 +28,9 @@ define( 'DCARD_PLUGIN_URL', TCR_CORE_URL );
 // המספר הזה, אחרת dbDelta לא ירוץ שוב על אתר חי קיים (ר' maybe_upgrade()
 // למטה - בודקת שוויון מול dcard_db_version השמור, לא מריצה dbDelta אם
 // הוא כבר תואם) - תוקן בפועל אחרי שעמודה חדשה "נשכחה" כך על staging. ***
-define( 'DCARD_DB_VERSION', '1.4.0' );
+// עודכן 1.5.0 - עמודות cancelled_at/cancel_reason/cancel_requested_at
+// (סעיף 6.11: מצב "מבוטל" ו-POST /account/cancel, ר' class-dcard-users.php).
+define( 'DCARD_DB_VERSION', '1.5.0' );
 
 // *** אבטחה: ר' ההערה המלאה שהייתה ב-dcard-ai-reader-backend.php - מומלץ
 // לעבור בהזדמנות לסוד המוגדר רק ב-wp-config.php, לא כאן. ***

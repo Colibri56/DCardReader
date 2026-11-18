@@ -129,6 +129,7 @@ class DCard_Customers_Admin {
 						<th>שם</th>
 						<th>טלפון</th>
 						<th>מסלול</th>
+						<th>סיבת ביטול</th>
 						<th>קרדיטים - מסרים</th>
 						<th>קרדיטים - שיחה מפתחת</th>
 						<th>תוקף המסלול</th>
@@ -140,7 +141,7 @@ class DCard_Customers_Admin {
 				</thead>
 				<tbody>
 					<?php if ( empty( $customers ) ) : ?>
-						<tr><td colspan="11">אין עדיין משתמשים רשומים.</td></tr>
+						<tr><td colspan="12">אין עדיין משתמשים רשומים.</td></tr>
 					<?php else : ?>
 						<?php foreach ( $customers as $customer ) : ?>
 							<?php
@@ -154,6 +155,26 @@ class DCard_Customers_Admin {
 								<td><?php echo esc_html( $customer['name'] ); ?></td>
 								<td><?php echo esc_html( $customer['phone'] ); ?></td>
 								<td><?php echo esc_html( $plan_label ); ?></td>
+								<td>
+									<?php
+									// §6.11: "הסיבה מוצגת גם בטבלת הלקוחות באדמין" - גם
+									// במצב ביניים (cancel_requested_at, לפני תפוגה בפועל)
+									// וגם אחרי המעבר ל-CANCELLED (cancelled_at).
+									if ( ! empty( $customer['cancel_requested_at'] ) ) {
+										echo 'בקשת ביטול: ' . esc_html( $customer['cancel_requested_at'] );
+										if ( ! empty( $customer['cancel_reason'] ) ) {
+											echo '<br>' . esc_html( $customer['cancel_reason'] );
+										}
+									} elseif ( ! empty( $customer['cancelled_at'] ) ) {
+										echo 'בוטל: ' . esc_html( $customer['cancelled_at'] );
+										if ( ! empty( $customer['cancel_reason'] ) ) {
+											echo '<br>' . esc_html( $customer['cancel_reason'] );
+										}
+									} else {
+										echo '-';
+									}
+									?>
+								</td>
 								<td><?php echo $is_unlimited_msg ? 'ללא הגבלה' : esc_html( $customer['current_credits_msg'] ); ?></td>
 								<td><?php echo $is_unlimited_chat ? 'ללא הגבלה' : esc_html( $customer['current_credits_chat'] ); ?></td>
 								<td><?php echo $customer['plan_expires_at'] ? esc_html( $customer['plan_expires_at'] ) : '-'; ?></td>

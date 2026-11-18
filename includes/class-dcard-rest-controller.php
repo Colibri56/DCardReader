@@ -350,6 +350,20 @@ class DCard_REST_Controller {
 			),
 		) );
 
+		// §6.11 "ביטול המנוי" - מצב ביניים (אין עדיין פרטי ה-API של הוראות
+		// הקבע בקארדקום, ר' ההערה המלאה ב-account_cancel_inner): שומר
+		// cancel_requested_at+reason ושולח מייל למנהל לביטול ידני. לא
+		// נוגע ב-current_plan/plan_expires_at - המעבר בפועל ל-CANCELLED
+		// עדיין קורה רק דרך run_renewal_and_expiry_check בתפוגה.
+		register_rest_route( self::NAMESPACE_, '/account/cancel', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'account_cancel' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+			'args'                => array(
+				'reason' => array( 'required' => false ),
+			),
+		) );
+
 		register_rest_route( self::NAMESPACE_, '/session/end', array(
 			'methods'             => 'POST',
 			'callback'            => array( $this, 'session_end' ),
@@ -2051,6 +2065,9 @@ class DCard_REST_Controller {
 			'unlimited_chat'       => DCard_Plans::is_unlimited( $plan_id, 'chat' ),
 			'plan_expires_at'      => $user['plan_expires_at'],
 			'next_credit_reset_at' => $user['next_credit_reset_at'],
+			'cancel_requested_at'  => $user['cancel_requested_at'],
+			'cancelled_at'         => $user['cancelled_at'],
+			'cancel_reason'        => $user['cancel_reason'],
 			'transactions'         => $transactions,
 		), 200 );
 	}
@@ -2087,6 +2104,77 @@ class DCard_REST_Controller {
 		}
 
 		return new WP_REST_Response( array( 'success' => true, 'name' => $name, 'gender' => $gender, 'phone' => $phone ), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// POST /account/cancel (§6.11 "ביטול המנוי")
+	// ---------------------------------------------------------------
+	public function account_cancel( WP_REST_Request $request ) {
+		return $this->safely( 'account_cancel', function () use ( $request ) {
+			return $this->account_cancel_inner( $request );
+		} );
+	}
+
+	/**
+	 * מצב ביניים, כפי שהתבקש במפורש (סעיף 6.11): "עד שיהיו פרטי ה-API של
+	 * קארדקום... הבקשה נשמרת (cancel_requested_at + הסיבה), המשתמש רואה
+	 * את אותו אישור, ולמנהל נשלח מייל 'לבטל ידנית בקארדקום'". אין כאן
+	 * עדיין קריאה אמיתית ל-API של הוראות הקבע - docs/cardcom-api/ מתעד
+	 * את הפרמטרים (Operation=Update, RecurringPayments.RecurringId/
+	 * IsActive), אבל לא את כתובת ה-API/משתמש/סיסמה (ר' DCARD_CARDCOM_API_*
+	 * ב-the-card-reader-core.php - עדיין ריקים). ברגע שאלה יתמלאו, השלב
+	 * הזה יוחלף בקריאה אמיתית; עד אז הביטול בפועל קורה ידנית ע"י המנהל
+	 * בקארדקום, וה-current_plan של המשתמש עצמו רק "נופל" ל-CANCELLED
+	 * כש-plan_expires_at עובר (ר' run_renewal_and_expiry_check) - בדיוק
+	 * כמו שהיה קורה ממילא לו לא שולם מחדש.
+	 */
+	private function account_cancel_inner( WP_REST_Request $request ) {
+		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+		$user         = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( ! $user ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
+		}
+
+		if ( DCard_Plans::FREE === $user['current_plan'] || DCard_Plans::CANCELLED === $user['current_plan'] ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'אין מנוי פעיל לביטול' ), 400 );
+		}
+
+		$reason = sanitize_text_field( (string) $request->get_param( 'reason' ) );
+
+		$saved = DCard_Users::request_cancellation( (int) $user['id'], $reason );
+		if ( ! $saved ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת הבקשה' ), 500 );
+		}
+
+		$admin_email = get_option( 'admin_email' );
+		if ( $admin_email ) {
+			wp_mail(
+				$admin_email,
+				'הקורא בקלפים - בקשת ביטול מנוי',
+				sprintf(
+					"המשתמש %s (%s) ביקש לבטל את המנוי שלו (מסלול: %s).\n\nסיבה: %s\n\nיש לבטל ידנית בקארדקום את הוראת הקבע של %s. המנוי שלו ימשיך להיות פעיל עד %s, ואז יעבור אוטומטית למצב \"מבוטל\".",
+					$user['name'] ? $user['name'] : '(ללא שם)',
+					$user['email'],
+					DCard_Plans::label_for_plan( $user['current_plan'] ),
+					$reason ? $reason : '(לא צוינה)',
+					$user['email'],
+					$user['plan_expires_at'] ? $user['plan_expires_at'] : '(לא ידוע)'
+				)
+			);
+		}
+		if ( $user['email'] ) {
+			wp_mail(
+				$user['email'],
+				'הקורא בקלפים - אישור בקשת ביטול',
+				sprintf(
+					"קיבלנו את בקשתך לבטל את המנוי. המנוי יישאר פעיל עד %s, ולא תחויב/י שוב אחרי מועד זה.",
+					$user['plan_expires_at'] ? $user['plan_expires_at'] : ''
+				)
+			);
+		}
+
+		return new WP_REST_Response( array( 'success' => true, 'plan_expires_at' => $user['plan_expires_at'] ), 200 );
 	}
 
 	// ---------------------------------------------------------------
