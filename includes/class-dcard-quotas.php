@@ -375,8 +375,6 @@ class DCard_Quotas {
 		$price          = get_option( $cfg['price'], 0 );
 		$msg_value      = (int) get_option( $cfg['msg_credits'], 0 );
 		$chat_value     = (int) get_option( $cfg['chat_credits'], 0 );
-		$unlimited_msg  = (bool) get_option( $cfg['unlimited_msg'], $cfg['default_unlimited'] ? 1 : 0 );
-		$unlimited_chat = (bool) get_option( $cfg['unlimited_chat'], $cfg['default_unlimited'] ? 1 : 0 );
 		$product_id     = get_option( $cfg['product_id'], $cfg['default_product_id'] );
 		?>
 		<tr class="dcard-plan-row" data-plan="<?php echo esc_attr( $plan_id ); ?>">
@@ -385,15 +383,11 @@ class DCard_Quotas {
 			<td><input type="number" min="0" step="1" class="small-text dcard-plan-price" name="<?php echo esc_attr( $cfg['price'] ); ?>" value="<?php echo esc_attr( $price ); ?>" /> ₪</td>
 			<td>
 				<input type="number" min="0" step="1" class="small-text dcard-plan-msg" name="<?php echo esc_attr( $cfg['msg_credits'] ); ?>" value="<?php echo esc_attr( $msg_value ); ?>" />
-				<?php if ( $msg_value > 1000 ) : ?><br /><span style="color:#a3262a;">⚠ מספר גבוה מאוד - ייתכן שזה 999999 ישן. כדאי להזין מספר שימוש-הוגן אמיתי.</span><?php endif; ?>
-				<br /><label><input type="checkbox" class="dcard-plan-unlimited-msg" name="<?php echo esc_attr( $cfg['unlimited_msg'] ); ?>" value="1" <?php checked( $unlimited_msg ); ?> /> להציג ללא הגבלה</label>
-				<br /><strong class="dcard-plan-unlimited-zero-warn" data-field="msg" style="color:#a3262a;<?php echo ( $unlimited_msg && 0 === $msg_value ) ? '' : 'display:none;'; ?>">⚠ "ללא הגבלה" מסומן עם מספר 0 - המשתמש לא יוכל להשתמש!</strong>
+				<?php if ( $msg_value > 1000 ) : ?><br /><span style="color:#a3262a;">⚠ מספר גבוה מאוד - ייתכן שזה 999999 ישן, מתקופת "ללא הגבלה". §6.10.2 (19.11): אין יותר "ללא הגבלה" בכלל - חלון ההצטרפות מציג את המספר הזה כפשוטו. כדאי להזין מספר שימוש-הוגן אמיתי.</span><?php endif; ?>
 			</td>
 			<td>
 				<input type="number" min="0" step="1" class="small-text dcard-plan-chat" name="<?php echo esc_attr( $cfg['chat_credits'] ); ?>" value="<?php echo esc_attr( $chat_value ); ?>" />
-				<?php if ( $chat_value > 1000 ) : ?><br /><span style="color:#a3262a;">⚠ מספר גבוה מאוד - ייתכן שזה 999999 ישן. כדאי להזין מספר שימוש-הוגן אמיתי.</span><?php endif; ?>
-				<br /><label><input type="checkbox" class="dcard-plan-unlimited-chat" name="<?php echo esc_attr( $cfg['unlimited_chat'] ); ?>" value="1" <?php checked( $unlimited_chat ); ?> /> להציג ללא הגבלה</label>
-				<br /><strong class="dcard-plan-unlimited-zero-warn" data-field="chat" style="color:#a3262a;<?php echo ( $unlimited_chat && 0 === $chat_value ) ? '' : 'display:none;'; ?>">⚠ "ללא הגבלה" מסומן עם מספר 0 - המשתמש לא יוכל להשתמש!</strong>
+				<?php if ( $chat_value > 1000 ) : ?><br /><span style="color:#a3262a;">⚠ מספר גבוה מאוד - ייתכן שזה 999999 ישן, מתקופת "ללא הגבלה". §6.10.2 (19.11): אין יותר "ללא הגבלה" בכלל - חלון ההצטרפות מציג את המספר הזה כפשוטו. כדאי להזין מספר שימוש-הוגן אמיתי.</span><?php endif; ?>
 			</td>
 			<td><input type="text" class="small-text dcard-plan-product-id" name="<?php echo esc_attr( $cfg['product_id'] ); ?>" value="<?php echo esc_attr( $product_id ); ?>" /></td>
 			<td class="dcard-plan-preview" style="max-width:220px;font-size:12px;color:#555;"></td>
@@ -455,9 +449,8 @@ class DCard_Quotas {
 					</tbody>
 				</table>
 				<p class="description" style="max-width: 820px;">
-					איך קרדיט מתקזז בפועל בתוך סשן בודד: סשן ש<strong>נשאר</strong> "קבלת מסר" לכל אורכו מקזז קרדיט אחד מ"מסרים". סשן שמתחיל כ"דיאלוג מכוון" מקזז קרדיט אחד מ"דיאלוגים". סשן ש<strong>עבר</strong> מ"קבלת מסר" ל"דיאלוג מכוון" מקזז קרדיט אחד מ"מסרים" <strong>וגם</strong> קרדיט אחד מ"דיאלוגים" - שני המונים יורדים על אותו סשן בודד. "ללא הגבלה" הוא תווית תצוגה בלבד - המספר האמיתי שהוזן תמיד נאכף בפועל (מכסת שימוש הוגן).
+					איך קרדיט מתקזז בפועל בתוך סשן בודד: סשן ש<strong>נשאר</strong> "קבלת מסר" לכל אורכו מקזז קרדיט אחד מ"מסרים". סשן שמתחיל כ"דיאלוג מכוון" מקזז קרדיט אחד מ"דיאלוגים". סשן ש<strong>עבר</strong> מ"קבלת מסר" ל"דיאלוג מכוון" מקזז קרדיט אחד מ"מסרים" <strong>וגם</strong> קרדיט אחד מ"דיאלוגים" - שני המונים יורדים על אותו סשן בודד. עדכון §6.10.2 (19.11): אין יותר "ללא הגבלה" כתווית תצוגה - המספר שמוזן כאן מוצג כפשוטו בחלון ההצטרפות.
 				</p>
-				<p class="description" id="dcard-unlimited-note" style="max-width: 820px;font-style:italic;"></p>
 
 				<h2 style="margin-top:28px;">עמוד התשלום</h2>
 				<table class="form-table" role="presentation">
@@ -503,14 +496,13 @@ class DCard_Quotas {
 	}
 
 	/**
-	 * עמודת "כך זה יוצג" + הערת "ללא הגבלה, בשימוש הוגן" - מתעדכנות
-	 * בזמן הקלדה, בלי AJAX (כל הנתונים כבר בדף).
+	 * עמודת "כך זה יוצג" - מתעדכנת בזמן הקלדה, בלי AJAX (כל הנתונים כבר
+	 * בדף).
 	 *
-	 * עדכון §6.10.2: כל המסלולים מוצגים כ"לחודש" בלבד - אין יותר חישוב
-	 * "לשנה, במקום X ₪ (חיסכון של Y%)" (הוסר יחד עם עמודת "תקופה" -
-	 * ר' ההערה המלאה למעלה ב-class). גם מוסיפה כאן, בזמן הקלדה, את אותה
-	 * אזהרה בולטת שה-PHP כבר מציג ב-render_paid_plan_row() על טעינת הדף -
-	 * "ללא הגבלה" מסומן עם מספר 0.
+	 * עדכון §6.10.2 (19.11): "אין 'ללא הגבלה' בכלל - תמיד המספר האמיתי" -
+	 * הוסרו תיבות הסימון "להציג ללא הגבלה" והערת "בשימוש הוגן" לגמרי,
+	 * גם מהתצוגה המקדימה כאן (לא רק מה-PHP שמעליה). אם עדיין יש בדף
+	 * ערכים ישנים (999999) - האזהרה ב-render_paid_plan_row() מטפלת בזה.
 	 */
 	private static function render_preview_script( $paid_cfg ) {
 		?>
@@ -522,50 +514,19 @@ class DCard_Quotas {
 					label: row.querySelector('.dcard-plan-label').value || '',
 					price: parseFloat(row.querySelector('.dcard-plan-price').value) || 0,
 					msg: parseInt(row.querySelector('.dcard-plan-msg').value, 10) || 0,
-					chat: parseInt(row.querySelector('.dcard-plan-chat').value, 10) || 0,
-					unlimitedMsg: row.querySelector('.dcard-plan-unlimited-msg').checked,
-					unlimitedChat: row.querySelector('.dcard-plan-unlimited-chat').checked
+					chat: parseInt(row.querySelector('.dcard-plan-chat').value, 10) || 0
 				};
-			}
-
-			function quotaLine(label, value, unlimited) {
-				return '✓ ' + label + ': ' + (unlimited ? 'ללא הגבלה*' : ('עד ' + value + ' בחודש'));
 			}
 
 			function render() {
 				var rows = Array.prototype.slice.call(document.querySelectorAll('.dcard-plan-row'));
-				var byPlan = {};
-				rows.forEach(function (row) { byPlan[row.dataset.plan] = rowData(row); });
-
-				var unlimitedNotes = [];
-
 				rows.forEach(function (row) {
-					var d = byPlan[row.dataset.plan];
+					var d = rowData(row);
 					var lines = [d.label + ' - ' + d.price + ' ₪ לחודש'];
-					lines.push(quotaLine('קבלת מסר', d.msg, d.unlimitedMsg));
-					lines.push(quotaLine('דיאלוג מכוון', d.chat, d.unlimitedChat));
+					lines.push('✓ קבלת מסר: עד ' + d.msg + ' בחודש');
+					lines.push('✓ דיאלוג מכוון: עד ' + d.chat + ' בחודש');
 					row.querySelector('.dcard-plan-preview').innerHTML = lines.join('<br>');
-
-					var msgWarn = row.querySelector('.dcard-plan-unlimited-zero-warn[data-field="msg"]');
-					if (msgWarn) msgWarn.style.display = (d.unlimitedMsg && 0 === d.msg) ? '' : 'none';
-					var chatWarn = row.querySelector('.dcard-plan-unlimited-zero-warn[data-field="chat"]');
-					if (chatWarn) chatWarn.style.display = (d.unlimitedChat && 0 === d.chat) ? '' : 'none';
-
-					if (d.unlimitedMsg) unlimitedNotes.push({ type: 'msg', n: d.msg });
-					if (d.unlimitedChat) unlimitedNotes.push({ type: 'chat', n: d.chat });
 				});
-
-				var msgNums = unlimitedNotes.filter(function (n) { return n && n.type === 'msg'; }).map(function (n) { return n.n; });
-				var chatNums = unlimitedNotes.filter(function (n) { return n && n.type === 'chat'; }).map(function (n) { return n.n; });
-				var noteEl = document.getElementById('dcard-unlimited-note');
-				if (!msgNums.length && !chatNums.length) {
-					noteEl.textContent = '';
-				} else {
-					var parts = [];
-					if (chatNums.length) parts.push('עד ' + Math.max.apply(null, chatNums) + ' דיאלוגים מכוונים');
-					if (msgNums.length) parts.push('עד ' + Math.max.apply(null, msgNums) + ' קבלות מסר');
-					noteEl.textContent = '* ללא הגבלה, בשימוש הוגן: ' + parts.join(' ו-') + ' בחודש.';
-				}
 			}
 
 			document.querySelectorAll('.dcard-plan-row input').forEach(function (input) {

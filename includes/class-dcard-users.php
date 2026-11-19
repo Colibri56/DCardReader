@@ -523,6 +523,29 @@ class DCard_Users {
 		);
 	}
 
+	/**
+	 * §7.2ב: "אדמין: בטבלת הלקוחות, פעולה 'החזרת קרדיט'" - ההפך מ-
+	 * deduct_credit, לשימוש ידני כש-admin מחליט שקרדיט נגבה בלי שהשירות
+	 * באמת ניתן (ר' class-dcard-customers-admin.php, handle_refund_credit).
+	 * לא עובר דרך is_unlimited כמו deduct_credit - גם למסלול "ללא הגבלה"
+	 * יש מספר אמיתי בעמודה, והחזרה אמורה להעלות אותו בפועל.
+	 */
+	public static function add_credit( $user_id, $type = 'msg', $amount = 1 ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		$column = ( 'chat' === $type ) ? 'current_credits_chat' : 'current_credits_msg';
+
+		return false !== $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE " . self::table() . " SET {$column} = {$column} + %d, updated_at = %s WHERE id = %d",
+				(int) $amount,
+				current_time( 'mysql', true ),
+				$user_id
+			)
+		);
+	}
+
 	// -----------------------------------------------------------------
 	// device_token (עמודת ה-DB נקראת session_token - ר' הערת השם למעלה).
 	// מנגנון אנטי-שיתוף-חשבון: התחברות חדשה מייצרת טוקן שמחליף את הקודם,

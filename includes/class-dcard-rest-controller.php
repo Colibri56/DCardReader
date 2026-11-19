@@ -208,6 +208,11 @@ class DCard_REST_Controller {
 				'question'      => array( 'required' => false ),
 				// 'chat' (default) or 'message' - see MESSAGE_MODE_INSTRUCTION below.
 				'mode'          => array( 'required' => false ),
+				// §7.2ב: מזהה קבוע לכל "ניסיון תגובה" אחד - אותו מזהה בדיוק
+				// נשלח גם ב"ניסיון חוזר" אחרי timeout/ניתוק בצד הלקוח, כדי
+				// שהשרת יזהה שזו אותה בקשה ולא יחייב קרדיט/יקרא ל-AI פעמיים
+				// (ר' session_card_selected_inner).
+				'request_id'    => array( 'required' => false ),
 			),
 		) );
 
@@ -669,10 +674,25 @@ class DCard_REST_Controller {
 		$question      = sanitize_textarea_field( (string) $request->get_param( 'question' ) );
 		$mode          = sanitize_text_field( (string) $request->get_param( 'mode' ) );
 		$mode          = in_array( $mode, array( 'chat', 'message' ), true ) ? $mode : 'chat';
+		$request_id    = sanitize_text_field( (string) $request->get_param( 'request_id' ) );
 
 		$session = DCard_DB::get_session( $session_token );
 		if ( ! $session || 'active' !== $session['status'] ) {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'סשן לא נמצא או שאינו פעיל' ), 404 );
+		}
+
+		// §7.2ב: "ניסיון חוזר לא מחייב שוב" - אם זו בדיוק אותה בקשה שכבר
+		// טופלה (request_id זהה לזה שנשמר אחרי ריצה מוצלחת קודמת על אותו
+		// קלף, למשל הדפדפן ויתר על התשובה הראשונה ב-timeout אבל השרת כבר
+		// סיים אותה וכבר חייב קרדיט) - מחזירים את אותה תגובה בדיוק, בלי
+		// עוד קריאת AI ובלי חיוב קרדיט נוסף.
+		if ( $request_id && isset( $session['state']['last_card_selected_request_id'], $session['state']['last_card_selected_response'] )
+			&& $session['state']['last_card_selected_request_id'] === $request_id ) {
+			DCard_Logger::info( 'session_card_selected - duplicate request_id, returning cached response (no AI call, no credit charge)', array(
+				'session_token' => $session_token,
+				'request_id'    => $request_id,
+			) );
+			return new WP_REST_Response( $session['state']['last_card_selected_response'], 200 );
 		}
 
 		// הקלף כבר נבחר ונרשם ב-/session/draw-card (session_draw_card_inner) -
@@ -923,7 +943,18 @@ class DCard_REST_Controller {
 			// מקוזז עליו עכשיו *בנוסף* קרדיט אחד ממאגר ה-chat - זה הרגע
 			// שבו ההעמקה קורית בפועל (קלף נוסף שנשלף תחת mode='chat' אחרי
 			// שהסשן התחיל כ-'message').
+			//
+			// עדכון §7.2 (19.11): "לא עוצרים שיחה באמצע" - ההעמקה ממשיכה
+			// גם אם אין למשתמש קרדיט chat פנוי (deduct_credit לא חוסם,
+			// רק GREATEST(...,0) - נשאר על 0, לא שלילי). נרשם ביומן כשזה
+			// קורה, כדי שהמנהל יוכל לראות כמה פעמים זה קרה בפועל.
 			if ( $registered_user ) {
+				if ( ! DCard_Users::has_credits( $registered_user['id'], 'chat' ) ) {
+					DCard_Logger::info( 'session_card_selected - converted message->chat without an available chat credit (allowed, not blocked)', array(
+						'user_id'       => $registered_user['id'],
+						'session_token' => $session_token,
+					) );
+				}
 				DCard_Users::deduct_credit( $registered_user['id'], 'chat' );
 			}
 		}
@@ -998,13 +1029,26 @@ class DCard_REST_Controller {
 
 		// imageUrl/cardAlt כבר הגיעו ללקוח מ-/session/draw-card - אין צורך
 		// לשלוח אותם שוב כאן.
-		return new WP_REST_Response( array(
+		$response_payload = array(
 			'success'     => true,
 			'cardId'      => $card_id,
 			'aiReply'     => $data['speak'],
 			'nextAction'  => $data['next_action'],
 			'endSession'  => (bool) $data['end_session'],
-		), 200 );
+		);
+
+		// §7.2ב: שומרים את התגובה הזו + ה-request_id שלה, כדי ש"ניסיון
+		// חוזר" עם אותו request_id (ר' למעלה) יחזיר אותה בלי לחייב/לקרוא
+		// ל-AI שוב. נשמר רק כש-request_id נשלח בכלל (לקוח ישן בלי התמיכה
+		// הזו פשוט לא נהנה מההגנה, לא נשבר).
+		if ( $request_id ) {
+			DCard_DB::update_state( $session_token, array(
+				'last_card_selected_request_id' => $request_id,
+				'last_card_selected_response'   => $response_payload,
+			) );
+		}
+
+		return new WP_REST_Response( $response_payload, 200 );
 	}
 
 	// ---------------------------------------------------------------
@@ -1060,7 +1104,15 @@ class DCard_REST_Controller {
 			// אותו תיקון בדיוק כמו ב-session_card_selected_inner - המרה
 			// שקורית *בלי* שליפת קלף נוספת (המשתמש פשוט כתב הודעה חופשית
 			// אחרי שלחץ "להמשיך ולהעמיק") עדיין מקזזת קרדיט chat נוסף.
+			// עדכון §7.2 (19.11) - ר' ההערה המלאה ב-session_card_selected_inner:
+			// ממשיכים גם בלי קרדיט chat פנוי, רק רושמים ביומן.
 			if ( $registered_user ) {
+				if ( ! DCard_Users::has_credits( $registered_user['id'], 'chat' ) ) {
+					DCard_Logger::info( 'session_turn - converted message->chat without an available chat credit (allowed, not blocked)', array(
+						'user_id'       => $registered_user['id'],
+						'session_token' => $session_token,
+					) );
+				}
 				DCard_Users::deduct_credit( $registered_user['id'], 'chat' );
 			}
 		}

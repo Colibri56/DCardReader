@@ -76,6 +76,42 @@ class DCard_Customers_Admin {
 		exit;
 	}
 
+	/**
+	 * §7.2ב: "אדמין: פעולה 'החזרת קרדיט' (מסר או דיאלוג), עם רישום ביומן
+	 * מי ומתי" - שימוש ידני כש-admin מזהה שקרדיט נגבה בלי שהשירות באמת
+	 * הגיע ללקוח (ר' ההערה המלאה ליד DCard_Users::add_credit).
+	 */
+	public static function handle_refund_credit() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'אין הרשאה' );
+		}
+		check_admin_referer( 'dcard_refund_credit' );
+
+		$redirect_url = admin_url( 'edit.php?post_type=projective_card&page=dcard-customers' );
+
+		$user_id = isset( $_POST['user_id'] ) ? absint( $_POST['user_id'] ) : 0;
+		$type    = isset( $_POST['credit_type'] ) ? sanitize_text_field( wp_unslash( $_POST['credit_type'] ) ) : '';
+		$type    = in_array( $type, array( 'msg', 'chat' ), true ) ? $type : '';
+
+		if ( ! $user_id || ! $type ) {
+			wp_safe_redirect( add_query_arg( 'dcard_refund_credit', 'error', $redirect_url ) );
+			exit;
+		}
+
+		$success = DCard_Users::add_credit( $user_id, $type, 1 );
+
+		$admin_user = wp_get_current_user();
+		DCard_Logger::info( 'החזרת קרדיט ידנית מעמוד הלקוחות', array(
+			'target_user_id' => $user_id,
+			'credit_type'    => $type,
+			'performed_by'   => $admin_user ? $admin_user->user_email : '',
+			'success'        => $success,
+		) );
+
+		wp_safe_redirect( add_query_arg( 'dcard_refund_credit', $success ? 'success' : 'error', $redirect_url ) );
+		exit;
+	}
+
 	public static function register_menu() {
 		add_submenu_page(
 			'edit.php?post_type=projective_card',
@@ -121,6 +157,13 @@ class DCard_Customers_Admin {
 					<div class="notice notice-error is-dismissible"><p>עדכון המסלול נכשל - ר' הלוג (Settings > קורא בקלפים > לוג).</p></div>
 				<?php endif; ?>
 			<?php endif; ?>
+			<?php if ( isset( $_GET['dcard_refund_credit'] ) ) : ?>
+				<?php if ( 'success' === $_GET['dcard_refund_credit'] ) : ?>
+					<div class="notice notice-success is-dismissible"><p>הקרדיט הוחזר בהצלחה.</p></div>
+				<?php else : ?>
+					<div class="notice notice-error is-dismissible"><p>החזרת הקרדיט נכשלה - ר' הלוג (Settings > קורא בקלפים > לוג).</p></div>
+				<?php endif; ?>
+			<?php endif; ?>
 			<p>כל משתמש רשום (נרשם בטופס ו/או שילם) - מסלול נוכחי, קרדיטים שנותרו (בנפרד למסרים ולשיחות מפתחות), תוקף, וסכום ששולם בסך הכול. ר' <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=projective_card&page=dcard-quotas' ) ); ?>">ניהול מכסות</a> לעריכת מספר הקרדיטים לכל מסלול.</p>
 			<table class="wp-list-table widefat fixed striped">
 				<thead>
@@ -137,11 +180,12 @@ class DCard_Customers_Admin {
 						<th>מספר עסקאות</th>
 						<th>נרשם בתאריך</th>
 						<th>עדכון מסלול ידני</th>
+						<th>החזרת קרדיט</th>
 					</tr>
 				</thead>
 				<tbody>
 					<?php if ( empty( $customers ) ) : ?>
-						<tr><td colspan="12">אין עדיין משתמשים רשומים.</td></tr>
+						<tr><td colspan="13">אין עדיין משתמשים רשומים.</td></tr>
 					<?php else : ?>
 						<?php foreach ( $customers as $customer ) : ?>
 							<?php
@@ -192,6 +236,24 @@ class DCard_Customers_Admin {
 											<?php endforeach; ?>
 										</select>
 										<button type="submit" class="button button-small" onclick="return confirm('לעדכן את המסלול של <?php echo esc_js( $customer['email'] ); ?> ידנית? הפעולה תפעל בדיוק כמו תשלום בקארדקום (קרדיטים/תוקף יתעדכנו).');">עדכון</button>
+									</form>
+								</td>
+								<td>
+									<!-- §7.2ב: "החזרת קרדיט" - מוסיף קרדיט אחד, בלי קשר למסלול
+									     (גם ל"ללא הגבלה", ר' DCard_Users::add_credit). -->
+									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex;gap:4px;align-items:center;white-space:nowrap;">
+										<input type="hidden" name="action" value="dcard_refund_credit" />
+										<input type="hidden" name="user_id" value="<?php echo esc_attr( $customer['id'] ); ?>" />
+										<input type="hidden" name="credit_type" value="msg" />
+										<?php wp_nonce_field( 'dcard_refund_credit' ); ?>
+										<button type="submit" class="button button-small">+1 קבלת מסר</button>
+									</form>
+									<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex;gap:4px;align-items:center;white-space:nowrap;margin-top:4px;">
+										<input type="hidden" name="action" value="dcard_refund_credit" />
+										<input type="hidden" name="user_id" value="<?php echo esc_attr( $customer['id'] ); ?>" />
+										<input type="hidden" name="credit_type" value="chat" />
+										<?php wp_nonce_field( 'dcard_refund_credit' ); ?>
+										<button type="submit" class="button button-small">+1 דיאלוג מכוון</button>
 									</form>
 								</td>
 							</tr>

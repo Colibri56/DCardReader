@@ -123,6 +123,13 @@ add_action( 'admin_post_dcard_manual_set_plan', function () {
 	}
 } );
 
+// §7.2ב: "החזרת קרדיט" בעמוד הלקוחות (ר' class-dcard-customers-admin.php).
+add_action( 'admin_post_dcard_refund_credit', function () {
+	if ( class_exists( 'DCard_Customers_Admin' ) ) {
+		DCard_Customers_Admin::handle_refund_credit();
+	}
+} );
+
 add_action( 'admin_init', function () {
 	if ( class_exists( 'DCard_Settings' ) ) {
 		DCard_Settings::register_settings();

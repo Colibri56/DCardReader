@@ -50,6 +50,14 @@
        לא תיקון נקודתי בכל מקום בנפרד - מונע את אותה תקלה בפעם הבאה
        שמישהו מוסיף <a> חדש (למשל טבלת המסלולים/תיקון מייל ב-6.10.2). */
     .kb-app a { color: var(--bordeaux) !important; }
+    /* כפתור שנראה כמו קישור טקסט רגיל, בתוך משפט - לשימוש בכל מקום
+       שצריך type="button" (לא עובר לקארדקום/לא שולח טופס) אבל חייב
+       להיראות זהה לקישור, למשל "אם הכתובת שגויה, כתבו לנו" (6.10.2). */
+    .kb-inline-link-btn {
+        display: inline; padding: 0; border: none; background: transparent;
+        color: var(--bordeaux) !important; font-family: 'Rubik', sans-serif; font-size: inherit;
+        text-decoration: underline; cursor: pointer;
+    }
     .kb-app .kb-icon-btn { width: 44px; height: 44px; min-width: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 0; line-height: 0; }
     .kb-header {
         display: flex;
@@ -1109,6 +1117,13 @@
         cursor: pointer;
     }
     .kb-cancel-reason-pill[aria-pressed="true"] { border-color: var(--bordeaux); background: var(--blush); }
+
+    /* עדכון §6.10.2 (19.11): רשימת המסלולים בחלון ההצטרפות - <ul> עם קו
+       --line בין פריטים (לא מסגרות/רקע/ריחוף/סמן יד - בכוונה לא נראה
+       כמו כפתור בחירה, הבחירה האמיתית בעמוד של קארדקום). */
+    .kb-payment-plan-item { border-bottom: 1px solid var(--line); padding: 10px 0; }
+    .kb-payment-plan-row1 { display: flex; justify-content: space-between; font-size: 18px; font-weight: 500; }
+    .kb-payment-plan-row2 { font-size: 15px; color: var(--ink-soft); margin-top: 2px; }
     /* עדכון §6.11: "ריחוף על הכפתור המשני לא ממלא אותו: רק רקע --blush,
        הטקסט והמסגרת נשארים בורדו" - מנטרל את ריחוף btn-outline הגלובלי
        של התבנית (שכנראה ממלא ברקע בורדו מלא, הופך את הטקסט ללבן). */
@@ -1766,27 +1781,21 @@
             <p class="kb-modal-text" style="text-align:center;">אמרתי לך כבר קודם שאני אוהב שהשיחות שלנו <strong>תומכות ועוזרות להתקדם בחיים</strong>. יחד עם זה, כמו הרבה דברים בחיים, אני עולה כסף, ועד עכשיו נורית שילמה עליי.</p>
             <p class="kb-modal-text" style="text-align:center;">אני מזמין אותך להמשיך ולהשתמש באפליקציה, ואני <strong>יודע מניסיון רב</strong> שהשימוש ימשיך לתת לך ערך רב ולאורך זמן. בניתי שלושה מסלולים, ורק צריך לבחור את המתאים לך ביותר.</p>
             <div style="font-size:16px;font-weight:500;margin-top:10px;">המסלולים לבחירתך</div>
-            <!-- עדכון §6.10.2: טבלה, לא כרטיסים (בכוונה לא נראים כמו
-                 כפתורי בחירה - הבחירה בפועל היא בעמוד של קארדקום). -->
-            <table id="kb-payment-plans-table" style="width:100%;border-collapse:collapse;margin:10px 0;font-size:14px;">
-                <thead>
-                    <tr style="border-bottom:1px solid var(--line);">
-                        <th style="text-align:right;font-weight:500;padding:8px 4px;">מסלול</th>
-                        <th style="text-align:center;font-weight:500;padding:8px 4px;">מחיר לחודש</th>
-                        <th style="text-align:center;font-weight:500;padding:8px 4px;">קבלת מסר</th>
-                        <th style="text-align:center;font-weight:500;padding:8px 4px;">דיאלוג מכוון</th>
-                    </tr>
-                </thead>
-                <tbody id="kb-payment-plans-tbody"></tbody>
-            </table>
-            <p class="kb-modal-text" id="kb-payment-plans-note" style="font-size:13px;"></p>
-            <!-- עדכון §6.10.2: שם/מייל לתצוגה בלבד (לא שדות) - המשתמש כבר
-                 רשום בשלב הזה (6.10.1 קדם לזה), אין כאן מה לערוך. -->
+            <!-- עדכון §6.10.2 (19.11): רשימה פשוטה, לא טבלה ולא כרטיסים.
+                 <ul> עם קו --line מעל/מתחת/בין הפריטים, בלי מסגרות/רקע/
+                 ריחוף. מספרים אמיתיים תמיד - אין יותר "ללא הגבלה". -->
+            <ul id="kb-payment-plans-list" style="list-style:none;margin:10px 0;padding:0;border-top:1px solid var(--line);"></ul>
+            <p class="kb-modal-text" style="font-size:13px;margin-top:4px;">המכסה מתחדשת בכל חודש.</p>
+            <!-- עדכון §6.10.2: רק המייל, לתצוגה בלבד (השם כבר בכותרת) -
+                 bdi כדי שהכיווניות לא תהפוך את השורה. -->
             <div style="background:var(--blush);border-radius:14px;padding:14px 16px;margin:14px 0;">
-                <p style="margin:0;font-size:15px;">שם: <span id="kb-payment-name-display"></span></p>
-                <p style="margin:4px 0 0;font-size:15px;" dir="ltr">מייל: <span id="kb-payment-email-display"></span></p>
+                <p style="margin:0;font-size:15px;">המסלול יחובר לכתובת:</p>
+                <p style="margin:4px 0 0;font-size:15px;font-weight:500;"><bdi dir="ltr" id="kb-payment-email-display"></bdi></p>
             </div>
-            <p class="kb-modal-text" style="margin-top:0;">אם כתובת המייל שגויה, <a href="#" id="kb-payment-fix-email-link">כתבו לנו</a> ונשמח לעזור.</p>
+            <!-- עדכון §6.10.2: הקישור סוגר את החלון ופותח "כתבו לנו" - לא
+                 שולח טופס ולא עובר לקארדקום (type=button, preventDefault
+                 - ר' kbPaymentFixEmailLink למטה). -->
+            <p class="kb-modal-text" style="margin-top:0;">אם הכתובת שגויה, <button type="button" class="kb-inline-link-btn" id="kb-payment-fix-email-link">כתבו לנו</button> ונשמח לעזור.</p>
             <div class="kb-alert-banner" id="kb-payment-send-error" style="display:none;"></div>
             <div class="kb-modal-actions">
                 <button type="button" class="btn-main" id="kb-payment-submit">אשמח להירשם ולהמשיך</button>
@@ -2146,7 +2155,7 @@
     // מוצג בקטן ואפור בתחתית תפריט ה-☰ (kb-version-marker), ונכתב גם
     // ל-console בכל טעינת עמוד - כדי שאפשר לוודא מהר, גם בלי לפתוח
     // DevTools, שגרסת ה-staging שנבדקת היא באמת זו שהודבקה לאחרונה.
-    const KB_VERSION = '2026-11-19 14:05';
+    const KB_VERSION = '2026-11-19 21:10';
     console.log('[DCard] KB_VERSION =', KB_VERSION);
 
     // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
@@ -2161,6 +2170,27 @@
         if (content.indexOf('interactive-widget') === -1) {
             meta.setAttribute('content', content + (content ? ', ' : '') + 'interactive-widget=resizes-content');
         }
+    })();
+
+    // תיקון (התבקש: "לחיצה על 'חזרה' בדפדפן אחרי החזרה מקארדקום חוזרת
+    // לעמוד התשלום של קארדקום - סיכון לתשלום כפול") - בדיקת iframe לא
+    // הכריעה (אין X-Frame-Options/CSP על עמוד התשלום, אבל זה לא מוכיח
+    // שאין חסימה בשלב מאוחר יותר של התהליך - ר' הדוח). זו החלופה הבטוחה:
+    // "כשיש internaldealnumber בכתובת" (קארדקום מוסיפה את זה בחזרה),
+    // מנקים את הכתובת (history.replaceState) ותופסים את ה-"חזרה" הראשונה
+    // (popstate) כדי שהיא תישאר באפליקציה במקום לנווט חזרה להיסטוריה
+    // (שם יושב עמוד התשלום עצמו) - history.pushState דוחף "קומה" נוספת
+    // מעל כתובת האפליקציה הנקייה, כך שה-"חזרה" הראשונה "נבלעת" בתוכה.
+    (function kbGuardAgainstCardcomBackButton() {
+        if (!/internaldealnumber/i.test(window.location.search)) return;
+        const cleanUrl = window.location.pathname;
+        try {
+            history.replaceState({ dcardGuard: true }, '', cleanUrl);
+            history.pushState({ dcardGuard: true }, '', cleanUrl);
+        } catch (e) { return; }
+        window.addEventListener('popstate', function () {
+            try { history.pushState({ dcardGuard: true }, '', cleanUrl); } catch (e) { /* ignore */ }
+        });
     })();
 
     // סעיף 8: "מחוון למנהל בלבד" - כשהתשלום כבוי (KB_PAYWALL_ENABLED,
@@ -2333,6 +2363,12 @@
         // לפחות הטקסט שהוא כתב לא יאבד. נקרא בחזרה ומנוקה פעם אחת בלבד
         // בטעינת העמוד - ר' "שחזור שאלה תקועה" למטה.
         pendingQuestion: 'dcard_pendingQuestion',
+        // עדכון §7.2 (19.11): "לשמור שאלה ומסלול לפני הרשמה/תשלום, ואחרי
+        // החזרה להמשיך אוטומטית לערבוב" - נשמר יחד עם pendingQuestion,
+        // ממש לפני triggerPaymentWall (ר' btnPathMessage/btnPathChat) -
+        // איזה כפתור מסלול נלחץ, כדי ש"שחזור שאלה תקועה" למטה ידע לא
+        // רק למלא את התיבה אלא גם ללחוץ בעצמו על אותו כפתור.
+        pendingMode: 'dcard_pendingMode',
         // אמון פסיכולוגי: לא לחזור על אותו קלף תוך אותו סשן (כבר נבדק מול
         // drawnCards) *או* תוך עד 5 סשנים עוקבים באותו היום - ר'
         // recentCardExclusionSet/recordCardInHistory למטה.
@@ -3119,45 +3155,24 @@
     const kbPaymentModal = document.getElementById('kb-payment-modal');
     const kbPaymentAdminBadge = document.getElementById('kb-payment-admin-badge');
     const kbPaymentTitle = document.getElementById('kb-payment-title');
-    const kbPaymentPlansTbody = document.getElementById('kb-payment-plans-tbody');
-    const kbPaymentPlansNote = document.getElementById('kb-payment-plans-note');
-    const kbPaymentNameDisplay = document.getElementById('kb-payment-name-display');
+    const kbPaymentPlansList = document.getElementById('kb-payment-plans-list');
     const kbPaymentEmailDisplay = document.getElementById('kb-payment-email-display');
     const kbPaymentFixEmailLink = document.getElementById('kb-payment-fix-email-link');
     const kbPaymentSubmit = document.getElementById('kb-payment-submit');
     const kbPaymentCancel = document.getElementById('kb-payment-cancel');
 
-    // עדכון §6.10.2: טבלה (עמודות מסלול/מחיר/קבלת מסר/דיאלוג מכוון),
-    // לא כרטיסים - "כדי שלא ייראו כמו כפתורי בחירה". במספרים כתוב רק
-    // המספר ("35"), "ללא הגבלה*" כשמסומן. שורה אחת מתחת לטבלה ("המספרים
-    // הם שימושים בחודש"), ועוד שורה רק אם יש כוכבית (הערת שימוש הוגן).
-    function kbRenderPlanTable(plans) {
-        kbPaymentPlansTbody.innerHTML = '';
-        let hasUnlimited = false;
+    // עדכון §6.10.2 (19.11): רשימה, לא טבלה - שם המסלול+מחיר בשורה אחת,
+    // המכסות בשורה שנייה. "אין 'ללא הגבלה' בכלל - תמיד המספר האמיתי",
+    // אז אין יותר ענף unlimited/כוכבית/הערת שימוש הוגן כאן בכלל.
+    function kbRenderPlanList(plans) {
+        kbPaymentPlansList.innerHTML = '';
         plans.forEach(function (plan) {
-            if (plan.unlimited_msg || plan.unlimited_chat) hasUnlimited = true;
-            const tr = document.createElement('tr');
-            tr.style.cssText = 'border-bottom:1px solid var(--line);';
-            const msgCell = plan.unlimited_msg ? 'ללא הגבלה*' : String(plan.credits_msg);
-            const chatCell = plan.unlimited_chat ? 'ללא הגבלה*' : String(plan.credits_chat);
-            tr.innerHTML = '<th scope="row" style="text-align:right;font-weight:500;padding:10px 4px;">' + plan.label + '</th>' +
-                '<td style="text-align:center;padding:10px 4px;">' + plan.price + ' ₪</td>' +
-                '<td style="text-align:center;padding:10px 4px;">' + msgCell + '</td>' +
-                '<td style="text-align:center;padding:10px 4px;">' + chatCell + '</td>';
-            kbPaymentPlansTbody.appendChild(tr);
+            const li = document.createElement('li');
+            li.className = 'kb-payment-plan-item';
+            li.innerHTML = '<div class="kb-payment-plan-row1"><span>' + plan.label + '</span><span><strong>' + plan.price + ' ₪</strong> לחודש</span></div>' +
+                '<div class="kb-payment-plan-row2">' + plan.credits_msg + ' קבלות מסר · ' + plan.credits_chat + ' דיאלוגים מכוונים</div>';
+            kbPaymentPlansList.appendChild(li);
         });
-        // הערת שימוש הוגן - נבנית מהמספרים האמיתיים, רק עבור המסלולים
-        // המסומנים "ללא הגבלה" (לא כל המסלולים).
-        let noteHtml = 'המספרים הם שימושים בחודש.';
-        if (hasUnlimited) {
-            const unlimitedParts = [];
-            plans.forEach(function (plan) {
-                if (plan.unlimited_chat) unlimitedParts.push('עד ' + plan.credits_chat + ' דיאלוגים מכוונים');
-                if (plan.unlimited_msg) unlimitedParts.push('עד ' + plan.credits_msg + ' קבלות מסר');
-            });
-            noteHtml += '<br>* ללא הגבלה, בשימוש הוגן: ' + unlimitedParts.join(' ו־') + ' בחודש.';
-        }
-        kbPaymentPlansNote.innerHTML = noteHtml;
     }
 
     let kbPaymentPlansCache = null;
@@ -3169,27 +3184,26 @@
         kbPaymentTitle.textContent = returningCancelled
             ? (userName + ', טוב לראות אותך שוב')
             : (userName + ', נמשיך יחד?');
-        kbPaymentNameDisplay.textContent = userName;
+        // עדכון §6.10.2: רק המייל מוצג כאן (השם כבר בכותרת).
         kbPaymentEmailDisplay.textContent = dcardGetLS(DCARD_LS_KEYS.email) || '';
         kbHideAlertBanner('kb-payment-send-error');
         kbPaymentModal.hidden = false;
         kbPaymentSubmit.focus();
 
-        kbPaymentPlansTbody.innerHTML = '<tr><td colspan="4" style="padding:10px 4px;">טוען מסלולים…</td></tr>';
-        kbPaymentPlansNote.textContent = '';
+        kbPaymentPlansList.innerHTML = '<li class="kb-modal-text" style="padding:10px 0;">טוען מסלולים…</li>';
         try {
             const res = await dcardFetch('/wp-json/dcard/v1/plans', { method: 'GET' });
             const data = await res.json();
             if (data && data.success && data.plans) {
                 kbPaymentPlansCache = data.plans;
-                kbRenderPlanTable(data.plans);
+                kbRenderPlanList(data.plans);
             } else {
-                kbPaymentPlansTbody.innerHTML = '<tr><td colspan="4" style="padding:10px 4px;">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></td></tr>';
+                kbPaymentPlansList.innerHTML = '<li class="kb-modal-text" style="padding:10px 0;">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></li>';
                 document.getElementById('kb-payment-plans-retry').addEventListener('click', function (e) { e.preventDefault(); kbOpenPaymentModal(adminTesting, returningCancelled); });
             }
         } catch (err) {
             console.warn('[DCard Payment] failed to load /plans:', err);
-            kbPaymentPlansTbody.innerHTML = '<tr><td colspan="4" style="padding:10px 4px;">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></td></tr>';
+            kbPaymentPlansList.innerHTML = '<li class="kb-modal-text" style="padding:10px 0;">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></li>';
             document.getElementById('kb-payment-plans-retry').addEventListener('click', function (e) { e.preventDefault(); kbOpenPaymentModal(adminTesting, returningCancelled); });
         }
     }
@@ -3605,10 +3619,28 @@
     // לשחזר, רק הטקסט שהספיק להיכתב.
     var pendingQuestion = dcardGetLS(DCARD_LS_KEYS.pendingQuestion);
     if (pendingQuestion) {
-        try { localStorage.removeItem(DCARD_LS_KEYS.pendingQuestion); } catch (lsErr) { /* פרטי/חסום - ממשיכים בלי לנקות */ }
+        // עדכון §7.2 (19.11): "אחרי החזרה, להמשיך אוטומטית לערבוב" - בנוסף
+        // לשחזור הטקסט, אם נשמר גם pendingMode (ר' kbSavePendingQuestionAndMode)
+        // מדמים לחיצה על אותו כפתור מסלול בדיוק - הוא כבר עושה את כל
+        // הבדיקה+הערבוב בעצמו (ensureSessionReady/kbHasCreditsOrHandleExhausted/
+        // kbProceedWithPath), בלי שכפול לוגיקה כאן. אם הקרדיט עדיין לא
+        // התעדכן (ה-IPN עוד בדרך) - אותו מנגנון awaitingPayment/
+        // kbWaitForPlanUpdate הקיים כבר מטפל בזה, לא צריך טיפול נוסף כאן.
+        var pendingMode = dcardGetLS(DCARD_LS_KEYS.pendingMode);
+        try {
+            localStorage.removeItem(DCARD_LS_KEYS.pendingQuestion);
+            localStorage.removeItem(DCARD_LS_KEYS.pendingMode);
+        } catch (lsErr) { /* פרטי/חסום - ממשיכים בלי לנקות */ }
         if (userQuestion) {
             userQuestion.value = pendingQuestion;
             console.log('[DCard Account] restored pending question into the question box after returning from payment.');
+        }
+        if (pendingMode) {
+            var kbResumeBtn = ('chat' === pendingMode) ? btnPathChat : btnPathMessage;
+            if (kbResumeBtn) {
+                console.log('[DCard Account] auto-resuming path "' + pendingMode + '" after returning from payment/registration.');
+                setTimeout(function () { kbResumeBtn.click(); }, 0);
+            }
         }
     }
 
@@ -4669,22 +4701,12 @@
     // "להמשך הקריאה" נפרד (סעיף 7.4 #8) - ממשיכים ישר לתצוגת הקלף, כמו
     // שכל שאר האפליקציה כבר עובדת (אין בכך סטייה מרשימת הבדיקות ב-7.9).
     const btnExtraCard = document.getElementById('btn-extra-card');
-    btnExtraCard.addEventListener('click', async function () {
-        btnExtraCard.disabled = true;
-        // סעיף 7.2א/6.10.1: בדיקה לפני שמסך הערבוב נפתח גם כאן ("צריך עוד
-        // קלף?") - המסלול השלישי. תיקון: עד כה kbHasCreditsOrHandleExhausted
-        // דילגה על כל בדיקה למשתמש אנונימי (return true מיידי), כך ש"קלף
-        // נוסף" היה היחיד מבין שלושת המסלולים שאף פעם לא פתח את קיר
-        // ההרשמה - התיקון שם (ליד kbHasCreditsOrHandleExhausted) מטפל בזה;
-        // proceed מועבר כ-continueFn כדי שגם אם נחסם ואז נרשם, השליפה
-        // תמשיך לבד בלי שכפול קוד.
-        const mode = chatModeActive ? 'chat' : 'message';
-        const proceed = function () { maybeOfferAnotherCard('request_card_draw', true); };
-        if (!(await kbHasCreditsOrHandleExhausted(mode, null, btnExtraCard, proceed))) {
-            btnExtraCard.disabled = false;
-            return;
-        }
-        proceed();
+    // עדכון §7.2 (19.11): "לא עוצרים שיחה באמצע" - הבדיקה (קרדיט/הרשמה/
+    // תשלום) קורית רק על כפתורי המסלול בתחילת שיחה, לא כאן. "קלף נוסף"
+    // הוא תוך סשן שכבר התחיל ושכבר שולם/נבדק עליו - בדיוק כמו ש-/session/
+    // turn כבר לא בודק קרדיט על הודעות המשך (ר' session_turn_inner).
+    btnExtraCard.addEventListener('click', function () {
+        maybeOfferAnotherCard('request_card_draw', true);
     });
 
     // סעיף 6.5: לייטבוקס לתמונה הממוזערת של קלף בטלפון/טאבלט (<1024px) -
@@ -4856,6 +4878,12 @@
         if (drawIndex && drawIndex === kbLastHandledDrawIndex && !isRetry) return;
         if (drawIndex) kbLastHandledDrawIndex = drawIndex;
         showTyping(function () { kbRunAiTurnForCard(cardId, mode, drawIndex, true); });
+        // §7.2ב: request_id קבוע לכל שליפה (drawIndex כבר יציב בין ניסיון
+        // ראשון לניסיון חוזר של אותה שליפה בדיוק, ר' ההערה למעלה) - אם
+        // השרת כבר סיים וחייב קרדיט על הניסיון הראשון לפני שה-timeout
+        // בצד הלקוח ויתר עליו, ה"ניסיון חוזר" הזה מקבל את אותה תגובה
+        // בחזרה בלי חיוב נוסף (ר' session_card_selected_inner).
+        const requestId = sessionToken + '-card-' + (drawIndex || 1);
         try {
             const res = await dcardFetch(`${API_BASE}/card-selected`, {
                 method: 'POST',
@@ -4864,7 +4892,8 @@
                     session_token: sessionToken,
                     card_id: String(cardId),
                     question: drawnCards.length === 1 ? userQuestion.value.trim() : undefined,
-                    mode: mode
+                    mode: mode,
+                    request_id: requestId
                 })
             }, DCARD_AI_FETCH_TIMEOUT_MS);
             const data = await res.json();
@@ -5141,9 +5170,9 @@
         if (!(await ensureSessionReady(btnDeckAction))) return;
 
         if (appState === 'drawn') {
-            // קלף נוסף (לא הראשון) - השאלה כבר ננעלה מזמן. סעיף 7.2א: בדיקה
-            // לפני שמסך הערבוב נפתח, גם כאן.
-            if (!(await kbHasCreditsOrHandleExhausted(chatModeActive ? 'chat' : 'message', null, btnDeckAction))) return;
+            // עדכון §7.2 (19.11): "לא עוצרים שיחה באמצע" - קלף נוסף הוא תוך
+            // סשן שכבר התחיל, אין בדיקת קרדיט/הרשמה/תשלום כאן יותר (הייתה
+            // כאן קודם, הוסרה - אותו עיקרון כמו btnExtraCard/session_turn_inner).
             // סעיף 7.6: skipRiffle ל"קלף נוסף" - ישר לשלב flow, בלי רצף
             // הערבוב המלא.
             kbShowStage();
@@ -5278,8 +5307,20 @@
         }
     }
 
+    // עדכון §7.2 (19.11): נשמר *ממש לפני* הבדיקה (לא רק בתוך 403/exhausted) -
+    // הבדיקה עצמה עלולה לנווט לקארדקום (triggerPaymentWall) בלי שום הזדמנות
+    // נוספת לשמור משהו אחריה. harmless אם לא נדרש בפועל (נמחק/נדרס בפעם הבאה).
+    function kbSavePendingQuestionAndMode(mode) {
+        const q = userQuestion && userQuestion.value ? userQuestion.value.trim() : '';
+        if (q) {
+            dcardSetLS(DCARD_LS_KEYS.pendingQuestion, q);
+            dcardSetLS(DCARD_LS_KEYS.pendingMode, mode);
+        }
+    }
+
     btnPathChat.addEventListener('click', async () => {
         if (pathChosen) return; // חד-פעמי - לא רלוונטי יותר אחרי שהקופה כבר נחשפה
+        kbSavePendingQuestionAndMode('chat');
 
         // תיקון יחידת מדידה: הבדיקה (ולא רק הספירה) עברה לכאן - נקודת
         // הכניסה בפועל לשיחה פתוחה, במקום על כל הודעה בתוכה (ר' btnSend).
@@ -5295,6 +5336,7 @@
 
     btnPathMessage.addEventListener('click', async () => {
         if (pathChosen) return;
+        kbSavePendingQuestionAndMode('message');
 
         // Freemium PLG, שלב 1: בדיקה *לפני* הקריאה בפועל - חוסמים את
         // הקריאה עצמה, לא רק משהו אחריה. משאירים את מסך בחירת המסלול כמו
