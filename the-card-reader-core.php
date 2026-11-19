@@ -32,11 +32,11 @@ define( 'DCARD_PLUGIN_URL', TCR_CORE_URL );
 // (סעיף 6.11: מצב "מבוטל" ו-POST /account/cancel, ר' class-dcard-users.php).
 define( 'DCARD_DB_VERSION', '1.5.0' );
 
-// *** אבטחה: ר' ההערה המלאה שהייתה ב-dcard-ai-reader-backend.php - מומלץ
-// לעבור בהזדמנות לסוד המוגדר רק ב-wp-config.php, לא כאן. ***
-if ( ! defined( 'DCARD_WEBHOOK_SECRET' ) ) {
-	define( 'DCARD_WEBHOOK_SECRET', 'MySecretDcardKey2026' );
-}
+// *** אבטחה (תוקן, ר' docs/go-live.md): DCARD_WEBHOOK_SECRET כבר לא
+// מוגדר כאן בשום ערך - הוא חייב להיות מוגדר ב-wp-config.php (כלל 6
+// ב-CLAUDE.md: סודות חיים רק שם). אם הוא לא מוגדר, ה-webhook עצמו
+// (payment_webhook_inner, class-dcard-rest-controller.php) דוחה את
+// הבקשה ורושם שגיאה - ר' הבדיקה שם, לא כאן. ***
 
 // §6.11 (ביטול מנוי) + docs/cardcom-api/: קריאה ל-API של הוראות הקבע של
 // קארדקום (Operation=Update, RecurringPayments.IsActive=false) דורשת כתובת

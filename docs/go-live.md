@@ -26,12 +26,18 @@
   בכלל מוגדר כהוראת קבע).
 - לוודא שכתובת ה-Webhook/IPN בממשק קארדקום מצביעה לדומיין ה-production
   (`nuriteldar.co.il`), לא ל-staging.
-- **לסובב (rotate) את `DCARD_WEBHOOK_SECRET`.** כרגע הוא מוגדר ישירות
-  בקוד (`the-card-reader-core.php`, לא ב-`.env` כמו שאמור להיות לפי
-  הכלל הקבוע ב-CLAUDE.md) - לפני production: לייצר סוד חדש, להגדיר
-  אותו ב-`wp-config.php` של ה-production בלבד (`define('DCARD_WEBHOOK_SECRET', '...')`,
-  *לפני* טעינת הפלאגין), ולעדכן את אותו הסוד בממשק קארדקום. אסור
-  שהסוד של staging/קוד ישמש גם ב-production.
+- **`DCARD_WEBHOOK_SECRET` כבר לא מוגדר בקוד בכלל** (הוסר מ-
+  `the-card-reader-core.php` - תוקן, לא עוד "לפני production"). ה-
+  webhook (`payment_webhook_inner`) דוחה כל קריאה ורושם שגיאה אם הקבוע
+  לא מוגדר. **לכן, גם ב-staging:** יש להגדיר `define('DCARD_WEBHOOK_SECRET', '...')`
+  ב-`wp-config.php` *לפני* טעינת הפלאגין - אם זה עוד לא קיים שם, כל
+  תשלום/IPN נדחה החל מהפריסה של גרסת הקוד הזו. **לפני production:**
+  לייצר סוד **חדש ונפרד** (לא אותו ערך כמו staging), להגדיר אותו ב-
+  `wp-config.php` של ה-production בלבד, ולעדכן את אותו הסוד בממשק
+  קארדקום. אסור שהסוד של staging ישמש גם ב-production.
+- מודול הוראת הקבע של קארדקום שולח את המפתח בפרמטר `Secret` (אות
+  גדולה), לא `secret` כמו ה-IPN הרגיל - הקוד בודק את שניהם מול אותו
+  `DCARD_WEBHOOK_SECRET`, אין צורך בהגדרה נפרדת בקארדקום.
 - לוודא שכתובות ה-Cardcom URL לכל מסלול (`CARDCOM_PAYMENT_URL` ב-
   `frontend/elementor-code.html`, ובעתיד - השדות בעמוד המכסות לפי
   §6.10.2) מצביעות למוצרי ה-production בקארדקום, לא למוצרי בדיקה.

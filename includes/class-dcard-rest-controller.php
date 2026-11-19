@@ -1691,8 +1691,24 @@ class DCard_REST_Controller {
 		// field) במקום ב-URL - זה היה פותר את זה. לא ידוע אם זו אפשרות
 		// נתמכת בממשק שלהם - יש לבדוק. עד אז, ה-secret ימשיך להופיע בלוגי
 		// שרת גולמיים (ולא בלוגים שהקוד שלנו כותב - אלה כבר ממוסכים). ***
-		$secret = (string) $request->get_param( 'secret' );
-		if ( ! $secret || ! hash_equals( DCARD_WEBHOOK_SECRET, $secret ) ) {
+		// *** אבטחה (תוקן): DCARD_WEBHOOK_SECRET כבר לא מוגדר עם ערך קשיח
+		// ב-the-card-reader-core.php - הוא חייב להיות מוגדר ב-wp-config.php
+		// של production (ר' docs/go-live.md). אם הוא לא מוגדר בכלל, זו
+		// תקלת הגדרה (לא "secret שגוי") - נדחה ונרשם כשגיאה, לא כאזהרה. ***
+		if ( ! defined( 'DCARD_WEBHOOK_SECRET' ) ) {
+			DCard_Logger::error( 'POST /webhook/ipn-update - DCARD_WEBHOOK_SECRET is not defined in wp-config.php, rejecting all webhook calls', array() );
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'Unauthorized' ), 403 );
+		}
+
+		// תיקון (מודול הוראת הקבע של קארדקום שולח "Secret" עם אות גדולה,
+		// לא "secret" כמו ה-IPN הרגיל - ר' docs/cardcom-api/README.md וה-
+		// לוג האמיתי שמתועד שם) - נבדקים שני השמות, hash_equals לכל אחד
+		// בנפרד (לא concatenation/OR על ערכים לא ממוסכים לפני ההשוואה).
+		$secret_lower = (string) $request->get_param( 'secret' );
+		$secret_upper = (string) $request->get_param( 'Secret' );
+		$secret_valid = ( $secret_lower && hash_equals( DCARD_WEBHOOK_SECRET, $secret_lower ) )
+			|| ( $secret_upper && hash_equals( DCARD_WEBHOOK_SECRET, $secret_upper ) );
+		if ( ! $secret_valid ) {
 			// תיקון אבחון (דווח בפועל: secret לא תואם אחרי rotation) - בלי
 			// לחשוף אף אחד משני ה-secret-ים בטקסט גלוי (אותה מדיניות כמו
 			// קודם, הפעם מול לוג וורדפרס/WooCommerce שהמנהל קורא, לא רק
@@ -1708,10 +1724,11 @@ class DCard_REST_Controller {
 				}
 				return substr( $value, 0, 2 ) . str_repeat( '*', $len - 4 ) . substr( $value, -2 );
 			};
+			$received_secret = $secret_lower ? $secret_lower : $secret_upper;
 			DCard_Logger::warning( 'POST /webhook/ipn-update - missing/invalid secret, rejecting', array(
 				'received_keys'          => array_keys( $request->get_params() ),
-				'received_secret_len'    => strlen( $secret ),
-				'received_secret_masked' => $mask( $secret ),
+				'received_secret_len'    => strlen( $received_secret ),
+				'received_secret_masked' => $mask( $received_secret ),
 				'expected_secret_len'    => strlen( (string) DCARD_WEBHOOK_SECRET ),
 				'expected_secret_masked' => $mask( (string) DCARD_WEBHOOK_SECRET ),
 			) );
