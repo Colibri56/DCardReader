@@ -326,6 +326,7 @@
         /* תיקון QA (סעיף 6.5: "ריווח קבוע: בין הבמה... לשורת ההנחיה 24px") -
            היה 8px. */
         margin: 0 auto 24px;
+        cursor: pointer; /* עדכון §7 (19.11): כל הבמה היא כפתור אחד */
     }
     .kb-deck-card {
         position: absolute;
@@ -1623,7 +1624,7 @@
             <div class="deck-block" id="block-2">
                 <div class="kb-stage" id="kb-stage" aria-label="חפיסת הקלפים"></div>
                 <div id="kb-stage-status" class="kb-stage-status" aria-live="polite"></div>
-                <button class="btn-main" id="btn-deck-action" disabled>רגע, מערבבים…</button>
+                <button class="btn-main" id="btn-deck-action">שליפת קלף</button>
             </div>
 
             <!-- בלוק 4: דיאלוג עם ה-AI -->
@@ -1792,6 +1793,9 @@
                 <a href="#">מדיניות פרטיות</a>
                 <a href="#">תנאי שימוש</a>
                 <a href="#">הצהרת נגישות</a>
+                <!-- סימון גרסה (התבקש): תאריך+שעה של העדכון האחרון לקובץ
+                     הזה, קטן ואפור, בתחתית התפריט. ר' KB_VERSION ב-JS. -->
+                <span id="kb-version-marker" style="font-size:12px;color:var(--muted);margin-top:4px;"></span>
             </div>
         </div>
     </div>
@@ -1830,6 +1834,9 @@
                     <label class="kb-field-label" for="kb-account-name">שם</label>
                     <input type="text" id="kb-account-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
                     <div class="kb-field-error" id="kb-account-name-error" style="display:none;" role="alert"></div>
+                    <!-- עדכון §6.11: "מייל, בשורה אחת: 'מייל: {כתובת}', מיד מתחת
+                         לשם" - לקריאה בלבד, בלי קישור. -->
+                    <p class="kb-modal-text" style="margin:2px 0 0;">מייל: <span id="kb-account-email-readonly" dir="ltr"></span></p>
                     <fieldset style="margin:0;padding:0;border:none;">
                         <legend class="kb-field-label" id="kb-account-gender-legend">איך לפנות אליך?</legend>
                         <div class="kb-gender-radio-group" role="radiogroup" aria-labelledby="kb-account-gender-legend">
@@ -1837,17 +1844,11 @@
                             <label class="kb-gender-radio"><input type="radio" name="kb-account-gender" id="kb-account-gender-female" value="female">בלשון נקבה</label>
                         </div>
                     </fieldset>
-                    <label class="kb-field-label" for="kb-account-phone">טלפון (לא חובה)</label>
+                    <!-- עדכון §6.11: בלי "(לא חובה)" - השדה פשוט לא חובה. -->
+                    <label class="kb-field-label" for="kb-account-phone">טלפון</label>
                     <input type="tel" id="kb-account-phone" class="kb-field" dir="ltr" placeholder="050-0000000" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
                     <div class="kb-alert-banner" id="kb-account-details-error" style="display:none;"></div>
                     <button type="button" class="btn-main" id="kb-account-save-details">שמירת השינויים</button>
-                    <!-- עדכון §6.11: "מייל: לקריאה בלבד, בלי קישור" - גם הקישור
-                         "לשינוי כתובת המייל" הוסר (לא רק השדה הפך ללא ניתן
-                         לעריכה, כמו קודם). -->
-                    <div>
-                        <span class="kb-field-label">מייל</span>
-                        <p class="kb-modal-text" style="margin:2px 0 0;" dir="ltr"><span id="kb-account-email-readonly"></span></p>
-                    </div>
                 </div>
             </section>
 
@@ -1864,7 +1865,7 @@
                 <h2 id="kb-account-section-title" class="kb-account-section-title">החשבון</h2>
                 <!-- מחיקת חשבון בפועל (Phase D) לא קיימת עדיין - הקישור
                      פותח "כתבו לנו" בינתיים, ר' kbAccountDeleteLink למטה. -->
-                <button type="button" class="kb-account-quiet-link" id="kb-account-delete-link" style="color:#A3262A !important;">מחיקת החשבון</button>
+                <button type="button" class="kb-account-quiet-link" id="kb-account-delete-link" style="color:#A3262A !important;">מחיקת החשבון מהאפליקציה</button>
             </section>
 
         </div>
@@ -2108,6 +2109,14 @@
 </div>
 
 <script>
+    // סימון גרסה (התבקש): תאריך+שעה של העדכון האחרון בפועל לקובץ הזה -
+    // *** לעדכן בכל שינוי ל-elementor-code.html, בלי יוצא מן הכלל. ***
+    // מוצג בקטן ואפור בתחתית תפריט ה-☰ (kb-version-marker), ונכתב גם
+    // ל-console בכל טעינת עמוד - כדי שאפשר לוודא מהר, גם בלי לפתוח
+    // DevTools, שגרסת ה-staging שנבדקת היא באמת זו שהודבקה לאחרונה.
+    const KB_VERSION = '2026-11-19 12:30';
+    console.log('[DCard] KB_VERSION =', KB_VERSION);
+
     // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
     // הקובץ הזה הוא קטע HTML בלבד (מודבק לווידג'ט ב-Elementor), בלי <head>
     // משלו - אי אפשר להוסיף כאן ישירות <meta name="viewport">. במקום זאת,
@@ -2881,6 +2890,8 @@
     const kbMenuAbout = document.getElementById('kb-menu-about');
     const kbMenuContact = document.getElementById('kb-menu-contact');
     const kbMenuMyAccount = document.getElementById('kb-menu-my-account');
+    const kbVersionMarker = document.getElementById('kb-version-marker');
+    if (kbVersionMarker) kbVersionMarker.textContent = KB_VERSION;
     const kbInfoModal = document.getElementById('kb-info-modal');
     const kbInfoTitle = document.getElementById('kb-info-title');
     const kbInfoBody = document.getElementById('kb-info-body');
@@ -3326,9 +3337,13 @@
             const isFree = ('free' === data.current_plan);
             const isCancelled = ('cancelled' === data.current_plan);
             const cancelPending = !!data.cancel_requested_at && !isCancelled;
+            // עדכון §6.11: מסלול חינמי מוצג כ"אורח" (לא "חינמי") - תצוגה
+            // בלבד, במסך הזה בלבד (data.current_plan/plan_label עצמם לא
+            // משתנים - עמוד הלקוחות באדמין וכל שאר התצוגות ממשיכות "חינמי").
+            const planDisplayLabel = isFree ? 'אורח' : data.plan_label;
             let planHtml = '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
                 '<div style="display:flex;flex-direction:column;gap:4px;">' +
-                '<span style="font-size:20px;font-weight:500;">' + data.plan_label + '</span>';
+                '<span style="font-size:20px;font-weight:500;">' + planDisplayLabel + '</span>';
             // תגית "בוטל · פעיל עד {תאריך}" - §6.11 "אחרי ביטול" (מצב
             // ביניים: ברגע שהבקשה נשמרה, לא רק אחרי אישור קארדקום בפועל -
             // ר' ההערה המלאה ב-account_cancel_inner).
@@ -4204,13 +4219,14 @@
     //   2. chosen/last מתאפסים בתחילת start() - בקוד הייחוס המקורי נשארים
     //      "תפוסים" לצמיתות אחרי קלף ראשון, כך ששליפה שנייה/שלישית (יש לנו
     //      עד MAX_CARDS=3 בסשן אחד, לא קלף יחיד לעמוד) לא הייתה עובדת.
-    //   3. tabindex על .kb-deck-card מתחלף 0/-1 לפי שלב (סעיף 7.7: Tab
-    //      עובר בין הקלפים רק בשלב flow).
-    //   4. אין Promise.race עם timeout על fetchCard: ה-endpoint הקיים
-    //      (session/card-selected) משלב בחירת קלף + קריאת AI מלאה (לפעמים
-    //      עם retry) באותה בקשה - ר' ההערה המלאה ליד kbFetchCard למטה.
-    //      הוחלט (במפורש, לא בכוונה לסטות משקט מסעיף 7.2) לחייב בחירה
-    //      ידנית (הקשה על קלף/לחיצה על הכפתור) בלי טיימר אוטומטי.
+    //   3. tabindex על .kb-deck-card מתחלף 0/-1 לפי שלב (בונוס - Tab
+    //      עובר בין הקלפים בפועל רק בשלב flow), אבל אינו עוד מנגנון
+    //      הנגישות העיקרי: עדכון §7 (19.11) הוסיף role="button"/
+    //      aria-label/tabindex=0 על הבמה כולה (kb-stage) - שליפה
+    //      אפשרית בכל שלב, לא רק flow, ו-Enter/רווח על הבמה עצמה.
+    //   4. timeout על fetchCard נוסף בפועל - לא Promise.race מקומי, אלא
+    //      דרך dcardFetch() (AbortController, 8 שניות) שה-endpoint עצמו
+    //      (session/draw-card, ר' kbFetchCard למטה) כבר עובר דרכו.
     function kbShuffle(stage, opts) {
         // BT/STAGE_H הוקטנו מול המקור (דווח בפועל: "להעלות את ערימות הקלפים
         // למעלה" + "לצמצם את הרווח מתחת לקלפים") - הקלפים יושבים גבוה יותר
@@ -4243,6 +4259,21 @@
         // (ה-listener שלו רץ קודם, ב-bubbling; ה-guard ב-pick()/skipToFlowThenPick
         // מונע הפעלה כפולה כשההקשה הזו "נופלת" גם היא על אותו אירוע).
         stage.addEventListener('click', () => { if (phase !== 'drawn') skipToFlowThenPick(last ?? A[A.length - 1] ?? order[0]); });
+
+        // עדכון §7 (19.11): "כל אזור הקלפים הוא כפתור אחד" - role/aria-label/
+        // tabindex על הבמה עצמה (לא רק על כל קלף בנפרד, שנשארים tabindex=-1
+        // קבוע - ר' kbBuildStage), עם Enter/רווח שקוראים לאותה פונקציה כמו
+        // הקשה/לחיצה.
+        stage.setAttribute('role', 'button');
+        stage.setAttribute('aria-label', 'שליפת קלף');
+        stage.tabIndex = 0;
+        stage.addEventListener('keydown', (e) => {
+            if (phase === 'drawn') return;
+            if ('Enter' === e.key || ' ' === e.key || 'Spacebar' === e.key) {
+                e.preventDefault();
+                skipToFlowThenPick(last ?? A[A.length - 1] ?? order[0]);
+            }
+        });
 
         // דווח בפועל: "משתמשים וותיקים לא בהכרח ירצו לחכות שניות מיותרות" -
         // לחיצה/הקשה בזמן הריפל (לפני ששלב ה-flow בכלל התחיל) מדלגת ישר
@@ -4379,7 +4410,12 @@
         }
         function start({ skipRiffle = false } = {}) {
             chosen = null; last = null;
-            opts.onBusyChange(true); opts.onHint('shuffling'); render();
+            // עדכון §7 (19.11): אין יותר onBusyChange(true) כאן - הכפתור
+            // ("שליפת קלף") וכל אזור הקלפים פעילים ובחירים מהרגע הראשון,
+            // כולל בזמן stack/split/riffle (לא רק משלב flow). "busy"
+            // האמיתי היחיד נשאר בתוך pick() עצמה - פעם אחת קלף כבר נבחר
+            // ועולה, אין עוד מה לבחור.
+            opts.onHint('shuffling'); render();
             let t = 400;
             // 3 סבבי ריפל (לא 2) - דווח בפועל: "להוסיף עירבוב נוסף".
             if (!skipRiffle && !reduce) for (let k = 0; k < 3; k++) {
@@ -4400,7 +4436,12 @@
         }
         return {
             start,
-            drawNow: () => pick(last ?? A[A.length - 1]),
+            // עדכון §7 (19.11): drawNow() עובר דרך skipToFlowThenPick, לא
+            // pick() ישירות - pick() מתעלמת בשקט אם phase!=='flow' (עדיין
+            // בשלבי stack/split/riffle), בדיוק המקרה שצריך לעבוד עכשיו
+            // (בחירה בשנייה הראשונה/באמצע ריפל). קרוא גם מהכפתור החיצוני
+            // (btnDeckAction) וגם מ"ניסיון חוזר" אחרי שגיאה.
+            drawNow: () => skipToFlowThenPick(last ?? A[A.length - 1] ?? order[0]),
             destroy: () => { timers.forEach(clearTimeout); clearInterval(flowTimer); }
         };
     }
@@ -4457,6 +4498,12 @@
         block2Deck.style.display = 'flex';
         kbStage.style.display = '';
         btnDeckAction.style.display = '';
+        // עדכון §7 (19.11): "שליפת קלף" פעיל וגלוי מהרגע הראשון - אין יותר
+        // שלב "רגע, מערבבים…" מושבת. קבוע כאן, לא בכל נקודת-כניסה בנפרד
+        // (היו 3 - כאן, "קלף נוסף" ושליחת שאלה ראשונה - כל אחת שכחה את
+        // האחרת בעבר).
+        btnDeckAction.disabled = false;
+        btnDeckAction.innerText = 'שליפת קלף';
         kbStageStatus.textContent = '';
     }
     function kbHideStage() {
@@ -4500,11 +4547,15 @@
             kbStageStatus.appendChild(retryBtn);
             return;
         }
+        // עדכון §7 (19.11): שורה אחת, זהה לכל אורך הלולאה (stack/split/
+        // riffle/flow) - אין עוד הבדל בין "מערבבים" ל"בתנועה, אפשר כבר
+        // לבחור", כי אפשר לבחור תמיד, מהרגע הראשון.
+        const shuffleLoopText = ( 'female' === userGender )
+            ? 'התחלתי לערבב. כשמרגיש לך נכון, געי באחד הקלפים.'
+            : 'התחלתי לערבב. כשמרגיש לך נכון, גע באחד הקלפים.';
         const texts = {
-            shuffling: 'מערבבים את הקלפים…',
-            flowing: ( 'female' === userGender )
-                ? 'הקלפים מתערבבים. כשמרגיש לך נכון, לחצי על "שליפת קלף" או הקישי על אחד הקלפים'
-                : 'הקלפים מתערבבים. כשמרגיש לך נכון, לחץ על "שליפת קלף" או הקש על אחד הקלפים',
+            shuffling: shuffleLoopText,
+            flowing: shuffleLoopText,
             revealed: 'זה הקלף שנבחר'
         };
         kbStageStatus.textContent = texts[key] || '';
@@ -4837,7 +4888,6 @@
             kbStage.scrollIntoView({ behavior: 'smooth', block: 'center' });
             if (autoShuffle) {
                 appState = 'shuffling';
-                btnDeckAction.innerText = 'רגע, מערבבים…';
                 kbShuffleController.start({ skipRiffle: true });
             }
         }
@@ -5005,7 +5055,6 @@
 
         kbShowStage();
         appState = 'shuffling';
-        btnDeckAction.innerText = 'רגע, מערבבים…';
         kbShuffleController.start();
         // "העמוד גולל לראש" (סעיף 6.5) - לא עוד לתוך מרכז הבמה, אלא לראש
         // העמוד, כדי שהשאלה (היחידה שנשארה גלויה מעל הבמה) תיראה מיד.
@@ -5070,7 +5119,6 @@
             // הערבוב המלא.
             kbShowStage();
             appState = 'shuffling';
-            btnDeckAction.innerText = 'רגע, מערבבים…';
             kbShuffleController.start({ skipRiffle: true });
             return;
         }
