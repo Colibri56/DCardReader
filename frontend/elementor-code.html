@@ -44,6 +44,12 @@
        יוכלו להקטין/למתוח אותו. */
     .kb-app .kb-icon { width: 20px !important; height: 20px !important; min-width: 20px; flex: none; display: block; }
     .kb-app .kb-icon--sm { width: 18px !important; height: 18px !important; min-width: 18px; }
+    /* תיקון (דווח בפועל פעמיים, מקומות שונים: קישורים הציגו ורוד) -
+       לא היה כאן אף פעם כלל color כללי על <a> בתוך האפליקציה, אז כל
+       קישור חדש חשוף לצבע הקישורים של התבנית/אלמנטור. כלל גורף אחד,
+       לא תיקון נקודתי בכל מקום בנפרד - מונע את אותה תקלה בפעם הבאה
+       שמישהו מוסיף <a> חדש (למשל טבלת המסלולים/תיקון מייל ב-6.10.2). */
+    .kb-app a { color: var(--bordeaux) !important; }
     .kb-app .kb-icon-btn { width: 44px; height: 44px; min-width: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 0; line-height: 0; }
     .kb-header {
         display: flex;
@@ -1391,9 +1397,22 @@
     .kb-menu-overlay { position: fixed; inset: 0; z-index: 1000; background: var(--paper); }
     .kb-menu-overlay[hidden] { display: none; }
     .kb-menu-panel { width: 100%; height: 100%; max-width: 100%; padding: 20px 24px; box-sizing: border-box; overflow-y: auto; }
+    /* תיקון (דווח בפועל פעמיים: "עדיין ורוד, X שחור") - !important על
+       color בלבד (ניסיון קודם) לא הספיק: הרקע הוורוד של התבנית נשאר,
+       וכנראה יש לה גם כללי hover/focus/active נפרדים משלה על <button>
+       שממשיכים לגבור. כאן: רקע שקוף + מסגרת --line, צבע --ink בכל
+       מצב, כולם עם !important - לא רק על הבסיס.                                      */
+    .kb-menu-close,
+    .kb-menu-close:hover,
+    .kb-menu-close:focus,
+    .kb-menu-close:active {
+        background: transparent !important;
+        border: 1px solid var(--line) !important;
+        color: var(--ink) !important;
+    }
     .kb-menu-close {
-        width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--surface);
-        color: var(--ink) !important; font-size: 20px; cursor: pointer; margin-inline-start: auto; display: block;
+        width: 44px; height: 44px; border-radius: 50%;
+        font-size: 20px; cursor: pointer; margin-inline-start: auto; display: block;
     }
     .kb-menu-item {
         display: flex; align-items: center; width: 100%; min-height: 56px; font-size: 18px;
@@ -1408,7 +1427,7 @@
        למשתמש אנונימי. */
     .kb-menu-item[hidden] { display: none; }
     .kb-menu-footer { margin-top: 24px; font-size: 15px; color: var(--muted); display: flex; flex-direction: column; gap: 10px; }
-    .kb-menu-footer a { color: var(--muted); }
+    .kb-menu-footer a { color: var(--muted) !important; }
     @media (min-width: 768px) {
         .kb-menu-overlay { background: var(--scrim); display: flex; }
         .kb-menu-panel { max-width: 380px; height: 100%; background: var(--paper); position: absolute; left: 0; top: 0; }
@@ -1458,7 +1477,7 @@
                 <h1 class="kb-landing-title">שאלה אחת, תמונה אחת, והתשובה המפתיעה</h1>
                 <p class="kb-landing-text">הקורא בקלפים הוא מלווה חכם שעוזר לך לחשוב על מה שמעסיק אותך. תמונה שנשלפת באקראי פותחת שיחה, והאינטואיציה שלך עושה את השאר.</p>
                 <button type="button" class="btn-main kb-btn--large" id="kb-landing-start">בואו נתחיל</button>
-                <div class="kb-landing-hint">הזדמנות להתנסות בחינם</div>
+                <div class="kb-landing-hint"> </div>
                 <hr class="kb-landing-divider">
                 <h2 class="kb-landing-subtitle">איך זה עובד</h2>
                 <ol class="kb-landing-steps">
@@ -1712,14 +1731,14 @@
             <div class="kb-modal-handle"></div>
             <div id="kb-register-form-state">
                 <h2 class="kb-modal-title" id="kb-register-title" style="text-align:center;"></h2>
-                <p class="kb-modal-text" style="text-align:center;">אני ממש אוהב את השיחות שלנו, ואני יודע שהן עוזרות <strong>לקבל תשובות ולהתקדם</strong>אני מזמין אותך להמשיך ולהשתמש באפליקציה ורק נא למלא את הפרטים שלך, לצורכי בקרה ושיפור השירות.</p>
+                <p class="kb-modal-text" style="text-align:right;">אני ממש אוהב את השיחות שלנו, ואני יודע שהן עוזרות <strong>לקבל תשובות ולהתקדם. </strong>אני מזמין אותך להמשיך ולהשתמש באפליקציה ורק למלא את הפרטים שלך, לצורכי בקרה ושיפור השירות.</p>
                 <label class="kb-field-label" for="kb-register-name">שם</label>
                 <input type="text" id="kb-register-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
                 <div class="kb-field-error" id="kb-register-name-error" style="display:none;" role="alert">השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.</div>
                 <label class="kb-field-label" for="kb-register-email" style="margin-top:12px;">כתובת מייל</label>
                 <input type="email" id="kb-register-email" class="kb-field" dir="ltr" autocomplete="email" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
                 <div class="kb-field-error" id="kb-register-email-error" style="display:none;" role="alert">הכתובת לא נראית תקינה. כדאי לבדוק שוב.</div>
-                <p class="kb-modal-text" style="margin-top:10px;">לא נשלח לך דיוור שיווקי. המייל משמש רק לשמירת השימושים שלך.</p>
+                <p class="kb-modal-text" style="margin-top:10px;">המייל משמש רק לשמירת השימושים שלך. לא נשלח לך דיוור שיווקי.</p>
                 <div class="kb-alert-banner" id="kb-register-send-error" style="display:none;"></div>
                 <div class="kb-modal-actions">
                     <button type="button" class="btn-main" id="kb-register-submit">אשמח להמשיך</button>
@@ -1747,14 +1766,27 @@
             <p class="kb-modal-text" style="text-align:center;">אמרתי לך כבר קודם שאני אוהב שהשיחות שלנו <strong>תומכות ועוזרות להתקדם בחיים</strong>. יחד עם זה, כמו הרבה דברים בחיים, אני עולה כסף, ועד עכשיו נורית שילמה עליי.</p>
             <p class="kb-modal-text" style="text-align:center;">אני מזמין אותך להמשיך ולהשתמש באפליקציה, ואני <strong>יודע מניסיון רב</strong> שהשימוש ימשיך לתת לך ערך רב ולאורך זמן. בניתי שלושה מסלולים, ורק צריך לבחור את המתאים לך ביותר.</p>
             <div style="font-size:16px;font-weight:500;margin-top:10px;">המסלולים לבחירתך</div>
-            <div id="kb-payment-plans" style="display:flex;flex-direction:column;gap:10px;margin:14px 0;"></div>
-            <label class="kb-field-label" for="kb-payment-name">שם</label>
-            <input type="text" id="kb-payment-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
-            <div class="kb-field-error" id="kb-payment-name-error" style="display:none;" role="alert">השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.</div>
-            <label class="kb-field-label" for="kb-payment-email" style="margin-top:12px;">כתובת מייל</label>
-            <input type="email" id="kb-payment-email" class="kb-field" dir="ltr" autocomplete="email" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
-            <div class="kb-field-error" id="kb-payment-email-error" style="display:none;" role="alert">הכתובת לא נראית תקינה. כדאי לבדוק שוב.</div>
-            <p class="kb-modal-text" style="margin-top:10px;"><span id="kb-payment-same-email-note">בעמוד התשלום כדאי להשתמש באותה כתובת, כדי שהמסלול יתחבר אליך.</span></p>
+            <!-- עדכון §6.10.2: טבלה, לא כרטיסים (בכוונה לא נראים כמו
+                 כפתורי בחירה - הבחירה בפועל היא בעמוד של קארדקום). -->
+            <table id="kb-payment-plans-table" style="width:100%;border-collapse:collapse;margin:10px 0;font-size:14px;">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--line);">
+                        <th style="text-align:right;font-weight:500;padding:8px 4px;">מסלול</th>
+                        <th style="text-align:center;font-weight:500;padding:8px 4px;">מחיר לחודש</th>
+                        <th style="text-align:center;font-weight:500;padding:8px 4px;">קבלת מסר</th>
+                        <th style="text-align:center;font-weight:500;padding:8px 4px;">דיאלוג מכוון</th>
+                    </tr>
+                </thead>
+                <tbody id="kb-payment-plans-tbody"></tbody>
+            </table>
+            <p class="kb-modal-text" id="kb-payment-plans-note" style="font-size:13px;"></p>
+            <!-- עדכון §6.10.2: שם/מייל לתצוגה בלבד (לא שדות) - המשתמש כבר
+                 רשום בשלב הזה (6.10.1 קדם לזה), אין כאן מה לערוך. -->
+            <div style="background:var(--blush);border-radius:14px;padding:14px 16px;margin:14px 0;">
+                <p style="margin:0;font-size:15px;">שם: <span id="kb-payment-name-display"></span></p>
+                <p style="margin:4px 0 0;font-size:15px;" dir="ltr">מייל: <span id="kb-payment-email-display"></span></p>
+            </div>
+            <p class="kb-modal-text" style="margin-top:0;">אם כתובת המייל שגויה, <a href="#" id="kb-payment-fix-email-link">כתבו לנו</a> ונשמח לעזור.</p>
             <div class="kb-alert-banner" id="kb-payment-send-error" style="display:none;"></div>
             <div class="kb-modal-actions">
                 <button type="button" class="btn-main" id="kb-payment-submit">אשמח להירשם ולהמשיך</button>
@@ -2114,7 +2146,7 @@
     // מוצג בקטן ואפור בתחתית תפריט ה-☰ (kb-version-marker), ונכתב גם
     // ל-console בכל טעינת עמוד - כדי שאפשר לוודא מהר, גם בלי לפתוח
     // DevTools, שגרסת ה-staging שנבדקת היא באמת זו שהודבקה לאחרונה.
-    const KB_VERSION = '2026-11-19 12:30';
+    const KB_VERSION = '2026-11-19 14:05';
     console.log('[DCard] KB_VERSION =', KB_VERSION);
 
     // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
@@ -2218,15 +2250,26 @@
     // תיקון (התבקש: "לכל בקשה לשרת צריך timeout... כלום לא נשאר תקוע
     // על 'רגע…' לנצח") - fetch() הדפדפן, בלי AbortController, מחכה
     // בלי הגבלת זמן אם השרת תקוע/לא עונה. עטיפה אחת לכל קריאות ה-fetch
-    // בקובץ (DCARD_FETCH_TIMEOUT_MS), כדי שתקלת רשת אמיתית תמיד תיפול
-    // ל-catch תוך זמן סביר במקום להשאיר UI (כפתור/מסך) תקוע. חותמת
-    // ה-error שנזרקת (name='AbortError') זהה למה ש-fetch עצמו היה זורק
-    // על ביטול - כל קוד קיים שכבר תופס שגיאות ב-catch ממשיך לעבוד בלי
-    // שינוי, רק עם תקרת זמן אמיתית במקום "לנצח".
+    // בקובץ, כדי שתקלת רשת אמיתית תמיד תיפול ל-catch תוך זמן סביר במקום
+    // להשאיר UI (כפתור/מסך) תקוע. חותמת ה-error שנזרקת (name='AbortError')
+    // זהה למה ש-fetch עצמו היה זורק על ביטול - כל קוד קיים שכבר תופס
+    // שגיאות ב-catch ממשיך לעבוד בלי שינוי, רק עם תקרת זמן אמיתית במקום
+    // "לנצח".
+    //
+    // תיקון חמור (דווח בפועל: "החיבור נקטע" באמצע שיחות/קריאות אמיתיות) -
+    // 8 שניות מתאימות לפעולות מהירות (שליפת קלף, הרשמה, סטטוס) אבל
+    // *לא* לקריאות ה-AI (session/card-selected, session/turn) - אלה
+    // עוברות דרך DCard_AI_Gateway::REQUEST_TIMEOUT בצד השרת, שכבר הוגדר
+    // במפורש ל-60 שניות אחרי תקרית production מתועדת (ר' ההערה המלאה
+    // ליד הקבוע הזה ב-class-dcard-ai-gateway.php) - 8 שניות כאן היו קצרות
+    // בהרבה מהזמן שהשרת עצמו כבר יודע שהוא עשוי להזדקק לו. timeoutMs
+    // אופציונלי (ברירת מחדל 8 שניות) - קריאות ה-AI מעבירות את
+    // DCARD_AI_FETCH_TIMEOUT_MS (90 שניות) במפורש.
     const DCARD_FETCH_TIMEOUT_MS = 8000;
-    function dcardFetch(url, options) {
+    const DCARD_AI_FETCH_TIMEOUT_MS = 90000;
+    function dcardFetch(url, options, timeoutMs) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(function () { controller.abort(); }, DCARD_FETCH_TIMEOUT_MS);
+        const timeoutId = setTimeout(function () { controller.abort(); }, timeoutMs || DCARD_FETCH_TIMEOUT_MS);
         const opts = Object.assign({}, options, { signal: controller.signal });
         return fetch(url, opts).finally(function () { clearTimeout(timeoutId); });
     }
@@ -3069,41 +3112,52 @@
         }
     });
 
-    // §6.10.2: חלון ההצטרפות למסלול (kb-payment-modal) - אותו דפוס מבני
-    // בדיוק כמו kb-register-modal למעלה (שם/מייל ממולאים-מראש, /register,
-    // קיר ה-cooldown כבר ב-triggerPaymentWall). ההבדל: אחרי הרשמה לא
-    // "ממשיכים לבד" פנימה - מנווטים לקארדקום.
+    // §6.10.2: חלון ההצטרפות למסלול (kb-payment-modal). עדכון: המשתמש
+    // כבר רשום בשלב הזה (6.10.1 קודם לו, ר' §7.2א) - שם/מייל לתצוגה
+    // בלבד, לא שדות לעריכה. "אין מה לשמור" - לחיצה על הכפתור מנווטת
+    // ישר לקארדקום, בלי קריאת /register נוספת.
     const kbPaymentModal = document.getElementById('kb-payment-modal');
     const kbPaymentAdminBadge = document.getElementById('kb-payment-admin-badge');
     const kbPaymentTitle = document.getElementById('kb-payment-title');
-    const kbPaymentPlansEl = document.getElementById('kb-payment-plans');
-    const kbPaymentName = document.getElementById('kb-payment-name');
-    const kbPaymentEmail = document.getElementById('kb-payment-email');
-    const kbPaymentNameError = document.getElementById('kb-payment-name-error');
-    const kbPaymentEmailError = document.getElementById('kb-payment-email-error');
+    const kbPaymentPlansTbody = document.getElementById('kb-payment-plans-tbody');
+    const kbPaymentPlansNote = document.getElementById('kb-payment-plans-note');
+    const kbPaymentNameDisplay = document.getElementById('kb-payment-name-display');
+    const kbPaymentEmailDisplay = document.getElementById('kb-payment-email-display');
+    const kbPaymentFixEmailLink = document.getElementById('kb-payment-fix-email-link');
     const kbPaymentSubmit = document.getElementById('kb-payment-submit');
     const kbPaymentCancel = document.getElementById('kb-payment-cancel');
-    const kbPaymentSameEmailNote = document.getElementById('kb-payment-same-email-note');
 
-    function kbPlanQuotaLine(label, value, unlimited) {
-        return '✓ ' + label + ': ' + (unlimited ? 'ללא הגבלה*' : ('עד ' + value + ' בחודש'));
-    }
-
-    // עדכון §6.10.2 (דווח בפועל: לקוח חויב ₪467 וקיבל מסלול שונה ממה
-    // שציפה): כל המסלולים מוצגים כ"לחודש" בלבד - אין יותר "לשנה, במקום
-    // X ₪ (חיסכון של Y%)" (אותה הסרה כמו ב-render_preview_script ב-
-    // class-dcard-quotas.php).
-    function kbRenderPlanCards(plans) {
-        kbPaymentPlansEl.innerHTML = '';
+    // עדכון §6.10.2: טבלה (עמודות מסלול/מחיר/קבלת מסר/דיאלוג מכוון),
+    // לא כרטיסים - "כדי שלא ייראו כמו כפתורי בחירה". במספרים כתוב רק
+    // המספר ("35"), "ללא הגבלה*" כשמסומן. שורה אחת מתחת לטבלה ("המספרים
+    // הם שימושים בחודש"), ועוד שורה רק אם יש כוכבית (הערת שימוש הוגן).
+    function kbRenderPlanTable(plans) {
+        kbPaymentPlansTbody.innerHTML = '';
+        let hasUnlimited = false;
         plans.forEach(function (plan) {
-            const card = document.createElement('div');
-            card.style.cssText = 'border:1px solid var(--line-strong,#D9C9CD);border-radius:14px;padding:14px 16px;';
-            const priceLine = '<strong>' + plan.label + '</strong> - ' + plan.price + ' ₪ לחודש';
-            card.innerHTML = '<div>' + priceLine + '</div>' +
-                '<div style="margin-top:6px;font-size:14px;color:var(--ink-soft,#4A3F43);">' + kbPlanQuotaLine('קבלת מסר', plan.credits_msg, plan.unlimited_msg) + '</div>' +
-                '<div style="font-size:14px;color:var(--ink-soft,#4A3F43);">' + kbPlanQuotaLine('דיאלוג מכוון', plan.credits_chat, plan.unlimited_chat) + '</div>';
-            kbPaymentPlansEl.appendChild(card);
+            if (plan.unlimited_msg || plan.unlimited_chat) hasUnlimited = true;
+            const tr = document.createElement('tr');
+            tr.style.cssText = 'border-bottom:1px solid var(--line);';
+            const msgCell = plan.unlimited_msg ? 'ללא הגבלה*' : String(plan.credits_msg);
+            const chatCell = plan.unlimited_chat ? 'ללא הגבלה*' : String(plan.credits_chat);
+            tr.innerHTML = '<th scope="row" style="text-align:right;font-weight:500;padding:10px 4px;">' + plan.label + '</th>' +
+                '<td style="text-align:center;padding:10px 4px;">' + plan.price + ' ₪</td>' +
+                '<td style="text-align:center;padding:10px 4px;">' + msgCell + '</td>' +
+                '<td style="text-align:center;padding:10px 4px;">' + chatCell + '</td>';
+            kbPaymentPlansTbody.appendChild(tr);
         });
+        // הערת שימוש הוגן - נבנית מהמספרים האמיתיים, רק עבור המסלולים
+        // המסומנים "ללא הגבלה" (לא כל המסלולים).
+        let noteHtml = 'המספרים הם שימושים בחודש.';
+        if (hasUnlimited) {
+            const unlimitedParts = [];
+            plans.forEach(function (plan) {
+                if (plan.unlimited_chat) unlimitedParts.push('עד ' + plan.credits_chat + ' דיאלוגים מכוונים');
+                if (plan.unlimited_msg) unlimitedParts.push('עד ' + plan.credits_msg + ' קבלות מסר');
+            });
+            noteHtml += '<br>* ללא הגבלה, בשימוש הוגן: ' + unlimitedParts.join(' ו־') + ' בחודש.';
+        }
+        kbPaymentPlansNote.innerHTML = noteHtml;
     }
 
     let kbPaymentPlansCache = null;
@@ -3115,34 +3169,28 @@
         kbPaymentTitle.textContent = returningCancelled
             ? (userName + ', טוב לראות אותך שוב')
             : (userName + ', נמשיך יחד?');
-        // תיקון באג גנדר (דווח בפועל - "אלייך/אליך" הוצג מילולית): אותו
-        // דפוס בינארי בדיוק כמו kbRegisterTermsLead.
-        kbPaymentSameEmailNote.textContent = ( 'female' === userGender )
-            ? 'בעמוד התשלום כדאי להשתמש באותה כתובת, כדי שהמסלול יתחבר אלייך.'
-            : 'בעמוד התשלום כדאי להשתמש באותה כתובת, כדי שהמסלול יתחבר אליך.';
-        kbPaymentName.value = userName;
-        kbPaymentEmail.value = dcardGetLS(DCARD_LS_KEYS.email) || '';
-        kbClearFieldError(kbPaymentName, kbPaymentNameError);
-        kbClearFieldError(kbPaymentEmail, kbPaymentEmailError);
+        kbPaymentNameDisplay.textContent = userName;
+        kbPaymentEmailDisplay.textContent = dcardGetLS(DCARD_LS_KEYS.email) || '';
         kbHideAlertBanner('kb-payment-send-error');
         kbPaymentModal.hidden = false;
-        kbPaymentName.focus();
+        kbPaymentSubmit.focus();
 
-        kbPaymentPlansEl.innerHTML = '<p class="kb-modal-text">טוען מסלולים…</p>';
+        kbPaymentPlansTbody.innerHTML = '<tr><td colspan="4" style="padding:10px 4px;">טוען מסלולים…</td></tr>';
+        kbPaymentPlansNote.textContent = '';
         try {
             const res = await dcardFetch('/wp-json/dcard/v1/plans', { method: 'GET' });
             const data = await res.json();
             if (data && data.success && data.plans) {
                 kbPaymentPlansCache = data.plans;
-                kbRenderPlanCards(data.plans);
+                kbRenderPlanTable(data.plans);
             } else {
-                kbPaymentPlansEl.innerHTML = '<p class="kb-modal-text">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></p>';
-                document.getElementById('kb-payment-plans-retry').addEventListener('click', function (e) { e.preventDefault(); kbOpenPaymentModal(adminTesting); });
+                kbPaymentPlansTbody.innerHTML = '<tr><td colspan="4" style="padding:10px 4px;">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></td></tr>';
+                document.getElementById('kb-payment-plans-retry').addEventListener('click', function (e) { e.preventDefault(); kbOpenPaymentModal(adminTesting, returningCancelled); });
             }
         } catch (err) {
             console.warn('[DCard Payment] failed to load /plans:', err);
-            kbPaymentPlansEl.innerHTML = '<p class="kb-modal-text">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></p>';
-            document.getElementById('kb-payment-plans-retry').addEventListener('click', function (e) { e.preventDefault(); kbOpenPaymentModal(adminTesting); });
+            kbPaymentPlansTbody.innerHTML = '<tr><td colspan="4" style="padding:10px 4px;">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></td></tr>';
+            document.getElementById('kb-payment-plans-retry').addEventListener('click', function (e) { e.preventDefault(); kbOpenPaymentModal(adminTesting, returningCancelled); });
         }
     }
     function kbClosePaymentModal() {
@@ -3153,54 +3201,29 @@
         if (e.target === kbPaymentModal) kbClosePaymentModal();
     });
 
-    kbPaymentSubmit.addEventListener('click', async function () {
-        const name = kbPaymentName.value.trim();
-        const email = kbPaymentEmail.value.trim();
-        if (!name || !DCARD_NAME_PATTERN.test(name)) {
-            kbShowFieldError(kbPaymentName, kbPaymentNameError, 'השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.');
+    // §6.10.2: "אם כתובת המייל שגויה, [כתבו לנו]" - נפתח עם המייל הרשום
+    // (לא ניתן לעריכה כאן) ועם subjectSuffix "– תיקון מייל".
+    kbPaymentFixEmailLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        kbClosePaymentModal();
+        kbOpenContactModal('המייל הרשום אצלי שגוי: ' + (dcardGetLS(DCARD_LS_KEYS.email) || ''), '– תיקון מייל');
+    });
+
+    kbPaymentSubmit.addEventListener('click', function () {
+        // "אין מה לשמור" (§6.10.2) - המשתמש כבר רשום (6.10.1 תמיד קודם
+        // לחלון הזה, ר' §7.2א), אז אין כאן קריאת /register נוספת.
+        const userId = dcardGetLS(DCARD_LS_KEYS.userId);
+        if (!userId) {
+            kbShowAlertBanner(kbPaymentSubmit, 'kb-payment-send-error', 'לא זיהינו אותך כרשום/ה. אפשר לרענן את הדף ולנסות שוב.', function () { kbPaymentSubmit.click(); });
             return;
         }
-        if (!EMAIL_REGEX.test(email)) {
-            kbShowFieldError(kbPaymentEmail, kbPaymentEmailError, 'הכתובת לא נראית תקינה. כדאי לבדוק שוב.');
-            return;
-        }
-        kbClearFieldError(kbPaymentName, kbPaymentNameError);
-        kbClearFieldError(kbPaymentEmail, kbPaymentEmailError);
-        kbHideAlertBanner('kb-payment-send-error');
-        kbPaymentSubmit.disabled = true;
+        // §6.10.3: נקבע ממש לפני הניווט - timestamp, לא '1' פשוט, כדי
+        // ש-dcardIsAwaitingPaymentFresh תוכל להתעלם מדגל ישן מדי.
+        dcardSetLS(DCARD_LS_KEYS.awaitingPayment, String(Date.now()));
 
-        try {
-            const res = await dcardFetch('/wp-json/dcard/v1/register', {
-                method: 'POST',
-                headers: dcardHeaders(),
-                body: JSON.stringify({ email: email, name: name, gender: userGender })
-            });
-            const data = await res.json();
-            if (!data || !data.success) {
-                kbShowAlertBanner(kbPaymentEmail, 'kb-payment-send-error', 'ההרשמה לא הצליחה בגלל תקלה בחיבור.', function () { kbPaymentSubmit.click(); });
-                return;
-            }
-
-            if (name !== userName) {
-                userName = name;
-                kbUpdateHomeTexts();
-            }
-            dcardSetLS(DCARD_LS_KEYS.name, name);
-            dcardSetLS(DCARD_LS_KEYS.email, data.email || email);
-            dcardSetLS(DCARD_LS_KEYS.userId, String(data.user_id));
-            dcardSetLS(DCARD_LS_KEYS.deviceToken, data.deviceToken);
-
-            // §6.10.3: נקבע ממש לפני הניווט - timestamp, לא '1' פשוט, כדי
-            // ש-dcardIsAwaitingPaymentFresh תוכל להתעלם מדגל ישן מדי.
-            dcardSetLS(DCARD_LS_KEYS.awaitingPayment, String(Date.now()));
-
-            const cardcomRedirectUrl = CARDCOM_PAYMENT_URL + '?ReturnValue=' + encodeURIComponent(data.user_id);
-            console.log('[DCard Payment] redirecting to Cardcom:', cardcomRedirectUrl);
-            window.location.href = cardcomRedirectUrl;
-        } catch (e) {
-            kbShowAlertBanner(kbPaymentEmail, 'kb-payment-send-error', 'ההרשמה לא הצליחה בגלל תקלה בחיבור.', function () { kbPaymentSubmit.click(); });
-            kbPaymentSubmit.disabled = false;
-        }
+        const cardcomRedirectUrl = CARDCOM_PAYMENT_URL + '?ReturnValue=' + encodeURIComponent(userId);
+        console.log('[DCard Payment] redirecting to Cardcom:', cardcomRedirectUrl);
+        window.location.href = cardcomRedirectUrl;
     });
 
     // תפריט ☰ (סעיף 5) - "האזור שלי" מוצג רק למשתמש רשום (dcardIsRegistered,
@@ -4051,10 +4074,16 @@
     // שהסתרנו/נטרלנו כדי להחזיר בדיוק למה שהיה (לא "לדרוס" מצב אחר).
     let kbActionsHiddenForTyping = false;
     let kbExtraCardHiddenForTyping = false;
-    // סעיף 6.5: "אם עוברות 20 שניות בלי תשובה, השורה מתחלפת בשורת השגיאה...
+    // סעיף 6.5: "אם עוברות X שניות בלי תשובה, השורה מתחלפת בשורת השגיאה...
     // עם 'ניסיון חוזר'" - רשת ביטחון עצמאית מה-fetch/catch של כל קורא
     // (שלהם יש טיפול שגיאה משלהם); זו רק תופסת מקרה שבו הבקשה נתקעת בלי
     // להצליח ובלי להיכשל בכלל. retryFn אופציונלי, ר' showTyping.
+    //
+    // תיקון (דווח בפועל: "החיבור נקטע" באמצע שיחות אמיתיות) - היה קבוע
+    // על 20000 (20 שניות), קצר בהרבה מתקציב קריאת ה-AI האמיתי (90 שניות,
+    // ר' DCARD_AI_FETCH_TIMEOUT_MS) - חיווי "הקורא כותב…" נעלם ומוחלף
+    // ב"החיבור נקטע" בעוד הבקשה האמיתית עדיין רצה כרגיל ברקע. עכשיו זהה
+    // לתקציב ה-AI, כך שהחיווי נשאר לאורך כל ההמתנה האמיתית.
     let kbTypingTimeoutTimer = null;
 
     // עוצר את מחזור ההחלפה ומסיר את חיווי ה"מקליד" מה-DOM, אם הוא מוצג.
@@ -4154,7 +4183,7 @@
             if (!document.getElementById('typing-indicator')) return; // התשובה כבר הגיעה
             stopTyping();
             appendErrorBanner('החיבור נקטע לרגע. ההודעה שלך לא אבדה.', retryFn);
-        }, 20000);
+        }, DCARD_AI_FETCH_TIMEOUT_MS);
     }
 
     // תאריך מקומי (לא UTC) בפורמט YYYY-MM-DD - "היום" מוגדר לפי שעון
@@ -4837,7 +4866,7 @@
                     question: drawnCards.length === 1 ? userQuestion.value.trim() : undefined,
                     mode: mode
                 })
-            });
+            }, DCARD_AI_FETCH_TIMEOUT_MS);
             const data = await res.json();
 
             if (404 === res.status) {
@@ -5316,7 +5345,7 @@
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({ session_token: sessionToken, message: text, is_final_turn: isFinalTurn })
-            });
+            }, DCARD_AI_FETCH_TIMEOUT_MS);
             return { res: res, data: await res.json() };
         }
         // סעיף 3.5: "ניסיון חוזר" שולח שוב את אותה הודעה אחרונה (text, אותו
@@ -5799,12 +5828,17 @@
     const kbContactCloseSuccess = document.getElementById('kb-contact-close-success');
     const kbContactSuccessText = document.getElementById('kb-contact-success-text');
 
-    function kbOpenContactModal() {
+    // סעיף 6.10.2: "אם כתובת המייל שגויה, [כתבו לנו]" - נפתח עם
+    // subjectSuffix='– תיקון מייל' ו-prefillMessage, כדי שהפנייה תגיע
+    // עם ההקשר הנכון בלי endpoint נפרד.
+    let kbContactSubjectSuffix = '';
+    function kbOpenContactModal(prefillMessage, subjectSuffix) {
         kbContactText.textContent = ( 'female' === userGender )
             ? 'שאלה, הצעה או משהו שלא עבד כמו שצריך? נשמח לשמוע, ונחזור אלייך במייל.'
             : 'שאלה, הצעה או משהו שלא עבד כמו שצריך? נשמח לשמוע, ונחזור אליך במייל.';
         kbContactEmail.value = dcardGetLS(DCARD_LS_KEYS.email) || '';
-        kbContactTextField.value = '';
+        kbContactTextField.value = prefillMessage || '';
+        kbContactSubjectSuffix = subjectSuffix || '';
         kbClearFieldError(kbContactEmail, kbContactEmailError);
         kbClearFieldError(kbContactTextField, kbContactTextError);
         kbHideAlertBanner('kb-contact-send-error');
@@ -5845,7 +5879,7 @@
             const res = await dcardFetch('/wp-json/dcard/v1/contact', {
                 method: 'POST',
                 headers: dcardHeaders(),
-                body: JSON.stringify({ email: email, message: message, gender: userGender, platform: DCARD_PLATFORM })
+                body: JSON.stringify({ email: email, message: message, gender: userGender, platform: DCARD_PLATFORM, subject_suffix: kbContactSubjectSuffix })
             });
             const data = await res.json();
             if (!data || !data.success) {

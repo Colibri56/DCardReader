@@ -254,10 +254,12 @@ class DCard_REST_Controller {
 			'callback'            => array( $this, 'contact_message' ),
 			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
 			'args'                => array(
-				'email'    => array( 'required' => true ),
-				'message'  => array( 'required' => true ),
-				'gender'   => array( 'required' => false ),
-				'platform' => array( 'required' => false ),
+				'email'          => array( 'required' => true ),
+				'message'        => array( 'required' => true ),
+				'gender'         => array( 'required' => false ),
+				'platform'       => array( 'required' => false ),
+				// §6.10.2: "– תיקון מייל" מהקישור בחלון ההצטרפות.
+				'subject_suffix' => array( 'required' => false ),
 			),
 		) );
 
@@ -1517,11 +1519,12 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'יותר מדי בקשות. נסו שוב בעוד קצת.' ), 429 );
 		}
 
-		$email_raw = (string) $request->get_param( 'email' );
-		$email     = $email_raw ? sanitize_email( $email_raw ) : '';
-		$message   = sanitize_textarea_field( (string) $request->get_param( 'message' ) );
-		$gender    = (string) $request->get_param( 'gender' );
-		$platform  = sanitize_text_field( (string) $request->get_param( 'platform' ) );
+		$email_raw      = (string) $request->get_param( 'email' );
+		$email          = $email_raw ? sanitize_email( $email_raw ) : '';
+		$message        = sanitize_textarea_field( (string) $request->get_param( 'message' ) );
+		$gender         = (string) $request->get_param( 'gender' );
+		$platform       = sanitize_text_field( (string) $request->get_param( 'platform' ) );
+		$subject_suffix = sanitize_text_field( (string) $request->get_param( 'subject_suffix' ) );
 
 		if ( ! $email || ! is_email( $email ) ) {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'הכתובת לא נראית תקינה' ), 400 );
@@ -1536,7 +1539,7 @@ class DCard_REST_Controller {
 		$plan_label      = $registered_user ? DCard_Plans::label_for_plan( $registered_user['current_plan'] ) : '';
 		$user_id         = $registered_user ? $registered_user['id'] : null;
 
-		$sent = DCard_Mailer::send_contact_message( $email, $user_name, $message, $gender, $plan_label, $user_id, $platform );
+		$sent = DCard_Mailer::send_contact_message( $email, $user_name, $message, $gender, $plan_label, $user_id, $platform, $subject_suffix );
 		if ( ! $sent ) {
 			DCard_Logger::warning( 'wp_mail() returned false for /contact', array( 'email' => $email ) );
 		}
@@ -1554,6 +1557,33 @@ class DCard_REST_Controller {
 				'plans'   => DCard_Plans::active_public_plans(),
 			), 200 );
 		} );
+	}
+
+	/**
+	 * תיקון (התבקש: "כל התראת תשלום שנדחית מכל סיבה שתהיה - שולחת מייל
+	 * ל-admin_email מיד") - דווח בפועל ש-16:16 התקבל secret שגוי (מפתח
+	 * שעודכן רק בצד אחד), ואף אחד לא ידע עד שמישהו חיפש בלוג. מרוסן
+	 * (rate-limited) ל-10 דקות **לכל סיבה בנפרד** (transient, לא טבלה -
+	 * לא צריך להישרד restart, רק למנוע הצפה אם קארדקום מנסה שוב ושוב),
+	 * כדי שתקלה שחוזרת על עצמה (למשל secret שגוי שמגיע כל כמה דקות) לא
+	 * תשלח עשרות מיילים זהים.
+	 */
+	private static function notify_admin_of_webhook_rejection( $reason, $message ) {
+		$transient_key = 'dcard_webhook_reject_' . md5( $reason );
+		if ( get_transient( $transient_key ) ) {
+			return;
+		}
+		set_transient( $transient_key, 1, 10 * MINUTE_IN_SECONDS );
+
+		$admin_email = get_option( 'admin_email' );
+		if ( ! $admin_email ) {
+			return;
+		}
+		wp_mail(
+			$admin_email,
+			'הקורא בקלפים - התראת תשלום נדחתה (' . $reason . ')',
+			$message . "\n\n(התראה נוספת על אותה סיבה לא תישלח ב-10 הדקות הקרובות.)"
+		);
 	}
 
 	// ---------------------------------------------------------------
@@ -1697,6 +1727,7 @@ class DCard_REST_Controller {
 		// תקלת הגדרה (לא "secret שגוי") - נדחה ונרשם כשגיאה, לא כאזהרה. ***
 		if ( ! defined( 'DCARD_WEBHOOK_SECRET' ) ) {
 			DCard_Logger::error( 'POST /webhook/ipn-update - DCARD_WEBHOOK_SECRET is not defined in wp-config.php, rejecting all webhook calls', array() );
+			self::notify_admin_of_webhook_rejection( 'missing_secret_constant', 'ה-webhook דוחה את כל הבקשות כי DCARD_WEBHOOK_SECRET לא מוגדר ב-wp-config.php.' );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'Unauthorized' ), 403 );
 		}
 
@@ -1704,8 +1735,17 @@ class DCard_REST_Controller {
 		// לא "secret" כמו ה-IPN הרגיל - ר' docs/cardcom-api/README.md וה-
 		// לוג האמיתי שמתועד שם) - נבדקים שני השמות, hash_equals לכל אחד
 		// בנפרד (לא concatenation/OR על ערכים לא ממוסכים לפני ההשוואה).
-		$secret_lower = (string) $request->get_param( 'secret' );
-		$secret_upper = (string) $request->get_param( 'Secret' );
+		//
+		// תיקון (דווח בפועל 19.11 16:16: "התקבלו 23 תווים עם 'secret=',
+		// צפויים 29" - מישהו הדביק את כל המחרוזת "secret=הערך" כערך השדה
+		// בממשק קארדקום, לא רק הערך עצמו) - אם הערך שמתקבל מתחיל ב-
+		// "secret=" (אותיות גדולות/קטנות), מסירים את התחילית הזו לפני
+		// ההשוואה. לא פוגע בערך תקין רגיל (שלעולם לא יתחיל כך בעצמו).
+		$strip_secret_prefix = function ( $value ) {
+			return preg_replace( '/^secret=/i', '', (string) $value );
+		};
+		$secret_lower = $strip_secret_prefix( $request->get_param( 'secret' ) );
+		$secret_upper = $strip_secret_prefix( $request->get_param( 'Secret' ) );
 		$secret_valid = ( $secret_lower && hash_equals( DCARD_WEBHOOK_SECRET, $secret_lower ) )
 			|| ( $secret_upper && hash_equals( DCARD_WEBHOOK_SECRET, $secret_upper ) );
 		if ( ! $secret_valid ) {
@@ -1731,6 +1771,11 @@ class DCard_REST_Controller {
 				'received_secret_masked' => $mask( $received_secret ),
 				'expected_secret_len'    => strlen( (string) DCARD_WEBHOOK_SECRET ),
 				'expected_secret_masked' => $mask( (string) DCARD_WEBHOOK_SECRET ),
+			) );
+			self::notify_admin_of_webhook_rejection( 'invalid_secret', sprintf(
+				"התקבל webhook מקארדקום עם secret לא תואם.\n\nאורך שהתקבל: %d (צפוי: %d).\n\nיש לבדוק את הערך שמוגדר בקארדקום - לשים לב שהשדה אמור להכיל רק את הערך עצמו, בלי \"secret=\" לפניו.",
+				strlen( $received_secret ),
+				strlen( (string) DCARD_WEBHOOK_SECRET )
 			) );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'Unauthorized' ), 403 );
 		}
@@ -1829,20 +1874,13 @@ class DCard_REST_Controller {
 			// שמתעד את זה הוא לוג WooCommerce (לא נבדק באופן שוטף). אותו
 			// דפוס מדויק כמו DCard_Usage_Logs::maybe_send_monthly_budget_alert -
 			// wp_mail() פשוט ל-admin_email, בלי חסימה/טיפול אוטומטי.
-			$admin_email = get_option( 'admin_email' );
-			if ( $admin_email ) {
-				wp_mail(
-					$admin_email,
-					'הקורא בקלפים - תשלום התקבל בלי שיוך למשתמש',
-					sprintf(
-						"התקבל תשלום בקארדקום (מק\"ט %s, חשבונית %s, סכום %s ₪) שלא ניתן היה לשייך לאף משתמש - לא לפי ReturnValue ולא לפי אימייל.\n\nמייל מהחשבונית: %s\n\nיש לשייך ידנית: עמוד לקוחות (Settings > קורא בקלפים > לקוחות), או ליצור קשר עם הלקוח לפי המייל/הטלפון שבחשבונית בקארדקום.",
-						$product_id,
-						$unmatched_invoice,
-						$unmatched_amount,
-						$email_from_ipn ? $email_from_ipn : '(לא התקבל)'
-					)
-				);
-			}
+			self::notify_admin_of_webhook_rejection( 'user_not_found', sprintf(
+				"התקבל תשלום בקארדקום (מק\"ט %s, חשבונית %s, סכום %s ₪) שלא ניתן היה לשייך לאף משתמש - לא לפי ReturnValue ולא לפי אימייל.\n\nמייל מהחשבונית: %s\n\nיש לשייך ידנית: עמוד לקוחות (Settings > קורא בקלפים > לקוחות), או ליצור קשר עם הלקוח לפי המייל/הטלפון שבחשבונית בקארדקום.",
+				$product_id,
+				$unmatched_invoice,
+				$unmatched_amount,
+				$email_from_ipn ? $email_from_ipn : '(לא התקבל)'
+			) );
 
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא (ReturnValue ואימייל לא תואמים)' ), 404 );
 		}
@@ -1855,6 +1893,7 @@ class DCard_REST_Controller {
 
 		if ( ! $cardcom_transaction_id ) {
 			DCard_Logger::warning( 'POST /webhook/ipn-update - missing ExtReadInvoiceHead_InvoiceNumber (dedup key)', array() );
+			self::notify_admin_of_webhook_rejection( 'invoice_number_missing', 'התקבל webhook מקארדקום בלי ExtReadInvoiceHead_InvoiceNumber (מק"ט החשבונית) - לא ניתן לרשום את העסקה.' );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'InvoiceNumber חסר' ), 400 );
 		}
 
@@ -1918,6 +1957,12 @@ class DCard_REST_Controller {
 		}
 
 		if ( null === $transaction_result ) {
+			self::notify_admin_of_webhook_rejection( 'transaction_save_failed', sprintf(
+				"קארדקום אישרה תשלום (חשבונית %s, מק\"ט %s, סכום %s ₪) אבל שמירת העסקה בטבלה נכשלה (שגיאת DB) - המסלול/קרדיטים לא עודכנו. יש לבדוק את הלוג ולעדכן ידנית אם צריך (עמוד לקוחות > עדכון מסלול ידני).",
+				$cardcom_transaction_id,
+				$product_id,
+				$amount
+			) );
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת העסקה' ), 500 );
 		}
 
@@ -1941,19 +1986,12 @@ class DCard_REST_Controller {
 				'cardcom_transaction_id' => $cardcom_transaction_id,
 			) );
 
-			$admin_email = get_option( 'admin_email' );
-			if ( $admin_email ) {
-				wp_mail(
-					$admin_email,
-					'הקורא בקלפים - תשלום התקבל אבל עדכון המסלול נכשל',
-					sprintf(
-						"התקבל תשלום בקארדקום (חשבונית %s, משתמש #%d, מסלול %s) אבל עדכון המסלול בבסיס הנתונים נכשל (ר' הלוג לפרטים).\n\nיש לתקן ידנית: עמוד לקוחות (Settings > קורא בקלפים > לקוחות) > \"עדכון מסלול ידני\" למשתמש הזה.",
-						$cardcom_transaction_id,
-						$user['id'],
-						$plan_id
-					)
-				);
-			}
+			self::notify_admin_of_webhook_rejection( 'plan_update_failed', sprintf(
+				"התקבל תשלום בקארדקום (חשבונית %s, משתמש #%d, מסלול %s) אבל עדכון המסלול בבסיס הנתונים נכשל (ר' הלוג לפרטים).\n\nיש לתקן ידנית: עמוד לקוחות (Settings > קורא בקלפים > לקוחות) > \"עדכון מסלול ידני\" למשתמש הזה.",
+				$cardcom_transaction_id,
+				$user['id'],
+				$plan_id
+			) );
 
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'עדכון מסלול נכשל' ), 500 );
 		}

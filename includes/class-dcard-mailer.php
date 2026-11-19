@@ -19,8 +19,11 @@ class DCard_Mailer {
 	 * סעיף 6.10.4: תוכן חלון "כתבו לנו" - אל doar@nuriteldar.co.il, עם
 	 * Reply-To של המשתמש כך שלחיצה על "השב" עונה לו ישירות.
 	 */
-	public static function send_contact_message( $user_email, $user_name, $message, $gender, $plan_label, $user_id, $platform ) {
-		$subject = '** כתבו לנו - הקורא בקלפים **';
+	public static function send_contact_message( $user_email, $user_name, $message, $gender, $plan_label, $user_id, $platform, $subject_suffix = '' ) {
+		// §6.10.2: קישור "אם כתובת המייל שגויה" בחלון ההצטרפות שולח לכאן
+		// עם subject_suffix='– תיקון מייל', כדי שהפנייה תיראה שונה מתוך
+		// הקישור הכללי "כתבו לנו" כבר בשורת הנושא, בלי לפתוח endpoint נפרד.
+		$subject = '** כתבו לנו - הקורא בקלפים ' . ( $subject_suffix ? $subject_suffix . ' ' : '' ) . '**';
 		$body    = self::render_contact_html( $user_email, $user_name, $message, $gender, $plan_label, $user_id, $platform );
 		$headers = array(
 			'Content-Type: text/html; charset=UTF-8',
