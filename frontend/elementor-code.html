@@ -1392,7 +1392,7 @@
     .kb-menu-panel { width: 100%; height: 100%; max-width: 100%; padding: 20px 24px; box-sizing: border-box; overflow-y: auto; }
     .kb-menu-close {
         width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--surface);
-        font-size: 20px; cursor: pointer; margin-inline-start: auto; display: block;
+        color: var(--ink) !important; font-size: 20px; cursor: pointer; margin-inline-start: auto; display: block;
     }
     .kb-menu-item {
         display: flex; align-items: center; width: 100%; min-height: 56px; font-size: 18px;
@@ -1711,8 +1711,7 @@
             <div class="kb-modal-handle"></div>
             <div id="kb-register-form-state">
                 <h2 class="kb-modal-title" id="kb-register-title" style="text-align:center;"></h2>
-                <p class="kb-modal-text" style="text-align:center;">אני ממש אוהב את השיחות שלנו, ואני יודע שהן עוזרות לך <strong>לקבל תשובות ולהתקדם</strong>. אני מזמין אותך להמשיך ולהשתמש באפליקציה.</p>
-                <p class="kb-modal-text" style="text-align:center;">רק נא למלא את הפרטים שלך, לצורכי בקרה ושיפור השירות.</p>
+                <p class="kb-modal-text" style="text-align:center;">אני ממש אוהב את השיחות שלנו, ואני יודע שהן עוזרות <strong>לקבל תשובות ולהתקדם</strong>אני מזמין אותך להמשיך ולהשתמש באפליקציה ורק נא למלא את הפרטים שלך, לצורכי בקרה ושיפור השירות.</p>
                 <label class="kb-field-label" for="kb-register-name">שם</label>
                 <input type="text" id="kb-register-name" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" />
                 <div class="kb-field-error" id="kb-register-name-error" style="display:none;" role="alert">השם יכול לכלול רק אותיות, רווחים, מקפים וגרש.</div>
@@ -2207,6 +2206,22 @@
         return headers;
     }
 
+    // תיקון (התבקש: "לכל בקשה לשרת צריך timeout... כלום לא נשאר תקוע
+    // על 'רגע…' לנצח") - fetch() הדפדפן, בלי AbortController, מחכה
+    // בלי הגבלת זמן אם השרת תקוע/לא עונה. עטיפה אחת לכל קריאות ה-fetch
+    // בקובץ (DCARD_FETCH_TIMEOUT_MS), כדי שתקלת רשת אמיתית תמיד תיפול
+    // ל-catch תוך זמן סביר במקום להשאיר UI (כפתור/מסך) תקוע. חותמת
+    // ה-error שנזרקת (name='AbortError') זהה למה ש-fetch עצמו היה זורק
+    // על ביטול - כל קוד קיים שכבר תופס שגיאות ב-catch ממשיך לעבוד בלי
+    // שינוי, רק עם תקרת זמן אמיתית במקום "לנצח".
+    const DCARD_FETCH_TIMEOUT_MS = 8000;
+    function dcardFetch(url, options) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(function () { controller.abort(); }, DCARD_FETCH_TIMEOUT_MS);
+        const opts = Object.assign({}, options, { signal: controller.signal });
+        return fetch(url, opts).finally(function () { clearTimeout(timeoutId); });
+    }
+
     // מנגנון משוב (Feedback) - שני endpoints חדשים ב-class-api-feedback.php
     // (namespace TheCardReaderCore), לא קשורים ל-API_BASE/session הקיים.
     // session_id בשני ה-payloads הוא sessionToken הקיים - אותו מזהה שכל
@@ -2220,7 +2235,7 @@
     }
 
     function sendMicroFeedback(messageId, feedbackValue) {
-        return fetch(`${FEEDBACK_API_BASE}/micro`, {
+        return dcardFetch(`${FEEDBACK_API_BASE}/micro`, {
             method: 'POST',
             headers: dcardHeaders(),
             body: JSON.stringify({
@@ -2274,8 +2289,34 @@
         // נבדק ב-kbHasCreditsOrHandleExhausted כשהמסלול עדיין לא התעדכן -
         // מבדיל "בדיוק חזרנו מתשלום, אולי ה-IPN עוד בדרך" מ"סתם נגמרו
         // הקרדיטים". מנוקה ברגע שהמסלול מתעדכן, או אחרי 30 שניות פולינג.
+        //
+        // תיקון באג חמור (דווח בפועל: לחיצה על כפתור מסלול נתקעה על "רגע…"
+        // ל-30 שניות ואז הציגה "התשלום מתעדכן" בטעות) - הדגל הזה נקבע
+        // *בכל* פעם שהמשתמש פותח את חלון התשלום ומנווט לקארדקום, גם אם
+        // לא שילם בפועל, ונוקה רק בענף אחד ויחיד (קרדיטים שאזלו תוך כדי
+        // ה-30 שניות פולינג). משתמש שפתח את חלון התשלום בלי לשלם, והגיע
+        // למסך-אפס-קרדיטים בפעולה *אחרת ולא-קשורה* בהמשך (דקות/שעות אחר
+        // כך), "נתקע" ב-30 השניות המיותרות האלה בכל פעם. במקום '1' פשוט,
+        // נשמר timestamp (Date.now()) - ר' dcardIsAwaitingPaymentFresh
+        // למטה, שמתעלמת (ומנקה) דגל ישן מדי.
         awaitingPayment: 'dcard_awaitingPayment'
     };
+
+    // חלון התוקף של awaitingPayment - "בדיוק חזרנו מתשלום" הגיוני רק
+    // לכמה דקות, לא לשעות/ימים. 10 דקות נותנות מרווח נדיב לזמן אמיתי
+    // בעמוד התשלום של קארדקום בלי להשאיר דגל "תקוע" לצמיתות.
+    const AWAITING_PAYMENT_MAX_AGE_MS = 10 * 60 * 1000;
+
+    function dcardIsAwaitingPaymentFresh() {
+        const raw = dcardGetLS(DCARD_LS_KEYS.awaitingPayment);
+        if (!raw) return false;
+        const ts = parseInt(raw, 10);
+        if (isNaN(ts) || (Date.now() - ts) > AWAITING_PAYMENT_MAX_AGE_MS) {
+            try { localStorage.removeItem(DCARD_LS_KEYS.awaitingPayment); } catch (lsErr) { /* ignore */ }
+            return false;
+        }
+        return true;
+    }
 
     function dcardGetLS(key) {
         try {
@@ -2477,7 +2518,7 @@
         while (Date.now() < deadline) {
             await new Promise(function (resolve) { setTimeout(resolve, 2000); });
             try {
-                const res = await fetch('/wp-json/dcard/v1/account/status', { method: 'GET', headers: dcardHeaders() });
+                const res = await dcardFetch('/wp-json/dcard/v1/account/status', { method: 'GET', headers: dcardHeaders() });
                 const data = await res.json();
                 if (data && data.success) {
                     const remaining = ( 'message' === mode ) ? data.current_credits_msg : data.current_credits_chat;
@@ -2537,7 +2578,7 @@
             triggerBtn.innerText = 'רגע…';
         }, 1000) : null;
         try {
-            const res = await fetch('/wp-json/dcard/v1/account/status', {
+            const res = await dcardFetch('/wp-json/dcard/v1/account/status', {
                 method: 'GET',
                 headers: dcardHeaders()
             });
@@ -2547,8 +2588,10 @@
             if (remaining > 0) return true;
 
             // §6.10.3: חזרה מקארדקום לפני שה-IPN הספיק להגיע - לא פותחים
-            // שוב את חלון התשלום, פולינג עד 30 שניות במקום זאת.
-            if (dcardGetLS(DCARD_LS_KEYS.awaitingPayment)) {
+            // שוב את חלון התשלום, פולינג עד 30 שניות במקום זאת. דגל ישן
+            // (ר' dcardIsAwaitingPaymentFresh) מתעלם כאן בשקט ופותח את
+            // חלון התשלום הרגיל במקום, לא את ה-30-שניות המיותרות.
+            if (dcardIsAwaitingPaymentFresh()) {
                 const updated = await kbWaitForPlanUpdate(mode);
                 try { localStorage.removeItem(DCARD_LS_KEYS.awaitingPayment); } catch (lsErr) { /* ignore */ }
                 if (updated) return true;
@@ -2725,7 +2768,7 @@
             // כאילו לא נשלח בכלל (ר' claimed_user_id ב-session_start_inner).
             // X-Dcard-Device-Token (אם קיים) כבר מצורף דרך dcardHeaders().
             const storedUserId = dcardGetLS(DCARD_LS_KEYS.userId);
-            const res = await fetch(`${API_BASE}/start`, {
+            const res = await dcardFetch(`${API_BASE}/start`, {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({
@@ -2974,7 +3017,7 @@
         kbRegisterSubmit.disabled = true;
 
         try {
-            const res = await fetch('/wp-json/dcard/v1/register', {
+            const res = await dcardFetch('/wp-json/dcard/v1/register', {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({ email: email, name: name, gender: userGender })
@@ -3076,17 +3119,19 @@
 
         kbPaymentPlansEl.innerHTML = '<p class="kb-modal-text">טוען מסלולים…</p>';
         try {
-            const res = await fetch('/wp-json/dcard/v1/plans', { method: 'GET' });
+            const res = await dcardFetch('/wp-json/dcard/v1/plans', { method: 'GET' });
             const data = await res.json();
             if (data && data.success && data.plans) {
                 kbPaymentPlansCache = data.plans;
                 kbRenderPlanCards(data.plans);
             } else {
-                kbPaymentPlansEl.innerHTML = '';
+                kbPaymentPlansEl.innerHTML = '<p class="kb-modal-text">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></p>';
+                document.getElementById('kb-payment-plans-retry').addEventListener('click', function (e) { e.preventDefault(); kbOpenPaymentModal(adminTesting); });
             }
         } catch (err) {
-            console.warn('[DCard Payment] failed to load /plans (non-fatal, cards just stay empty):', err);
-            kbPaymentPlansEl.innerHTML = '';
+            console.warn('[DCard Payment] failed to load /plans:', err);
+            kbPaymentPlansEl.innerHTML = '<p class="kb-modal-text">לא הצלחנו לטעון את המסלולים כרגע. <a href="#" id="kb-payment-plans-retry">ניסיון חוזר</a></p>';
+            document.getElementById('kb-payment-plans-retry').addEventListener('click', function (e) { e.preventDefault(); kbOpenPaymentModal(adminTesting); });
         }
     }
     function kbClosePaymentModal() {
@@ -3114,7 +3159,7 @@
         kbPaymentSubmit.disabled = true;
 
         try {
-            const res = await fetch('/wp-json/dcard/v1/register', {
+            const res = await dcardFetch('/wp-json/dcard/v1/register', {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({ email: email, name: name, gender: userGender })
@@ -3134,8 +3179,9 @@
             dcardSetLS(DCARD_LS_KEYS.userId, String(data.user_id));
             dcardSetLS(DCARD_LS_KEYS.deviceToken, data.deviceToken);
 
-            // §6.10.3: נקבע ממש לפני הניווט - ר' kbWaitForPlanUpdate.
-            dcardSetLS(DCARD_LS_KEYS.awaitingPayment, '1');
+            // §6.10.3: נקבע ממש לפני הניווט - timestamp, לא '1' פשוט, כדי
+            // ש-dcardIsAwaitingPaymentFresh תוכל להתעלם מדגל ישן מדי.
+            dcardSetLS(DCARD_LS_KEYS.awaitingPayment, String(Date.now()));
 
             const cardcomRedirectUrl = CARDCOM_PAYMENT_URL + '?ReturnValue=' + encodeURIComponent(data.user_id);
             console.log('[DCard Payment] redirecting to Cardcom:', cardcomRedirectUrl);
@@ -3267,7 +3313,7 @@
         kbAccountTransactions.innerHTML = '<p class="kb-modal-text">טוען…</p>';
         kbAccountCancelLink.style.display = 'none';
         try {
-            const res = await fetch('/wp-json/dcard/v1/account/details', { method: 'GET', headers: dcardHeaders() });
+            const res = await dcardFetch('/wp-json/dcard/v1/account/details', { method: 'GET', headers: dcardHeaders() });
             const data = await res.json();
             if (!data || !data.success) {
                 kbAccountPlanCard.innerHTML = '<p class="kb-modal-text">לא הצלחנו לטעון את הפרטים כרגע.</p>';
@@ -3436,7 +3482,7 @@
         kbHideAlertBanner('kb-cancel-send-error');
         kbCancelConfirmBtn.disabled = true;
         try {
-            const res = await fetch('/wp-json/dcard/v1/account/cancel', {
+            const res = await dcardFetch('/wp-json/dcard/v1/account/cancel', {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({ reason: kbCancelSelectedReason || '' })
@@ -3467,7 +3513,7 @@
         kbHideAlertBanner('kb-account-details-error');
         kbAccountSaveDetails.disabled = true;
         try {
-            const res = await fetch('/wp-json/dcard/v1/account/update-details', {
+            const res = await dcardFetch('/wp-json/dcard/v1/account/update-details', {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({ name: name, gender: gender, phone: phone })
@@ -3535,7 +3581,7 @@
     // no-op בשקט אם אין deviceToken שמור (משתמש אנונימי) - dcardIsRegistered
     // כבר קיים בדיוק לבדיקה הזו (ר' btnPathMessage/btnSend למעלה).
     if (dcardIsRegistered()) {
-        fetch('/wp-json/dcard/v1/account/status', {
+        dcardFetch('/wp-json/dcard/v1/account/status', {
             method: 'GET',
             headers: dcardHeaders()
         }).then(function (res) { return res.json(); }).then(function (data) {
@@ -4457,8 +4503,8 @@
         const texts = {
             shuffling: 'מערבבים את הקלפים…',
             flowing: ( 'female' === userGender )
-                ? 'הקלפים בתנועה. כשמרגיש לך נכון, לחצי על "שליפת קלף" או הקישי על אחד הקלפים'
-                : 'הקלפים בתנועה. כשמרגיש לך נכון, לחץ על "שליפת קלף" או הקש על אחד הקלפים',
+                ? 'הקלפים מתערבבים. כשמרגיש לך נכון, לחצי על "שליפת קלף" או הקישי על אחד הקלפים'
+                : 'הקלפים מתערבבים. כשמרגיש לך נכון, לחץ על "שליפת קלף" או הקש על אחד הקלפים',
             revealed: 'זה הקלף שנבחר'
         };
         kbStageStatus.textContent = texts[key] || '';
@@ -4478,7 +4524,7 @@
         return (async () => {
             try {
                 const excludeIds = Array.from(recentCardExclusionSet());
-                const drawRes = await fetch(`${API_BASE}/draw-card`, {
+                const drawRes = await dcardFetch(`${API_BASE}/draw-card`, {
                     method: 'POST',
                     headers: dcardHeaders(),
                     body: JSON.stringify({ session_token: sessionToken, exclude_ids: excludeIds, mode: mode })
@@ -4731,7 +4777,7 @@
         if (drawIndex) kbLastHandledDrawIndex = drawIndex;
         showTyping(function () { kbRunAiTurnForCard(cardId, mode, drawIndex, true); });
         try {
-            const res = await fetch(`${API_BASE}/card-selected`, {
+            const res = await dcardFetch(`${API_BASE}/card-selected`, {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({
@@ -5218,7 +5264,7 @@
         let creditsExhausted = false; // ר' ה-finally למטה - מונע lockChatInput עם הודעה שגויה אם זה קרה בדיוק בתור האחרון
 
         async function attemptTurn() {
-            const res = await fetch(`${API_BASE}/turn`, {
+            const res = await dcardFetch(`${API_BASE}/turn`, {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({ session_token: sessionToken, message: text, is_final_turn: isFinalTurn })
@@ -5442,11 +5488,19 @@
     kbEndSessionConfirmBtn.addEventListener('click', async () => {
         kbEndSessionModal.hidden = true;
         sessionEndedExplicitly = true; // ר' ההערה ליד ההכרזה - מונע כפילות מול מאזין ה-pagehide
-        await fetch(`${API_BASE}/end`, {
-            method: 'POST',
-            headers: dcardHeaders(),
-            body: JSON.stringify({ session_token: sessionToken, email: "", exit_type: 'explicit' })
-        });
+        // תיקון (לא היה כאן try/catch בכלל): תקלת רשת/timeout הייתה זורקת
+        // שגיאה לא-תפוסה וחוסמת את כל מסך הפרידה למטה - המשתמש נשאר
+        // תקוע על כלום, בלי מסך סיום ובלי שגיאה. רישום השרת על סיום
+        // מפורש הוא "best effort" - מסך הפרידה תמיד מוצג, בלי קשר להצלחתו.
+        try {
+            await dcardFetch(`${API_BASE}/end`, {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ session_token: sessionToken, email: "", exit_type: 'explicit' })
+            });
+        } catch (e) {
+            console.warn('[DCard Session] /end failed on explicit close (non-fatal, goodbye screen still shows):', e);
+        }
 
         // מסך סיום: מחליפים את כל #card-reader-app (כל הבלוקים 1-5) בתמונת
         // הקלף האחרון שנשלף + טקסט פרידה - זה העיצוב שהמשתמש ביקש לשחזר.
@@ -5555,7 +5609,7 @@
             return;
         }
         kbFeedbackSubmit.disabled = true;
-        fetch(`${FEEDBACK_API_BASE}/macro`, {
+        dcardFetch(`${FEEDBACK_API_BASE}/macro`, {
             method: 'POST',
             headers: dcardHeaders(),
             body: JSON.stringify({
@@ -5660,7 +5714,7 @@
         const cardImages = Array.from(document.querySelectorAll('#cards-container .card-display')).map(img => img.src);
 
         try {
-            const res = await fetch(`${API_BASE}/email-transcript`, {
+            const res = await dcardFetch(`${API_BASE}/email-transcript`, {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({ session_token: sessionToken, email: email, cardImages: cardImages })
@@ -5740,7 +5794,7 @@
         // לא מנוקים כלל, לא בהצלחה ולא בכישלון (קריאה חוזרת פשוט שולחת
         // שוב את מה שכתוב כרגע בשדות).
         try {
-            const res = await fetch('/wp-json/dcard/v1/contact', {
+            const res = await dcardFetch('/wp-json/dcard/v1/contact', {
                 method: 'POST',
                 headers: dcardHeaders(),
                 body: JSON.stringify({ email: email, message: message, gender: userGender, platform: DCARD_PLATFORM })
