@@ -115,4 +115,18 @@ class DCard_Transactions {
 			ARRAY_A
 		);
 	}
+
+	/**
+	 * §6.10.4 "תיקון כתובת המייל" - "האם המשתמש שילם אי פעם" (כדי להחליט
+	 * בין עדכון עצמי מיידי לבין פנייה ידנית למנהל, כי צריך לעדכן גם
+	 * בקארדקום). ספירה בלבד, לא טוען את כל השורות.
+	 */
+	public static function count_for_user( $user_id ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare( 'SELECT COUNT(*) FROM ' . self::table() . ' WHERE user_id = %d', $user_id )
+		);
+	}
 }

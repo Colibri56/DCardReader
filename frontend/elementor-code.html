@@ -1001,6 +1001,8 @@
     .kb-landing-title { font-size: 34px; font-weight: 500; line-height: 1.15; margin: 0 0 14px; }
     .kb-landing-text { font-size: 16px; line-height: 1.6; color: var(--ink-soft); margin: 0 0 22px; }
     .kb-landing-hint { font-size: 14px; color: var(--muted); margin-top: 10px; }
+    /* §6.1 (19.11): "מיקום הכפתור ... ברוחב מלא בטלפון" - ברירת מחדל מובייל-first */
+    .kb-landing-start { display: block; width: 100%; text-align: center; margin: 0 0 8px; }
     .kb-landing-divider { border: none; border-top: 1px solid var(--line); margin: 28px 0; }
     .kb-landing-subtitle { font-size: 22px; font-weight: 500; margin: 0 0 16px; }
     .kb-landing-steps { list-style: none; margin: 0 0 24px; padding: 0; display: flex; flex-direction: column; gap: 16px; }
@@ -1017,6 +1019,7 @@
         .kb-landing-copy { flex: 1; }
         .kb-landing-fan { flex-basis: 360px; height: 220px; }
         .kb-fan-card { width: 130px; height: 195px; }
+        .kb-landing-start { display: inline-block; width: auto; }
         .kb-landing-title { font-size: 56px; }
     }
 
@@ -1491,8 +1494,6 @@
             <div class="kb-landing-copy">
                 <h1 class="kb-landing-title">שאלה אחת, תמונה אחת, והתשובה המפתיעה</h1>
                 <p class="kb-landing-text">הקורא בקלפים הוא מלווה חכם שעוזר לך לחשוב על מה שמעסיק אותך. תמונה שנשלפת באקראי פותחת שיחה, והאינטואיציה שלך עושה את השאר.</p>
-                <button type="button" class="btn-main kb-btn--large" id="kb-landing-start">בואו נתחיל</button>
-                <div class="kb-landing-hint"> </div>
                 <hr class="kb-landing-divider">
                 <h2 class="kb-landing-subtitle">איך זה עובד</h2>
                 <ol class="kb-landing-steps">
@@ -1500,6 +1501,12 @@
                     <li><span class="kb-step-num">2</span><div><strong>שולפים קלף.</strong> הקלפים מתערבבים, ואתם בוחרים קלף אקראי.</div></li>
                     <li><span class="kb-step-num">3</span><div><strong>קבלת תשובה.</strong> הקורא בקלפים מכוון אתכם לתשובה המדויקת עבורכם.</div></li>
                 </ol>
+                <!-- עדכון §6.1 (19.11): "מיקום הכפתור: אחרי שלושת שלבי 'איך
+                     זה עובד', ולפני שורת ההסתייגות" - הועבר לכאן (היה לפני
+                     "איך זה עובד"). רוחב מלא בטלפון - ר' .kb-landing-start
+                     ב-CSS. -->
+                <button type="button" class="btn-main kb-btn--large kb-landing-start" id="kb-landing-start">בואו נתחיל</button>
+                <div class="kb-landing-hint"> </div>
                 <p class="kb-landing-footnote">הקורא בקלפים הוא כלי להשראה ולהתבוננות, ואינו תחליף לייעוץ פסיכולוגי, רפואי, משפטי או מקצועי. <a href="#">מדיניות פרטיות</a></p>
             </div>
         </div>
@@ -1793,9 +1800,10 @@
                 <p style="margin:0;font-size:15px;">המסלול יחובר לכתובת:</p>
                 <p style="margin:4px 0 0;font-size:15px;font-weight:500;"><bdi dir="ltr" id="kb-payment-email-display"></bdi></p>
             </div>
-            <!-- עדכון §6.10.2: הקישור סוגר את החלון ופותח "כתבו לנו" - לא
-                 שולח טופס ולא עובר לקארדקום (type=button, preventDefault
-                 - ר' kbPaymentFixEmailLink למטה). -->
+            <!-- עדכון §6.10.4 (21.11): הקישור פותח את חלון "תיקון כתובת
+                 המייל" הייעודי (לא "כתבו לנו" הכללי) - לא שולח טופס ולא
+                 עובר לקארדקום (type=button, preventDefault - ר'
+                 kbPaymentFixEmailLink למטה). -->
             <p class="kb-modal-text" style="margin-top:0;">אם הכתובת שגויה, <button type="button" class="kb-inline-link-btn" id="kb-payment-fix-email-link">כתבו לנו</button> ונשמח לעזור.</p>
             <div class="kb-alert-banner" id="kb-payment-send-error" style="display:none;"></div>
             <div class="kb-modal-actions">
@@ -1806,15 +1814,52 @@
         </div>
     </div>
 
-    <!-- §6.10.3: "התשלום מתעדכן" - מוצג אם account/status לא התעדכן עד 30
-         שניות אחרי החזרה מקארדקום (ר' kbWaitForPlanUpdate). -->
+    <!-- §6.10.4 "תיקון כתובת המייל" (21.11) - נפתח מ"אם הכתובת שגויה,
+         כתבו לנו" בחלון ההצטרפות, במקום "כתבו לנו" הכללי. שדה אחד בלבד
+         (בלי תיבת הודעה ובלי שדה מייל נוסף, כדי שלא יהיו שתי כתובות). -->
+    <div id="kb-fix-email-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-fix-email-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-fix-email-title" style="text-align:center;">תיקון כתובת המייל</h2>
+            <p class="kb-modal-text">הכתובת הרשומה: <bdi dir="ltr" id="kb-fix-email-current"></bdi></p>
+            <label class="kb-field-label" for="kb-fix-email-new">הכתובת הנכונה</label>
+            <input type="email" id="kb-fix-email-new" class="kb-field" dir="ltr" autocomplete="email" style="width:100%;box-sizing:border-box;text-align:right;padding:12px 14px;" />
+            <div class="kb-field-error" id="kb-fix-email-error" style="display:none;" role="alert"></div>
+            <div class="kb-alert-banner" id="kb-fix-email-send-error" style="display:none;"></div>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-main" id="kb-fix-email-submit">עדכון הכתובת</button>
+                <button type="button" class="kb-btn kb-btn--quiet" id="kb-fix-email-cancel" style="align-self:center;">ביטול</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- §7.2ג (21.11): "בזמן ההמתנה לעדכון המסלול: חלון עם הודעה גלויה
+         'בודקים את התשלום שלך…', לא כפתור תקוע על 'רגע…'" - מוצג לאורך כל
+         הפולינג ב-kbWaitForPlanUpdate (בדיקה ראשונה מיד, ואז כל 2 שניות עד
+         30 שניות). אין כפתורים - סגירה רק אוטומטית (הצלחה/כישלון). -->
+    <div id="kb-payment-checking-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-payment-checking-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-payment-checking-title" style="text-align:center;">בודקים את התשלום שלך…</h2>
+            <p style="text-align:center;margin:10px 0 0;">
+                <span class="dcard-typing-dots stage-vertical"><span></span><span></span><span></span></span>
+            </p>
+        </div>
+    </div>
+
+    <!-- §7.2ג: "לא התעדכן אחרי 30 שניות" - [בדיקה חוזרת] מריץ שוב את אותו
+         פולינג (ר' kb-payment-pending-retry), [כתבו לנו] פותח את חלון
+         הפנייה. מייל מיידי למנהל נשלח ע"י kbNotifyAdminPaymentDelay, לא
+         מכאן. אסור לפתוח מכאן את חלון התשלום מחדש ואסור להריץ את הפעולה
+         השמורה לבד - רק לחיצה מפורשת על "בדיקה חוזרת" ממשיכה. -->
     <div id="kb-payment-pending-modal" class="kb-modal-scrim" hidden>
         <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-payment-pending-title">
             <div class="kb-modal-handle"></div>
-            <h2 class="kb-modal-title" id="kb-payment-pending-title" style="text-align:center;">התשלום מתעדכן</h2>
-            <p class="kb-modal-text" style="text-align:center;">זה יכול לקחת עוד דקה. אם משהו לא מסתדר, <a href="#" id="kb-payment-pending-contact">כתבו לנו</a>.</p>
+            <h2 class="kb-modal-title" id="kb-payment-pending-title" style="text-align:center;">התשלום התקבל ואנחנו משלימים את העדכון</h2>
+            <p class="kb-modal-text" style="text-align:center;">זה יכול לקחת כמה דקות. אפשר לנסות שוב בעוד רגע.</p>
             <div class="kb-modal-actions">
-                <button type="button" class="btn-outline" id="kb-payment-pending-close">סגירה</button>
+                <button type="button" class="btn-main" id="kb-payment-pending-retry">בדיקה חוזרת</button>
+                <button type="button" class="kb-btn kb-btn--quiet" id="kb-payment-pending-contact" style="align-self:center;">כתבו לנו</button>
             </div>
         </div>
     </div>
@@ -2156,7 +2201,7 @@
     // מוצג בקטן ואפור בתחתית תפריט ה-☰ (kb-version-marker), ונכתב גם
     // ל-console בכל טעינת עמוד - כדי שאפשר לוודא מהר, גם בלי לפתוח
     // DevTools, שגרסת ה-staging שנבדקת היא באמת זו שהודבקה לאחרונה.
-    const KB_VERSION = '2026-11-19 21:10';
+    const KB_VERSION = '2026-11-21 10:05';
     console.log('[DCard] KB_VERSION =', KB_VERSION);
 
     // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
@@ -2392,9 +2437,10 @@
     };
 
     // חלון התוקף של awaitingPayment - "בדיוק חזרנו מתשלום" הגיוני רק
-    // לכמה דקות, לא לשעות/ימים. 10 דקות נותנות מרווח נדיב לזמן אמיתי
-    // בעמוד התשלום של קארדקום בלי להשאיר דגל "תקוע" לצמיתות.
-    const AWAITING_PAYMENT_MAX_AGE_MS = 10 * 60 * 1000;
+    // לכמה דקות, לא לשעות/ימים. עדכון §7.2ג (21.11): "אסור לפתוח שוב את
+    // חלון התשלום למשתמש שחזר מקארדקום ב-30 הדקות האחרונות" - הועלה
+    // מ-10 ל-30 דקות כך שהחלון לא ייפתח בטעות באמצע עדכון איטי של ה-IPN.
+    const AWAITING_PAYMENT_MAX_AGE_MS = 30 * 60 * 1000;
 
     function dcardIsAwaitingPaymentFresh() {
         const raw = dcardGetLS(DCARD_LS_KEYS.awaitingPayment);
@@ -2595,17 +2641,15 @@
         }
     }
 
-    // §6.10.3: "אם המסלול עוד לא התעדכן ומשתמש מנסה להשתמש... בודקים שוב
-    // כל 2 שניות עד 30 שניות. אם עדיין אין עדכון: שורה 'התשלום מתעדכן'" -
+    // §7.2ג (21.11): "בדיקה ראשונה מיד, ואחר כך כל 2 שניות, עד 30 שניות" -
     // נקרא רק כש-DCARD_LS_KEYS.awaitingPayment מוגדר (נקבע ב-kb-payment-
     // modal ממש לפני ניווט לקארדקום, ר' למטה) - כלומר רק אחרי שהמשתמש
-    // באמת ניסה לשלם, לא בכל "נגמרו הקרדיטים" סתמי. triggerBtn כבר מציג
-    // "רגע…" מה-caller (kbHasCreditsOrHandleExhausted) - ממשיך להציג אותו
-    // לאורך כל הפולינג. מחזיר true = הקרדיט התעדכן, אפשר להמשיך.
+    // באמת ניסה לשלם, לא בכל "נגמרו הקרדיטים" סתמי. ההודעה הגלויה
+    // ("בודקים את התשלום שלך…") מוצגת ע"י קבוען kbCheckPaymentWithModal,
+    // לא כאן - הפונקציה הזו רק פולינג טהור. מחזיר true = הקרדיט התעדכן.
     async function kbWaitForPlanUpdate(mode) {
         const deadline = Date.now() + 30000;
-        while (Date.now() < deadline) {
-            await new Promise(function (resolve) { setTimeout(resolve, 2000); });
+        while (true) {
             try {
                 const res = await dcardFetch('/wp-json/dcard/v1/account/status', { method: 'GET', headers: dcardHeaders() });
                 const data = await res.json();
@@ -2616,19 +2660,65 @@
             } catch (err) {
                 console.warn('[DCard Quota] kbWaitForPlanUpdate poll failed (non-fatal):', err);
             }
+            if (Date.now() >= deadline) return false;
+            await new Promise(function (resolve) { setTimeout(resolve, 2000); });
         }
+    }
+
+    const kbPaymentCheckingModal = document.getElementById('kb-payment-checking-modal');
+    const kbPaymentPendingModal  = document.getElementById('kb-payment-pending-modal');
+    const kbPaymentPendingRetry  = document.getElementById('kb-payment-pending-retry');
+    const kbPaymentPendingContact = document.getElementById('kb-payment-pending-contact');
+
+    // §7.2ג: הקשר (מסלול+כפתור) של הבדיקה שנכשלה אחרי 30 שניות, כדי
+    // ש"בדיקה חוזרת" תדע מה להריץ שוב - ולהמשיך לבד לערבוב אם הפעם הצליח.
+    let kbPendingPaymentContext = null;
+    let kbPaymentDelayEmailSent = false;
+
+    // §7.2ג: "ומייל מיידי למנהל" - פעם אחת בטעינת עמוד זו, גם אם המשתמש
+    // לוחץ "בדיקה חוזרת" כמה פעמים (לא מציפים את המנהל בכל לחיצה).
+    async function kbNotifyAdminPaymentDelay(mode) {
+        if (kbPaymentDelayEmailSent) return;
+        kbPaymentDelayEmailSent = true;
+        try {
+            await dcardFetch('/wp-json/dcard/v1/account/payment-delay-alert', {
+                method: 'POST',
+                headers: Object.assign({ 'Content-Type': 'application/json' }, dcardHeaders()),
+                body: JSON.stringify({ mode: mode })
+            });
+        } catch (err) {
+            console.warn('[DCard Payment] payment-delay-alert failed (non-fatal):', err);
+        }
+    }
+
+    // עוטף את kbWaitForPlanUpdate: מציג "בודקים את התשלום שלך…" לאורך
+    // הפולינג, ובכישלון אחרי 30 שניות שומר הקשר לכפתור "בדיקה חוזרת"
+    // ושולח מייל מנהל. לא פותח כאן את חלון התשלום בשום מצב.
+    async function kbCheckPaymentWithModal(mode, triggerBtn) {
+        kbPaymentPendingModal.hidden = true;
+        kbPaymentCheckingModal.hidden = false;
+        const updated = await kbWaitForPlanUpdate(mode);
+        kbPaymentCheckingModal.hidden = true;
+        if (updated) {
+            kbPendingPaymentContext = null;
+            return true;
+        }
+        kbPendingPaymentContext = { mode: mode, triggerBtn: triggerBtn };
+        kbPaymentPendingModal.hidden = false;
+        kbNotifyAdminPaymentDelay(mode);
         return false;
     }
 
-    const kbPaymentPendingModal = document.getElementById('kb-payment-pending-modal');
-    const kbPaymentPendingClose = document.getElementById('kb-payment-pending-close');
-    const kbPaymentPendingContact = document.getElementById('kb-payment-pending-contact');
-    kbPaymentPendingClose.addEventListener('click', function () { kbPaymentPendingModal.hidden = true; });
-    kbPaymentPendingModal.addEventListener('click', function (e) {
-        if (e.target === kbPaymentPendingModal) kbPaymentPendingModal.hidden = true;
+    kbPaymentPendingRetry.addEventListener('click', async function () {
+        if (!kbPendingPaymentContext) { kbPaymentPendingModal.hidden = true; return; }
+        const ctx = kbPendingPaymentContext;
+        const ok = await kbCheckPaymentWithModal(ctx.mode, ctx.triggerBtn);
+        if (ok) {
+            kbPaymentPendingModal.hidden = true;
+            await kbProceedWithPath(ctx.mode, ctx.triggerBtn);
+        }
     });
-    kbPaymentPendingContact.addEventListener('click', function (e) {
-        e.preventDefault();
+    kbPaymentPendingContact.addEventListener('click', function () {
         kbPaymentPendingModal.hidden = true;
         kbOpenContactModal();
     });
@@ -2681,12 +2771,8 @@
             // (ר' dcardIsAwaitingPaymentFresh) מתעלם כאן בשקט ופותח את
             // חלון התשלום הרגיל במקום, לא את ה-30-שניות המיותרות.
             if (dcardIsAwaitingPaymentFresh()) {
-                const updated = await kbWaitForPlanUpdate(mode);
                 try { localStorage.removeItem(DCARD_LS_KEYS.awaitingPayment); } catch (lsErr) { /* ignore */ }
-                if (updated) return true;
-                kbPaymentPendingModal.hidden = false;
-                kbPaymentPendingClose.focus();
-                return false;
+                return await kbCheckPaymentWithModal(mode, triggerBtn);
             }
 
             kbHandleCreditsExhausted(anchorEl || triggerBtn);
@@ -3216,12 +3302,75 @@
         if (e.target === kbPaymentModal) kbClosePaymentModal();
     });
 
-    // §6.10.2: "אם כתובת המייל שגויה, [כתבו לנו]" - נפתח עם המייל הרשום
-    // (לא ניתן לעריכה כאן) ועם subjectSuffix "– תיקון מייל".
+    // §6.10.4 (21.11): "אם כתובת המייל שגויה, [כתבו לנו]" - פותח את חלון
+    // "תיקון כתובת המייל" הייעודי (kb-fix-email-modal), לא "כתבו לנו" הכללי.
     kbPaymentFixEmailLink.addEventListener('click', function (e) {
         e.preventDefault();
         kbClosePaymentModal();
-        kbOpenContactModal('המייל הרשום אצלי שגוי: ' + (dcardGetLS(DCARD_LS_KEYS.email) || ''), '– תיקון מייל');
+        kbOpenFixEmailModal();
+    });
+
+    // §6.10.4 "תיקון כתובת המייל" (21.11) - שדה אחד, בלי תיבת הודעה.
+    const kbFixEmailModal = document.getElementById('kb-fix-email-modal');
+    const kbFixEmailCurrent = document.getElementById('kb-fix-email-current');
+    const kbFixEmailNew = document.getElementById('kb-fix-email-new');
+    const kbFixEmailError = document.getElementById('kb-fix-email-error');
+    const kbFixEmailSubmit = document.getElementById('kb-fix-email-submit');
+    const kbFixEmailCancel = document.getElementById('kb-fix-email-cancel');
+
+    function kbOpenFixEmailModal() {
+        kbFixEmailCurrent.textContent = dcardGetLS(DCARD_LS_KEYS.email) || '';
+        kbFixEmailNew.value = '';
+        kbClearFieldError(kbFixEmailNew, kbFixEmailError);
+        kbHideAlertBanner('kb-fix-email-send-error');
+        kbFixEmailModal.hidden = false;
+        kbFixEmailNew.focus();
+    }
+    function kbCloseFixEmailModal() {
+        kbFixEmailModal.hidden = true;
+    }
+    kbFixEmailCancel.addEventListener('click', kbCloseFixEmailModal);
+    kbFixEmailModal.addEventListener('click', function (e) {
+        if (e.target === kbFixEmailModal) kbCloseFixEmailModal();
+    });
+
+    kbFixEmailSubmit.addEventListener('click', async function () {
+        const newEmail = kbFixEmailNew.value.trim();
+        if (!EMAIL_REGEX.test(newEmail)) {
+            kbShowFieldError(kbFixEmailNew, kbFixEmailError, 'הכתובת לא נראית תקינה. כדאי לבדוק שוב.');
+            return;
+        }
+        kbClearFieldError(kbFixEmailNew, kbFixEmailError);
+        kbHideAlertBanner('kb-fix-email-send-error');
+        kbFixEmailSubmit.disabled = true;
+
+        try {
+            const res = await dcardFetch('/wp-json/dcard/v1/account/update-email', {
+                method: 'POST',
+                headers: dcardHeaders(),
+                body: JSON.stringify({ new_email: newEmail })
+            });
+            const data = await res.json();
+            if (!data || !data.success) {
+                if (data && 'already_registered' === data.error) {
+                    kbShowAlertBanner(kbFixEmailNew, 'kb-fix-email-send-error', data.message, null, true);
+                } else {
+                    kbShowAlertBanner(kbFixEmailNew, 'kb-fix-email-send-error', (data && data.message) || 'העדכון לא הצליח בגלל תקלה בחיבור.', function () { kbFixEmailSubmit.click(); });
+                }
+                return;
+            }
+
+            if ('updated' === data.mode) {
+                dcardSetLS(DCARD_LS_KEYS.email, data.new_email);
+                if (kbPaymentEmailDisplay) kbPaymentEmailDisplay.textContent = data.new_email;
+            }
+            kbCloseFixEmailModal();
+            kbOpenPaymentModal();
+        } catch (e) {
+            kbShowAlertBanner(kbFixEmailNew, 'kb-fix-email-send-error', 'העדכון לא הצליח בגלל תקלה בחיבור.', function () { kbFixEmailSubmit.click(); });
+        } finally {
+            kbFixEmailSubmit.disabled = false;
+        }
     });
 
     kbPaymentSubmit.addEventListener('click', function () {
@@ -3604,6 +3753,7 @@
         else if (!kbCreditsExhaustedModal.hidden) kbCreditsExhaustedModal.hidden = true;
         else if (!kbRegisterModal.hidden) kbCloseRegisterModal();
         else if (!kbPaymentModal.hidden) kbClosePaymentModal();
+        else if (!kbFixEmailModal.hidden) kbCloseFixEmailModal();
         else if (!kbPaymentPendingModal.hidden) kbPaymentPendingModal.hidden = true;
         else if (!kbContactModal.hidden) kbCloseContactModal();
         // kb-onboarding-modal לא נסגר ב-Esc בכוונה - המידע חובה לפני שממשיכים.

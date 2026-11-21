@@ -371,6 +371,29 @@ class DCard_REST_Controller {
 			),
 		) );
 
+		// §6.10.4 "תיקון כתובת המייל" (21.11) - גרסה ייעודית ל"אם הכתובת
+		// שגויה" בחלון ההצטרפות. ר' account_update_email_inner לשלוש
+		// ההתנהגויות (עדכון עצמי מיידי / פנייה למנהל / כבר תפוס).
+		register_rest_route( self::NAMESPACE_, '/account/update-email', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'account_update_email' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+			'args'                => array(
+				'new_email' => array( 'required' => true ),
+			),
+		) );
+
+		// §7.2ג (21.11) - "לא התעדכן אחרי 30 שניות... ומייל מיידי למנהל".
+		// נקרא מהקליינט מ-kbNotifyAdminPaymentDelay, פעם אחת לכל המתנה.
+		register_rest_route( self::NAMESPACE_, '/account/payment-delay-alert', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'account_payment_delay_alert' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+			'args'                => array(
+				'mode' => array( 'required' => false ),
+			),
+		) );
+
 		register_rest_route( self::NAMESPACE_, '/session/end', array(
 			'methods'             => 'POST',
 			'callback'            => array( $this, 'session_end' ),
@@ -2282,6 +2305,129 @@ class DCard_REST_Controller {
 		}
 
 		return new WP_REST_Response( array( 'success' => true, 'plan_expires_at' => $user['plan_expires_at'] ), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// POST /account/update-email (§6.10.4 "תיקון כתובת המייל", 21.11)
+	// ---------------------------------------------------------------
+	public function account_update_email( WP_REST_Request $request ) {
+		return $this->safely( 'account_update_email', function () use ( $request ) {
+			return $this->account_update_email_inner( $request );
+		} );
+	}
+
+	/**
+	 * שלוש התנהגויות לפי הספק:
+	 * - משתמש שעוד לא שילם אף פעם (אין עסקאות): עדכון מיידי בשרת, בלי
+	 *   עבודה ידנית - אחרי בדיקה שהכתובת תקינה ולא שייכת למשתמש אחר.
+	 * - משתמש ששילם בעבר: לא מעדכנים לבד (צריך לעדכן גם בקארדקום) -
+	 *   נשלחת בקשה למנהל (כתובת ישנה+חדשה, מזהה משתמש), והמשתמש מקבל
+	 *   "קיבלנו, נחזור אליך".
+	 * - הכתובת החדשה כבר שייכת למשתמש אחר: נדחה, מופנה ל"כתבו לנו".
+	 */
+	private function account_update_email_inner( WP_REST_Request $request ) {
+		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+		$user         = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( ! $user ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
+		}
+
+		$new_email = sanitize_email( (string) $request->get_param( 'new_email' ) );
+		if ( ! $new_email || ! is_email( $new_email ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'כתובת מייל לא תקינה' ), 400 );
+		}
+
+		if ( strtolower( $new_email ) === strtolower( (string) $user['email'] ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'זו כבר הכתובת הרשומה' ), 400 );
+		}
+
+		$existing = DCard_Users::get_by_email( $new_email );
+		if ( $existing && (int) $existing['id'] !== (int) $user['id'] ) {
+			return new WP_REST_Response( array(
+				'success' => false,
+				'error'   => 'already_registered',
+				'message' => 'הכתובת הזו כבר רשומה. אם היא שלך, כתבו לנו.',
+			), 409 );
+		}
+
+		$has_paid = DCard_Transactions::count_for_user( (int) $user['id'] ) > 0;
+
+		if ( ! $has_paid ) {
+			$updated = DCard_Users::update_email( (int) $user['id'], $new_email );
+			if ( ! $updated ) {
+				return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בעדכון הכתובת' ), 500 );
+			}
+			return new WP_REST_Response( array(
+				'success'  => true,
+				'mode'     => 'updated',
+				'new_email' => $new_email,
+				'message'  => 'הכתובת עודכנה ל־' . $new_email . '.',
+			), 200 );
+		}
+
+		// שילם בעבר - צריך עדכון ידני גם בקארדקום, לא נוגעים ב-DB כאן.
+		$admin_email = get_option( 'admin_email' );
+		if ( $admin_email ) {
+			wp_mail(
+				$admin_email,
+				'הקורא בקלפים - בקשה לתיקון כתובת מייל (משתמש ששילם בעבר)',
+				sprintf(
+					"המשתמש %s (מזהה %d) ביקש לתקן את כתובת המייל שלו.\n\nכתובת ישנה: %s\nכתובת חדשה מבוקשת: %s\n\nצריך לעדכן ידנית גם בקארדקום (הוא כבר שילם בעבר, לכן לא עודכן אוטומטית).",
+					$user['name'] ? $user['name'] : '(ללא שם)',
+					(int) $user['id'],
+					$user['email'],
+					$new_email
+				)
+			);
+		}
+
+		return new WP_REST_Response( array(
+			'success' => true,
+			'mode'    => 'pending_admin',
+			'message' => 'קיבלנו. נעדכן את הכתובת ונחזור אלייך/אליך.',
+		), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// POST /account/payment-delay-alert (§7.2ג, 21.11)
+	// ---------------------------------------------------------------
+	public function account_payment_delay_alert( WP_REST_Request $request ) {
+		return $this->safely( 'account_payment_delay_alert', function () use ( $request ) {
+			return $this->account_payment_delay_alert_inner( $request );
+		} );
+	}
+
+	/**
+	 * "לא התעדכן אחרי 30 שניות... ומייל מיידי למנהל" - נשלח פעם אחת לכל
+	 * המתנה (הקליינט כבר דואג לכך, kbPaymentDelayEmailSent), אז אין כאן
+	 * rate-limiting נוסף כמו ב-notify_admin_of_webhook_rejection.
+	 */
+	private function account_payment_delay_alert_inner( WP_REST_Request $request ) {
+		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+		$user         = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( ! $user ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
+		}
+
+		$mode        = sanitize_text_field( (string) $request->get_param( 'mode' ) );
+		$admin_email = get_option( 'admin_email' );
+		if ( $admin_email ) {
+			wp_mail(
+				$admin_email,
+				'הקורא בקלפים - תשלום לא התעדכן אחרי 30 שניות',
+				sprintf(
+					"המשתמש %s (%s, מזהה %d) חזר מתשלום בקארדקום, אבל המסלול שלו עדיין לא התעדכן אחרי 30 שניות המתנה (סוג שימוש: %s).\n\nכדאי לבדוק את ה-IPN/הלוג של קארדקום למשתמש הזה.",
+					$user['name'] ? $user['name'] : '(ללא שם)',
+					$user['email'],
+					(int) $user['id'],
+					$mode ? $mode : '(לא צוין)'
+				)
+			);
+		}
+
+		return new WP_REST_Response( array( 'success' => true ), 200 );
 	}
 
 	// ---------------------------------------------------------------

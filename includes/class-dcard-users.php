@@ -454,6 +454,27 @@ class DCard_Users {
 	}
 
 	/**
+	 * §6.10.4 "תיקון כתובת המייל" - עדכון עצמי (למשתמש שעוד לא שילם אף
+	 * פעם בלבד; למי ששילם כבר, מעדכן ידנית המנהל, ר' account_update_
+	 * email_inner ב-class-dcard-rest-controller.php).
+	 */
+	public static function update_email( $user_id, $new_email ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return false !== $wpdb->update(
+			self::table(),
+			array(
+				'email'      => $new_email,
+				'updated_at' => current_time( 'mysql', true ),
+			),
+			array( 'id' => $user_id ),
+			array( '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
 	 * §6.11 "ביטול המנוי" - מצב ביניים (ר' ההערה המלאה ב-account_cancel_
 	 * inner ב-class-dcard-rest-controller.php): שומר רק את הבקשה עצמה,
 	 * לא משנה current_plan/plan_expires_at. המעבר בפועל ל-CANCELLED קורה
