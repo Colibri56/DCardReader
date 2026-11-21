@@ -389,9 +389,16 @@ class DCard_REST_Controller {
 			'methods'             => 'POST',
 			'callback'            => array( $this, 'account_payment_delay_alert' ),
 			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
-			'args'                => array(
-				'mode' => array( 'required' => false ),
-			),
+		) );
+
+		// §(21.11): נקבע ממש לפני ניווט לקארדקום (ר' kbPaymentSubmit) - "שיחה
+		// אחת חינם" בזמן שהתשלום בטיפול (has_credits_or_pending_pass) ו"אסור
+		// לפתוח שוב את חלון התשלום" (kbPaymentPendingActive בפרונט, נגזר
+		// מ-payment_pending בתגובת account/status|account/details).
+		register_rest_route( self::NAMESPACE_, '/account/payment-pending-start', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'account_payment_pending_start' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
 		) );
 
 		register_rest_route( self::NAMESPACE_, '/session/end', array(
@@ -634,7 +641,13 @@ class DCard_REST_Controller {
 		$is_first_card_draw = empty( $session['drawn_cards'] );
 		$credit_type        = ( 'message' === $mode ) ? 'msg' : 'chat';
 
-		if ( $registered_user && $is_first_card_draw && ! DCard_Users::has_credits( $registered_user['id'], $credit_type ) ) {
+		// §(21.11): has_credits_or_pending_pass, לא has_credits הרגילה -
+		// השער החוסם היחיד בפועל בכל הפלאגין (שני has_credits() האחרים,
+		// ב-session_card_selected/session_turn, מידע בלבד - "לא עוצרים
+		// שיחה באמצע"), ולכן המקום היחיד שבו "שיחה אחת חינם" בזמן תשלום
+		// ממתין אמורה לחול. ר' ההערה המלאה על DCard_Users::
+		// has_credits_or_pending_pass.
+		if ( $registered_user && $is_first_card_draw && ! DCard_Users::has_credits_or_pending_pass( $registered_user['id'], $credit_type ) ) {
 			DCard_Logger::info( 'session_draw_card - registered user out of credits, rejecting with 403', array( 'user_id' => $registered_user['id'], 'credit_type' => $credit_type ) );
 			return new WP_REST_Response( array(
 				'success' => false,
@@ -2076,6 +2089,14 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'עדכון מסלול נכשל' ), 500 );
 		}
 
+		// §(21.11): "כשה-IPN מגיע, הדגל מתנקה" - מכאן ה-kbQuietPlanPoll
+		// בפרונט יודע שהתשלום הושלם (payment_pending הופך false), ו"שיחה
+		// אחת חינם" (has_credits_or_pending_pass) כבר לא רלוונטית - יש
+		// קרדיטים אמיתיים עכשיו. לא מותנה בכך שה-payment_pending בכלל
+		// היה פתוח (למשל תשלום שני לפני שה-IPN של הראשון הגיע) - ניקוי
+		// no-op בטוח במקרה כזה.
+		DCard_Users::clear_payment_pending( $user['id'] );
+
 		// תיקון: לפני כן לא היה שום לוג על הצלחה - רק על כשלים. בלי זה,
 		// "האם ה-webhook בכלל התקבל והעודכן?" דרש בדיקת DB ישירה כל פעם.
 		DCard_Logger::info( 'POST /webhook/ipn-update - plan updated successfully', array(
@@ -2199,10 +2220,18 @@ class DCard_REST_Controller {
 			'success'             => true,
 			'user_id'             => (int) $user['id'],
 			'current_plan'        => $user['current_plan'],
+			// §(21.11): עבור "מסלול X פעיל" ב-kbQuietPlanPoll - בלי לדרוש
+			// עוד קריאת רשת נפרדת רק בשביל השם לתצוגה.
+			'plan_label'          => DCard_Plans::label_for_plan( $user['current_plan'] ),
 			'current_credits'     => (int) $user['current_credits_msg'],
 			'current_credits_msg' => (int) $user['current_credits_msg'],
 			'current_credits_chat'=> (int) $user['current_credits_chat'],
 			'plan_expires_at'     => $user['plan_expires_at'],
+			// §(21.11): ר' DCard_Users::is_payment_pending_fresh - true כל
+			// עוד payment_pending_at טרי (עד 30 דקות), בלי קשר ל"שיחה אחת
+			// חינם" שכבר נוצלה. הלקוח (kbHasCreditsOrHandleExhausted/
+			// kbOpenPaymentModal/kbQuietPlanPoll) נשען אך ורק על השדה הזה.
+			'payment_pending'     => DCard_Users::is_payment_pending_fresh( $user ),
 		), 200 );
 
 		// תיקון (21.11, נבדק בפועל ב-Cloudflare עם curl/fetch - cf-cache-
@@ -2269,6 +2298,7 @@ class DCard_REST_Controller {
 			'cancelled_at'         => $user['cancelled_at'],
 			'cancel_reason'        => $user['cancel_reason'],
 			'transactions'         => $transactions,
+			'payment_pending'      => DCard_Users::is_payment_pending_fresh( $user ),
 		), 200 );
 	}
 
@@ -2469,9 +2499,11 @@ class DCard_REST_Controller {
 	}
 
 	/**
-	 * "לא התעדכן אחרי 30 שניות... ומייל מיידי למנהל" - נשלח פעם אחת לכל
-	 * המתנה (הקליינט כבר דואג לכך, kbPaymentDelayEmailSent), אז אין כאן
-	 * rate-limiting נוסף כמו ב-notify_admin_of_webhook_rejection.
+	 * תיקון (21.11, החלפת §7.2ג): נשלח עכשיו ע"י kbQuietPlanPoll (פולינג שקט
+	 * ברקע, לא חוסם) אחרי 5 דקות בלי payment_pending==false, לא ע"י חלון
+	 * המתנה חוסם שבוטל. נשלח פעם אחת לכל המתנה (הקליינט כבר דואג לכך,
+	 * kbPaymentDelayEmailSent), אז אין כאן rate-limiting נוסף כמו ב-
+	 * notify_admin_of_webhook_rejection.
 	 */
 	private function account_payment_delay_alert_inner( WP_REST_Request $request ) {
 		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
@@ -2481,21 +2513,46 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
 		}
 
-		$mode        = sanitize_text_field( (string) $request->get_param( 'mode' ) );
 		$admin_email = get_option( 'admin_email' );
 		if ( $admin_email ) {
 			wp_mail(
 				$admin_email,
-				'הקורא בקלפים - תשלום לא התעדכן אחרי 30 שניות',
+				'הקורא בקלפים - תשלום לא התעדכן אחרי 5 דקות',
 				sprintf(
-					"המשתמש %s (%s, מזהה %d) חזר מתשלום בקארדקום, אבל המסלול שלו עדיין לא התעדכן אחרי 30 שניות המתנה (סוג שימוש: %s).\n\nכדאי לבדוק את ה-IPN/הלוג של קארדקום למשתמש הזה.",
+					"המשתמש %s (%s, מזהה %d) חזר מתשלום בקארדקום, אבל המסלול שלו עדיין לא התעדכן אחרי 5 דקות המתנה ברקע.\n\nכדאי לבדוק את ה-IPN/הלוג של קארדקום למשתמש הזה. בינתיים המשתמש לא נחסם - יש לו מעבר חד-פעמי לשיחה אחת (ר' DCard_Users::has_credits_or_pending_pass).",
 					$user['name'] ? $user['name'] : '(ללא שם)',
 					$user['email'],
-					(int) $user['id'],
-					$mode ? $mode : '(לא צוין)'
+					(int) $user['id']
 				)
 			);
 		}
+
+		return new WP_REST_Response( array( 'success' => true ), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// POST /account/payment-pending-start (21.11)
+	// ---------------------------------------------------------------
+	public function account_payment_pending_start( WP_REST_Request $request ) {
+		return $this->safely( 'account_payment_pending_start', function () use ( $request ) {
+			return $this->account_payment_pending_start_inner( $request );
+		} );
+	}
+
+	/**
+	 * נקרא מ-kbPaymentSubmit ממש לפני הניווט לקארדקום - שרת, לא רק
+	 * localStorage, כדי ש"שיחה אחת חינם"/"אל תפתח שוב את חלון התשלום"
+	 * יהיו תקפים גם אם ה-IPN יגיע לפני שהמשתמש בכלל חוזר לדף הזה.
+	 */
+	private function account_payment_pending_start_inner( WP_REST_Request $request ) {
+		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+		$user         = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( ! $user ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
+		}
+
+		DCard_Users::start_payment_pending( (int) $user['id'] );
 
 		return new WP_REST_Response( array( 'success' => true ), 200 );
 	}

@@ -55,6 +55,8 @@ class DCard_Users {
 			cancel_reason VARCHAR(190) NULL,
 			cancel_requested_at DATETIME NULL,
 			cardcom_recurring_id VARCHAR(40) NULL,
+			payment_pending_at DATETIME NULL,
+			payment_pending_used TINYINT(1) NOT NULL DEFAULT 0,
 			session_token VARCHAR(64) NULL,
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
@@ -538,6 +540,103 @@ class DCard_Users {
 		}
 		$column = ( 'chat' === $type ) ? 'current_credits_chat' : 'current_credits_msg';
 		return (int) $user[ $column ] > 0;
+	}
+
+	/**
+	 * §(21.11, "אם המשתמש מתחיל שיחה לפני העדכון - לאפשר שיחה אחת"): עוטפת
+	 * has_credits עם מעבר חד-פעמי בזמן שתשלום בטיפול (payment_pending_at,
+	 * ר' start_payment_pending). *זה* השער החוסם היחיד בפועל בכל הפלאגין
+	 * (ר' session_draw_card_inner) - שני has_credits() האחרים הם מידע
+	 * בלבד, לא חוסמים (§7.2: "לא עוצרים שיחה באמצע"), ולכן רק כאן נכון
+	 * לצרוך את המעבר החד-פעמי. "פעם אחת בלבד" נאכף ע"י payment_pending_used -
+	 * מסומן ברגע שהמעבר אושר, לא מתאפס עד שהתשלום הבא מתחיל (start_
+	 * payment_pending) או שה-IPN מגיע (clear_payment_pending).
+	 */
+	public static function has_credits_or_pending_pass( $user_id, $type = 'msg' ) {
+		if ( self::has_credits( $user_id, $type ) ) {
+			return true;
+		}
+
+		$user = self::get_by_id( $user_id );
+		if ( ! $user || ! self::is_payment_pending_fresh( $user ) || ! empty( $user['payment_pending_used'] ) ) {
+			return false;
+		}
+
+		global $wpdb;
+		$wpdb->update(
+			self::table(),
+			array(
+				'payment_pending_used' => 1,
+				'updated_at'           => current_time( 'mysql', true ),
+			),
+			array( 'id' => $user_id ),
+			array( '%d', '%s' ),
+			array( '%d' )
+		);
+
+		DCard_Logger::info( 'has_credits_or_pending_pass - granted one free conversation while payment is pending', array(
+			'user_id' => $user_id,
+			'type'    => $type,
+		) );
+
+		return true;
+	}
+
+	/**
+	 * §(21.11): נקרא ע"י POST /account/payment-pending-start, ממש לפני
+	 * ניווט לקארדקום (ר' kbPaymentSubmit). payment_pending_used מתאפס כאן -
+	 * כל מחזור תשלום חדש מקבל שיחת-חינם אחת משלו.
+	 */
+	public static function start_payment_pending( $user_id ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return false !== $wpdb->update(
+			self::table(),
+			array(
+				'payment_pending_at'   => current_time( 'mysql', true ),
+				'payment_pending_used' => 0,
+				'updated_at'           => current_time( 'mysql', true ),
+			),
+			array( 'id' => $user_id ),
+			array( '%s', '%d', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * §(21.11): נקרא מ-payment_webhook_inner ברגע שתשלום רגיל עדכן בהצלחה
+	 * את המסלול (set_plan הצליח) - "כשה-IPN מגיע, הדגל מתנקה".
+	 */
+	public static function clear_payment_pending( $user_id ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return false !== $wpdb->update(
+			self::table(),
+			array(
+				'payment_pending_at'   => null,
+				'payment_pending_used' => 0,
+				'updated_at'           => current_time( 'mysql', true ),
+			),
+			array( 'id' => $user_id ),
+			array( '%s', '%d', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * §(21.11): "תוקף 30 דקות" - אותו חלון כמו AWAITING_PAYMENT_MAX_AGE_MS
+	 * בפרונט (dcardIsAwaitingPaymentFresh), כדי שלא "ישאר תקוע" פתוח
+	 * בשרת הרבה אחרי שהמשתמש כבר שכח מהתשלום. מקבל את שורת ה-$user
+	 * המלאה (לא user_id) כי כל קוראיה כבר מחזיקים אותה ביד.
+	 */
+	public static function is_payment_pending_fresh( $user ) {
+		if ( empty( $user['payment_pending_at'] ) ) {
+			return false;
+		}
+		$age_seconds = time() - strtotime( $user['payment_pending_at'] );
+		return $age_seconds >= 0 && $age_seconds <= 30 * MINUTE_IN_SECONDS;
 	}
 
 	/**

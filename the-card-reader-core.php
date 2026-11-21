@@ -32,7 +32,10 @@ define( 'DCARD_PLUGIN_URL', TCR_CORE_URL );
 // (סעיף 6.11: מצב "מבוטל" ו-POST /account/cancel, ר' class-dcard-users.php).
 // עודכן 1.6.0 (21.11) - עמודה cardcom_recurring_id (שמירת RecurringId
 // מהתראת הוראת קבע, ר' DCard_Users::save_recurring_id).
-define( 'DCARD_DB_VERSION', '1.6.0' );
+// עודכן 1.7.0 (21.11) - עמודות payment_pending_at/payment_pending_used
+// ("שיחה אחת חינם" בזמן תשלום ממתין - ר' DCard_Users::
+// has_credits_or_pending_pass/start_payment_pending/clear_payment_pending).
+define( 'DCARD_DB_VERSION', '1.7.0' );
 
 // *** אבטחה (תוקן, ר' docs/go-live.md): DCARD_WEBHOOK_SECRET כבר לא
 // מוגדר כאן בשום ערך - הוא חייב להיות מוגדר ב-wp-config.php (כלל 6

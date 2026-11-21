@@ -986,6 +986,28 @@
         .kb-modal-handle { display: none; }
     }
 
+    /* תיקון (21.11): הודעה שקטה לא-חוסמת ("מסלול X פעיל"/"התשלום בטיפול") -
+       בלי רקע כהה, לא חלק מ-.kb-modal-scrim בכוונה (ר' ההערה ב-HTML).
+       נעלמת לבד אחרי קבוע-זמן ב-kbShowToast, לא ע"י לחיצה. */
+    .kb-toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: calc(100% - 32px);
+        background: var(--ink, #2A2326);
+        color: #fff;
+        font-family: 'Rubik', sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        padding: 12px 20px;
+        border-radius: 999px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.2);
+        z-index: 1200;
+        text-align: center;
+    }
+    .kb-toast[hidden] { display: none; }
+
     .kb-landing { padding: 24px 4px 40px; }
     .kb-landing-grid { display: flex; flex-direction: column; gap: 28px; }
     .kb-landing-fan { display: flex; justify-content: center; align-items: center; height: 140px; position: relative; }
@@ -1834,37 +1856,29 @@
         </div>
     </div>
 
-    <!-- §7.2ג (21.11, עודכן 21.11 - קארדקום שולחת את ה-IPN בפועל כדקה
-         אחרי התשלום, לא תוך 30 שניות): "בזמן ההמתנה לעדכון המסלול: חלון עם
-         הודעה גלויה, לא כפתור תקוע על 'רגע…'" - מוצג לאורך כל הפולינג
-         ב-kbWaitForPlanUpdate (בדיקה ראשונה מיד, ואז כל 2 שניות עד 120
-         שניות). אין כפתורים - סגירה רק אוטומטית (הצלחה/כישלון). -->
-    <div id="kb-payment-checking-modal" class="kb-modal-scrim" hidden>
-        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-payment-checking-title">
+    <!-- תיקון (21.11, החלפת §7.2ג): "לא להחזיק את המשתמש ולא לחכות" - בוטל
+         לגמרי חלון ההמתנה החוסם (kb-payment-checking-modal/kb-payment-pending-
+         modal, עם "רגע…"/"בודקים את התשלום") וההמשך האוטומטי לערבוב אחרי
+         חזרה מתשלום. במקום: חלון תודה קצר שנסגר לבד (kb-payment-thankyou-
+         modal למטה), עדכון מסלול שקט ברקע (kbQuietPlanPoll, ר' JS), ו"שיחה
+         אחת חינם" בזמן שהתשלום בטיפול (payment_pending בשרת, לא תלוי UI).
+         חוזר מקארדקום -> ישר למסך הבית, בלי לחסום כלום. -->
+    <div id="kb-payment-thankyou-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-payment-thankyou-title">
             <div class="kb-modal-handle"></div>
-            <h2 class="kb-modal-title" id="kb-payment-checking-title" style="text-align:center;">מעדכן את הפרטים… זה עלול לקחת טיפה זמן</h2>
-            <p style="text-align:center;margin:10px 0 0;">
-                <span class="dcard-typing-dots stage-vertical"><span></span><span></span><span></span></span>
-            </p>
-        </div>
-    </div>
-
-    <!-- §7.2ג: "לא התעדכן אחרי 120 שניות" - [בדיקה חוזרת] מריץ שוב את אותו
-         פולינג (ר' kb-payment-pending-retry), [כתבו לנו] פותח את חלון
-         הפנייה. מייל מיידי למנהל נשלח ע"י kbNotifyAdminPaymentDelay, לא
-         מכאן. אסור לפתוח מכאן את חלון התשלום מחדש ואסור להריץ את הפעולה
-         השמורה לבד - רק לחיצה מפורשת על "בדיקה חוזרת" ממשיכה. -->
-    <div id="kb-payment-pending-modal" class="kb-modal-scrim" hidden>
-        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-payment-pending-title">
-            <div class="kb-modal-handle"></div>
-            <h2 class="kb-modal-title" id="kb-payment-pending-title" style="text-align:center;">התשלום התקבל ואנחנו משלימים את העדכון</h2>
-            <p class="kb-modal-text" style="text-align:center;">זה יכול לקחת כמה דקות. אפשר לנסות שוב בעוד רגע.</p>
+            <h2 class="kb-modal-title" id="kb-payment-thankyou-title" style="text-align:center;"></h2>
             <div class="kb-modal-actions">
-                <button type="button" class="btn-main" id="kb-payment-pending-retry">בדיקה חוזרת</button>
-                <button type="button" class="kb-btn kb-btn--quiet" id="kb-payment-pending-contact" style="align-self:center;">כתבו לנו</button>
+                <button type="button" class="btn-main" id="kb-payment-thankyou-continue">המשך</button>
             </div>
         </div>
     </div>
+
+    <!-- הודעה שקטה, לא-חוסמת (לא modal-scrim בכוונה - אין רקע כהה ואי אפשר
+         לסגור בטעות שום דבר אחר): "מסלול X פעיל" אחרי שהעדכון השקט ברקע
+         זיהה שהתשלום אושר (ר' kbQuietPlanPoll), וגם ההודעה ל"התשלום הקודם
+         עדיין בטיפול" כש-kbOpenPaymentModal נחסם (ר' payment_pending). נסגר
+         לבד אחרי כמה שניות. -->
+    <div id="kb-toast" class="kb-toast" hidden role="status" aria-live="polite"></div>
 
     <!-- תפריט ☰ (סעיף 5) -->
     <div id="kb-menu-overlay" class="kb-menu-overlay" hidden>
@@ -2203,7 +2217,7 @@
     // מוצג בקטן ואפור בתחתית תפריט ה-☰ (kb-version-marker), ונכתב גם
     // ל-console בכל טעינת עמוד - כדי שאפשר לוודא מהר, גם בלי לפתוח
     // DevTools, שגרסת ה-staging שנבדקת היא באמת זו שהודבקה לאחרונה.
-    const KB_VERSION = '2026-11-21 16:40';
+    const KB_VERSION = '2026-11-21 19:30';
     console.log('[DCard] KB_VERSION =', KB_VERSION);
 
     // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
@@ -2643,92 +2657,102 @@
         }
     }
 
-    // §7.2ג (21.11): "בדיקה ראשונה מיד, ואחר כך כל 2 שניות" - עד 120
-    // שניות (הועלה מ-30, דווח בפועל: קארדקום שולחת את ה-IPN בפועל כדקה
-    // אחרי התשלום, לא תוך 30 שניות). נקרא רק כש-DCARD_LS_KEYS.awaitingPayment
-    // מוגדר (נקבע ב-kb-payment-modal ממש לפני ניווט לקארדקום, ר' למטה) -
-    // כלומר רק אחרי שהמשתמש באמת ניסה לשלם, לא בכל "נגמרו הקרדיטים" סתמי.
-    // ההודעה הגלויה מוצגת ע"י קבוען kbCheckPaymentWithModal, לא כאן -
-    // הפונקציה הזו רק פולינג טהור. מחזיר true = הקרדיט התעדכן.
-    async function kbWaitForPlanUpdate(mode) {
-        const deadline = Date.now() + 120000;
-        while (true) {
+    // תיקון (21.11, החלפת §7.2ג): "לא להחזיק את המשתמש ולא לחכות" - בוטלו
+    // kbWaitForPlanUpdate/kbCheckPaymentWithModal (פולינג חוסם + חלונות
+    // "רגע…"/"בודקים את התשלום"). העדכון עכשיו קורה אך ורק ברקע, בלי לחסום
+    // שום פעולה - ר' kbQuietPlanPoll למטה, ו"שיחה אחת חינם" בזמן שהתשלום
+    // בטיפול (payment_pending מהשרת, ר' has_credits_or_pending_pass
+    // ב-DCard_Users - האכיפה האמיתית שם, לא כאן).
+
+    // הודעה שקטה לא-חוסמת (kb-toast) - משמשת גם ל"מסלול X פעיל" (קבוע
+    // 2 למטה) וגם ל"התשלום הקודם עדיין בטיפול" (קבוע 4, ר' kbOpenPaymentModal).
+    const kbToast = document.getElementById('kb-toast');
+    let kbToastTimer = null;
+    function kbShowToast(message, autoHideMs) {
+        kbToast.textContent = message;
+        kbToast.hidden = false;
+        if (kbToastTimer) clearTimeout(kbToastTimer);
+        kbToastTimer = setTimeout(function () { kbToast.hidden = true; }, autoHideMs || 5000);
+    }
+
+    // עדכון שקט, מתעדכן בכל קריאה ל-/account/status או /account/details -
+    // "אסור לפתוח שוב את חלון התשלום למשתמש עם תשלום ממתין" (קבוע 4).
+    // נגזר מ-payment_pending של השרת (ר' account_status_inner), לא מ-
+    // dcardIsAwaitingPaymentFresh המקומי - זה האחרון רק מפעיל את חלון
+    // התודה+הפולינג השקט *בטעינת העמוד* שבה חוזרים מקארדקום, ולא קובע
+    // יותר שום דבר לגבי אכיפת קרדיטים/פתיחת חלון תשלום.
+    let kbPaymentPendingActive = false;
+
+    // קבוע 2: "בדיקה שקטה ברקע כל 5 שניות, עד 5 דקות. כשהמסלול התעדכן -
+    // הודעה קטנה 'מסלול X פעיל'." מופעלת פעם אחת בטעינת העמוד שבה זוהתה
+    // חזרה טריה מקארדקום (ר' נקודת הקריאה בתחתית הקובץ). payment_pending
+    // (מהשרת, ר' DCard_Users::clear_payment_pending) הוא סימן הסיום -
+    // מתנקה בדיוק ברגע שה-IPN מעבד תשלום מוצלח, לא תלוי בהשוואת מספרים/
+    // מסלול מקומית.
+    function kbQuietPlanPoll() {
+        const deadline = Date.now() + 5 * 60 * 1000;
+        const tick = async function () {
             try {
-                // תיקון (21.11): פרמטר timestamp כדי שכל בקשה תהיה URL שונה -
-                // הגנה בלבד (ר' הערת Cache-Control ב-account_status_inner,
-                // נבדק בפועל ב-Cloudflare: cf-cache-status DYNAMIC, לא זה
-                // הגורם שדווח). fetch() רגיל (בלי cache:'no-store') כבר לא
-                // אמור לקאש תגובה כזו, אבל זה עדיין "חסין-קאש" לגמרי.
                 const res = await dcardFetch('/wp-json/dcard/v1/account/status?_=' + Date.now(), { method: 'GET', headers: dcardHeaders() });
                 const data = await res.json();
                 if (data && data.success) {
-                    const remaining = ( 'message' === mode ) ? data.current_credits_msg : data.current_credits_chat;
-                    if (remaining > 0) return true;
+                    kbPaymentPendingActive = !!data.payment_pending;
+                    if (!data.payment_pending) {
+                        kbShowToast('מסלול ' + (data.plan_label || '') + ' פעיל');
+                        return; // הצליח - אין צורך בעוד סיבוב
+                    }
                 }
             } catch (err) {
-                console.warn('[DCard Quota] kbWaitForPlanUpdate poll failed (non-fatal):', err);
+                console.warn('[DCard Payment] kbQuietPlanPoll tick failed (non-fatal):', err);
             }
-            if (Date.now() >= deadline) return false;
-            await new Promise(function (resolve) { setTimeout(resolve, 2000); });
-        }
+            if (Date.now() >= deadline) {
+                console.log('[DCard Payment] kbQuietPlanPoll gave up after 5 minutes - still pending.');
+                kbNotifyAdminPaymentDelay();
+                return;
+            }
+            setTimeout(tick, 5000);
+        };
+        tick();
     }
 
-    const kbPaymentCheckingModal = document.getElementById('kb-payment-checking-modal');
-    const kbPaymentPendingModal  = document.getElementById('kb-payment-pending-modal');
-    const kbPaymentPendingRetry  = document.getElementById('kb-payment-pending-retry');
-    const kbPaymentPendingContact = document.getElementById('kb-payment-pending-contact');
-
-    // §7.2ג: הקשר (מסלול+כפתור) של הבדיקה שנכשלה אחרי 30 שניות, כדי
-    // ש"בדיקה חוזרת" תדע מה להריץ שוב - ולהמשיך לבד לערבוב אם הפעם הצליח.
-    let kbPendingPaymentContext = null;
+    // נשאר כמו שהיה (ר' §7.2ג הישן) - מייל מנהל אם 5 הדקות חלפו בלי
+    // שה-IPN עדכן את המסלול, פעם אחת בטעינת עמוד זו.
     let kbPaymentDelayEmailSent = false;
-
-    // §7.2ג: "ומייל מיידי למנהל" - פעם אחת בטעינת עמוד זו, גם אם המשתמש
-    // לוחץ "בדיקה חוזרת" כמה פעמים (לא מציפים את המנהל בכל לחיצה).
-    async function kbNotifyAdminPaymentDelay(mode) {
+    async function kbNotifyAdminPaymentDelay() {
         if (kbPaymentDelayEmailSent) return;
         kbPaymentDelayEmailSent = true;
         try {
             await dcardFetch('/wp-json/dcard/v1/account/payment-delay-alert', {
                 method: 'POST',
                 headers: Object.assign({ 'Content-Type': 'application/json' }, dcardHeaders()),
-                body: JSON.stringify({ mode: mode })
+                body: JSON.stringify({})
             });
         } catch (err) {
             console.warn('[DCard Payment] payment-delay-alert failed (non-fatal):', err);
         }
     }
 
-    // עוטף את kbWaitForPlanUpdate: מציג "בודקים את התשלום שלך…" לאורך
-    // הפולינג, ובכישלון אחרי 30 שניות שומר הקשר לכפתור "בדיקה חוזרת"
-    // ושולח מייל מנהל. לא פותח כאן את חלון התשלום בשום מצב.
-    async function kbCheckPaymentWithModal(mode, triggerBtn) {
-        kbPaymentPendingModal.hidden = true;
-        kbPaymentCheckingModal.hidden = false;
-        const updated = await kbWaitForPlanUpdate(mode);
-        kbPaymentCheckingModal.hidden = true;
-        if (updated) {
-            kbPendingPaymentContext = null;
-            return true;
-        }
-        kbPendingPaymentContext = { mode: mode, triggerBtn: triggerBtn };
-        kbPaymentPendingModal.hidden = false;
-        kbNotifyAdminPaymentDelay(mode);
-        return false;
+    // קבוע 1: חלון תודה קצר בחזרה מקארדקום - נסגר לבד אחרי 3 שניות או
+    // ב"המשך". בלי "רגע…" בשום מקום בזרימה הזו - ר' נקודת הקריאה בתחתית
+    // הקובץ (מחליפה את כל מנגנון ה-awaitingPayment/pendingQuestion הישן
+    // שחיכה/המשיך אוטומטית).
+    const kbPaymentThankyouModal = document.getElementById('kb-payment-thankyou-modal');
+    const kbPaymentThankyouTitle = document.getElementById('kb-payment-thankyou-title');
+    const kbPaymentThankyouContinue = document.getElementById('kb-payment-thankyou-continue');
+    let kbPaymentThankyouTimer = null;
+    function kbCloseThankyouModal() {
+        kbPaymentThankyouModal.hidden = true;
+        if (kbPaymentThankyouTimer) clearTimeout(kbPaymentThankyouTimer);
     }
-
-    kbPaymentPendingRetry.addEventListener('click', async function () {
-        if (!kbPendingPaymentContext) { kbPaymentPendingModal.hidden = true; return; }
-        const ctx = kbPendingPaymentContext;
-        const ok = await kbCheckPaymentWithModal(ctx.mode, ctx.triggerBtn);
-        if (ok) {
-            kbPaymentPendingModal.hidden = true;
-            await kbProceedWithPath(ctx.mode, ctx.triggerBtn);
-        }
-    });
-    kbPaymentPendingContact.addEventListener('click', function () {
-        kbPaymentPendingModal.hidden = true;
-        kbOpenContactModal();
+    function kbShowPaymentThankyouModal() {
+        kbPaymentThankyouTitle.textContent = 'תודה, ' + userName + '! התשלום התקבל. מעדכנים את הנתונים וכבר ממשיכים.';
+        kbPaymentThankyouModal.hidden = false;
+        kbPaymentThankyouContinue.focus();
+        kbPaymentThankyouTimer = setTimeout(kbCloseThankyouModal, 3000);
+    }
+    kbPaymentThankyouContinue.addEventListener('click', kbCloseThankyouModal);
+    kbPaymentThankyouModal.addEventListener('click', function (e) {
+        if (e.target === kbPaymentThankyouModal) kbCloseThankyouModal();
     });
 
     // סעיף 7.2א: "לפני שמסך הערבוב נפתח... שואלים את השרת אם נשאר למשתמש
@@ -2771,16 +2795,17 @@
             });
             const data = await res.json();
             if (!data || !data.success) return true;
+            kbPaymentPendingActive = !!(data && data.payment_pending);
             const remaining = ( 'message' === mode ) ? data.current_credits_msg : data.current_credits_chat;
             if (remaining > 0) return true;
 
-            // §6.10.3: חזרה מקארדקום לפני שה-IPN הספיק להגיע - לא פותחים
-            // שוב את חלון התשלום, פולינג עד 120 שניות במקום זאת. דגל ישן
-            // (ר' dcardIsAwaitingPaymentFresh) מתעלם כאן בשקט ופותח את
-            // חלון התשלום הרגיל במקום, לא את הפולינג המיותר.
-            if (dcardIsAwaitingPaymentFresh()) {
-                try { localStorage.removeItem(DCARD_LS_KEYS.awaitingPayment); } catch (lsErr) { /* ignore */ }
-                return await kbCheckPaymentWithModal(mode, triggerBtn);
+            // קבוע 3: "אם המשתמש מתחיל שיחה לפני העדכון - לאפשר שיחה אחת"
+            // - בלי לחסום ובלי חלון תשלום שוב, כל עוד יש תשלום ממתין בשרת.
+            // האכיפה/הצריכה החד-פעמית בפועל היא ב-DCard_Users::
+            // has_credits_or_pending_pass (session_card_selected_inner) -
+            // כאן רק לא חוסמים מראש בצד הלקוח.
+            if (data.payment_pending) {
+                return true;
             }
 
             kbHandleCreditsExhausted(anchorEl || triggerBtn);
@@ -3275,6 +3300,15 @@
     // שונה ("טוב לראות אותך שוב"), לא "נמשיך יחד?" - ר' קריאה מ-account/status
     // סנכרון הטעינה למעלה.
     async function kbOpenPaymentModal(adminTesting, returningCancelled) {
+        // קבוע 4 (21.11): "אף פעם לא לפתוח את חלון התשלום למי שיש לו תשלום
+        // ממתין" - kbPaymentPendingActive מתעדכן מכל קריאה קודמת ל-
+        // /account/status|/account/details (ר' ההערה המלאה למעלה, ליד
+        // ההגדרה שלו). כל נקודות הקריאה הקיימות ל-kbOpenPaymentModal כבר
+        // עוברות דרך אחת מהן קודם, אז הדגל כאן תמיד טרי.
+        if (kbPaymentPendingActive) {
+            kbShowToast('התשלום הקודם עדיין בטיפול. אפשר להמשיך להשתמש, ונעדכן ברגע שהוא יאושר.');
+            return;
+        }
         kbPaymentAdminBadge.style.display = adminTesting ? '' : 'none';
         kbPaymentTitle.textContent = returningCancelled
             ? (userName + ', טוב לראות אותך שוב')
@@ -3381,7 +3415,7 @@
         }
     });
 
-    kbPaymentSubmit.addEventListener('click', function () {
+    kbPaymentSubmit.addEventListener('click', async function () {
         // "אין מה לשמור" (§6.10.2) - המשתמש כבר רשום (6.10.1 תמיד קודם
         // לחלון הזה, ר' §7.2א), אז אין כאן קריאת /register נוספת.
         const userId = dcardGetLS(DCARD_LS_KEYS.userId);
@@ -3390,8 +3424,25 @@
             return;
         }
         // §6.10.3: נקבע ממש לפני הניווט - timestamp, לא '1' פשוט, כדי
-        // ש-dcardIsAwaitingPaymentFresh תוכל להתעלם מדגל ישן מדי.
+        // ש-dcardIsAwaitingPaymentFresh תוכל להתעלם מדגל ישן מדי. התפקיד
+        // היחיד שנשאר לדגל המקומי הזה (21.11): להפעיל את חלון התודה+
+        // הפולינג השקט בטעינת העמוד הבאה - לא יותר לאכיפת קרדיטים (זה עבר
+        // לדגל payment_pending בשרת, ר' ההערה הבאה).
         dcardSetLS(DCARD_LS_KEYS.awaitingPayment, String(Date.now()));
+
+        // קבוע 3/4 (21.11): מסמן בשרת "תשלום ממתין" *לפני* הניווט - כך
+        // ש"שיחה אחת חינם" ו"לא לפתוח שוב את חלון התשלום" (ר' has_credits_
+        // or_pending_pass/kbPaymentPendingActive) יהיו תקפים גם אם המשתמש
+        // לא חוזר לדף הזה בכלל (מכשיר/טאב אחר) - לא תלוי ב-localStorage.
+        // best-effort: כשל ברשת כאן לא עוצר את התשלום עצמו.
+        try {
+            await dcardFetch('/wp-json/dcard/v1/account/payment-pending-start', {
+                method: 'POST',
+                headers: dcardHeaders()
+            });
+        } catch (err) {
+            console.warn('[DCard Payment] payment-pending-start failed (non-fatal):', err);
+        }
 
         const cardcomRedirectUrl = CARDCOM_PAYMENT_URL + '?ReturnValue=' + encodeURIComponent(userId);
         console.log('[DCard Payment] redirecting to Cardcom:', cardcomRedirectUrl);
@@ -3527,6 +3578,7 @@
                 return;
             }
             kbAccountCurrentData = data;
+            kbPaymentPendingActive = !!data.payment_pending;
 
             // חלק 1: המסלול שלי - docs/account-reference.html
             const isFree = ('free' === data.current_plan);
@@ -3762,7 +3814,7 @@
         else if (!kbRegisterModal.hidden) kbCloseRegisterModal();
         else if (!kbPaymentModal.hidden) kbClosePaymentModal();
         else if (!kbFixEmailModal.hidden) kbCloseFixEmailModal();
-        else if (!kbPaymentPendingModal.hidden) kbPaymentPendingModal.hidden = true;
+        else if (!kbPaymentThankyouModal.hidden) kbCloseThankyouModal();
         else if (!kbContactModal.hidden) kbCloseContactModal();
         // kb-onboarding-modal לא נסגר ב-Esc בכוונה - המידע חובה לפני שממשיכים.
     });
@@ -3770,43 +3822,47 @@
     // State recovery: שחזור שאלה שנקטעה ע"י קיר תשלום (403/credits_exhausted)
     // ממש לפני ניווט לקארדקום - ר' DCARD_LS_KEYS.pendingQuestion והשמירה
     // ב-runCardAI/btnSend. חד-פעמי: המפתח מוחק את עצמו תמיד (גם אם ריק),
-    // כדי שלא "יחזור" שוב בטעות בטעינה עתידית לא-קשורה. לא מפעילים שליחה
-    // אוטומטית בכוונה - אחרי כל הלולאות שתוקנו בפרויקט הזה סביב "ניסיון
-    // חוזר אוטומטי", שחזור הטקסט בלבד (לא פעולה) הוא הבחירה הבטוחה; לחיצה
-    // מפורשת של המשתמש על "ערבוב קלפים" היא שמתחילה סשן חדש בפועל - הדף
-    // כולו נטען מחדש אחרי קארדקום, אין סשן/קלפים/היסטוריית צ'אט קודמים
-    // לשחזר, רק הטקסט שהספיק להיכתב.
+    // כדי שלא "יחזור" שוב בטעות בטעינה עתידית לא-קשורה.
+    //
+    // תיקון (21.11, התבקש: "אם המשתמש מתחיל שיחה לפני העדכון... אף פעם לא
+    // להחזיק את המשתמש ולא לחכות, חזרה למסך הבית"): בוטל ה"המשך אוטומטי
+    // לערבוב" שהיה כאן (§7.2, 19.11) - מדמה לחיצה על כפתור המסלול בלי
+    // שהמשתמש ביקש את זה בפועל. נשאר רק שחזור הטקסט לתיבה (לא פעולה) -
+    // המשתמש חוזר למסך הבית הרגיל ולוחץ בעצמו כשהוא מוכן.
     var pendingQuestion = dcardGetLS(DCARD_LS_KEYS.pendingQuestion);
     if (pendingQuestion) {
-        // עדכון §7.2 (19.11): "אחרי החזרה, להמשיך אוטומטית לערבוב" - בנוסף
-        // לשחזור הטקסט, אם נשמר גם pendingMode (ר' kbSavePendingQuestionAndMode)
-        // מדמים לחיצה על אותו כפתור מסלול בדיוק - הוא כבר עושה את כל
-        // הבדיקה+הערבוב בעצמו (ensureSessionReady/kbHasCreditsOrHandleExhausted/
-        // kbProceedWithPath), בלי שכפול לוגיקה כאן. אם הקרדיט עדיין לא
-        // התעדכן (ה-IPN עוד בדרך) - אותו מנגנון awaitingPayment/
-        // kbWaitForPlanUpdate הקיים כבר מטפל בזה, לא צריך טיפול נוסף כאן.
-        var pendingMode = dcardGetLS(DCARD_LS_KEYS.pendingMode);
         try {
             localStorage.removeItem(DCARD_LS_KEYS.pendingQuestion);
             localStorage.removeItem(DCARD_LS_KEYS.pendingMode);
         } catch (lsErr) { /* פרטי/חסום - ממשיכים בלי לנקות */ }
         if (userQuestion) {
             userQuestion.value = pendingQuestion;
-            console.log('[DCard Account] restored pending question into the question box after returning from payment.');
-        }
-        if (pendingMode) {
-            var kbResumeBtn = ('chat' === pendingMode) ? btnPathChat : btnPathMessage;
-            if (kbResumeBtn) {
-                console.log('[DCard Account] auto-resuming path "' + pendingMode + '" after returning from payment/registration.');
-                setTimeout(function () { kbResumeBtn.click(); }, 0);
-            }
+            console.log('[DCard Account] restored pending question into the question box after returning from payment/registration.');
         }
     }
 
-    // Freemium PLG: סנכרון plan/credits בחזרה מתשלום - GET /account/status
+    // קבוע 1+2+5 (21.11, חזרה מקארדקום): זיהוי "בדיוק חזרנו מתשלום"
+    // (dcardIsAwaitingPaymentFresh, נקבע ב-kbPaymentSubmit) - חלון תודה
+    // קצר שנסגר לבד, פולינג שקט ברקע (kbQuietPlanPoll), ו-history.
+    // replaceState כדי שכפתור "חזרה" בדפדפן לא יחזיר לכתובת עם פרמטרים
+    // של קארדקום. הדגל המקומי נוקה מיד - לא נדרש יותר מעבר לטעינת העמוד
+    // הזו (ר' ההערה המלאה ליד dcardSetLS(awaitingPayment) ב-kbPaymentSubmit).
+    if (dcardIsAwaitingPaymentFresh()) {
+        try { localStorage.removeItem(DCARD_LS_KEYS.awaitingPayment); } catch (lsErr) { /* ignore */ }
+        try {
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(null, '', window.location.pathname);
+            }
+        } catch (historyErr) { /* ignore */ }
+        kbShowPaymentThankyouModal();
+        kbQuietPlanPoll();
+    }
+
+    // Freemium PLG: סנכרון plan/credits בטעינת העמוד - GET /account/status
     // (ר' class-dcard-rest-controller.php). *** לא קריטי לאכיפה עצמה -
     // השרת בודק קרדיטים מחדש בכל בקשה אמיתית בלי קשר למה ששמור כאן;
-    // זה רק לדיבוג/console ול-UI עתידי שמציג "נשארו לך X קרדיטים". ***
+    // זה רק לדיבוג/console, ל-kbPaymentPendingActive (ר' ההערה המלאה למעלה)
+    // ול-UI עתידי שמציג "נשארו לך X קרדיטים". ***
     // no-op בשקט אם אין deviceToken שמור (משתמש אנונימי) - dcardIsRegistered
     // כבר קיים בדיוק לבדיקה הזו (ר' btnPathMessage/btnSend למעלה).
     if (dcardIsRegistered()) {
@@ -3816,6 +3872,7 @@
         }).then(function (res) { return res.json(); }).then(function (data) {
             if (data && data.success) {
                 console.log('[DCard Account] synced account status on load - plan=' + data.current_plan + ', credits=' + data.current_credits);
+                kbPaymentPendingActive = !!data.payment_pending;
                 // סעיף 6.11: "בכניסה הבאה, ברגע שהוא מזוהה, נפתח מיד חלון
                 // ההצטרפות" - למשתמש שמנויו עבר ל-CANCELLED (פג/בוטל ולא
                 // חודש). נפתח רק פעם אחת לכל טעינת עמוד (אין צורך ב-flag
