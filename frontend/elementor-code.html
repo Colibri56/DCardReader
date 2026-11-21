@@ -1778,8 +1778,9 @@
             <div class="kb-modal-handle"></div>
             <div id="kb-payment-admin-badge" style="display:none;text-align:center;background:#A3262A;color:#fff;border-radius:8px;padding:4px 10px;font-size:12px;margin-bottom:10px;">מצב בדיקה: חלון תשלום לאדמין בלבד</div>
             <h2 class="kb-modal-title" id="kb-payment-title" style="text-align:center;"></h2>
-            <p class="kb-modal-text" style="text-align:center;">אמרתי לך כבר קודם שאני אוהב שהשיחות שלנו <strong>תומכות ועוזרות להתקדם בחיים</strong>. יחד עם זה, כמו הרבה דברים בחיים, אני עולה כסף, ועד עכשיו נורית שילמה עליי.</p>
-            <p class="kb-modal-text" style="text-align:center;">אני מזמין אותך להמשיך ולהשתמש באפליקציה, ואני <strong>יודע מניסיון רב</strong> שהשימוש ימשיך לתת לך ערך רב ולאורך זמן. בניתי שלושה מסלולים, ורק צריך לבחור את המתאים לך ביותר.</p>
+            <p class="kb-modal-text" style="text-align:right;">אמרתי לך כבר קודם שאני אוהב שהשיחות שלנו <strong>תומכות ועוזרות להתקדם בחיים</strong>. יחד עם זה, כמו הרבה דברים בחיים, אני עולה כסף, ועד עכשיו נורית שילמה עליי.</p>
+            <p class="kb-modal-text" style="text-align:right;">אני מזמין אותך להמשיך ולהשתמש באפליקציה, ואני <strong>יודע מניסיון רב</strong> שהשימוש ימשיך לתת לך ערך רב ולאורך זמן.</p>
+			<p class="kb-modal-text" style="text-align:right;">בניתי שלושה מסלולים, ורק צריך לבחור את המתאים לך ביותר.</p>
             <div style="font-size:16px;font-weight:500;margin-top:10px;">המסלולים לבחירתך</div>
             <!-- עדכון §6.10.2 (19.11): רשימה פשוטה, לא טבלה ולא כרטיסים.
                  <ul> עם קו --line מעל/מתחת/בין הפריטים, בלי מסגרות/רקע/
@@ -3170,7 +3171,7 @@
             const li = document.createElement('li');
             li.className = 'kb-payment-plan-item';
             li.innerHTML = '<div class="kb-payment-plan-row1"><span>' + plan.label + '</span><span><strong>' + plan.price + ' ₪</strong> לחודש</span></div>' +
-                '<div class="kb-payment-plan-row2">' + plan.credits_msg + ' קבלות מסר · ' + plan.credits_chat + ' דיאלוגים מכוונים</div>';
+                '<div class="kb-payment-plan-row2">' + plan.credits_msg + ' קבלת מסרים · ' + plan.credits_chat + ' דיאלוגים מכוונים</div>';
             kbPaymentPlansList.appendChild(li);
         });
     }
