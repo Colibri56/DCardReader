@@ -31,7 +31,12 @@ class DCard_Plans {
 	const FREE         = 'free';
 	const NARKIS       = 'narkis';
 	const NURIT        = 'nurit';
-	const NURIT_YEARLY = 'nurit_yearly'; // אותם קרדיטים כמו NURIT, רק תוקף 365 יום במקום 30
+	// תיקון (21.11, דווח בפועל: עסקת מק"ט 603 - "איריס", מסלול חודשי -
+	// נרשמה עם תוקף שנה): השם/המק"ט ההיסטוריים (NURIT_YEARLY/603) נשארו
+	// בקוד כדי לא לסכן migration על current_plan קיים ב-DB (כולל משתמשים
+	// שכבר על המסלול הזה), אבל בפועל זה היום מסלול חודשי שלישי אמיתי
+	// ("איריס" בממשק קארדקום) - לא שנתי. ר' plan_period_days למטה.
+	const NURIT_YEARLY = 'nurit_yearly';
 	// סעיף 6.11: מסלול בתשלום שפג/בוטל ולא חודש - עובר לכאן, לא ל-FREE.
 	// 0 קרדיטים קבועים (כמו FREE), אבל לא מסלול לרכישה ולא ברשימת
 	// paid_plan_ids() - "פסאודו-מסלול" של מצב חשבון, לא מוצר.
@@ -41,12 +46,15 @@ class DCard_Plans {
 	 * משך תוקף בימים לכל מסלול בתשלום - קבוע לפי המסלול (§6.10.2: "תקופה
 	 * (טקסט קבוע, לא שדה)"), לא נגזר מה-ProductID (שהוא עצמו עכשיו שדה
 	 * ב-admin, ר' DCard_Quotas) ולא ניתן לעריכה.
+	 *
+	 * תיקון (21.11): NURIT_YEARLY היה 365 - שארית מהתכנון המקורי של מסלול
+	 * שנתי שלא יצא בפועל. כל שלושת המסלולים בתשלום חודשיים, כולל זה.
 	 */
 	private static function plan_period_days() {
 		return array(
 			self::NARKIS       => 30,
 			self::NURIT        => 30,
-			self::NURIT_YEARLY => 365,
+			self::NURIT_YEARLY => 30,
 		);
 	}
 

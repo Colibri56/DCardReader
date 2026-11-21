@@ -30,7 +30,9 @@ define( 'DCARD_PLUGIN_URL', TCR_CORE_URL );
 // הוא כבר תואם) - תוקן בפועל אחרי שעמודה חדשה "נשכחה" כך על staging. ***
 // עודכן 1.5.0 - עמודות cancelled_at/cancel_reason/cancel_requested_at
 // (סעיף 6.11: מצב "מבוטל" ו-POST /account/cancel, ר' class-dcard-users.php).
-define( 'DCARD_DB_VERSION', '1.5.0' );
+// עודכן 1.6.0 (21.11) - עמודה cardcom_recurring_id (שמירת RecurringId
+// מהתראת הוראת קבע, ר' DCard_Users::save_recurring_id).
+define( 'DCARD_DB_VERSION', '1.6.0' );
 
 // *** אבטחה (תוקן, ר' docs/go-live.md): DCARD_WEBHOOK_SECRET כבר לא
 // מוגדר כאן בשום ערך - הוא חייב להיות מוגדר ב-wp-config.php (כלל 6

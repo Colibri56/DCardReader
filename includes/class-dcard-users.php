@@ -54,6 +54,7 @@ class DCard_Users {
 			cancelled_at DATETIME NULL,
 			cancel_reason VARCHAR(190) NULL,
 			cancel_requested_at DATETIME NULL,
+			cardcom_recurring_id VARCHAR(40) NULL,
 			session_token VARCHAR(64) NULL,
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
@@ -449,6 +450,28 @@ class DCard_Users {
 			),
 			array( 'id' => $user_id ),
 			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * §webhook (21.11) - שומר את RecurringId של הוראת הקבע בקארדקום
+	 * (מגיע בהתראת RecordType=MasterRecurring, ר' payment_webhook_inner).
+	 * דרוש בעתיד כדי לבטל בפועל הוראת קבע מול ה-API של קארדקום (ר' ההערה
+	 * המלאה ב-account_cancel_inner) - עד אז רק נשמר, לא נקרא משום מקום.
+	 */
+	public static function save_recurring_id( $user_id, $recurring_id ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return false !== $wpdb->update(
+			self::table(),
+			array(
+				'cardcom_recurring_id' => $recurring_id,
+				'updated_at'           => current_time( 'mysql', true ),
+			),
+			array( 'id' => $user_id ),
+			array( '%s', '%s' ),
 			array( '%d' )
 		);
 	}

@@ -1833,21 +1833,22 @@
         </div>
     </div>
 
-    <!-- §7.2ג (21.11): "בזמן ההמתנה לעדכון המסלול: חלון עם הודעה גלויה
-         'בודקים את התשלום שלך…', לא כפתור תקוע על 'רגע…'" - מוצג לאורך כל
-         הפולינג ב-kbWaitForPlanUpdate (בדיקה ראשונה מיד, ואז כל 2 שניות עד
-         30 שניות). אין כפתורים - סגירה רק אוטומטית (הצלחה/כישלון). -->
+    <!-- §7.2ג (21.11, עודכן 21.11 - קארדקום שולחת את ה-IPN בפועל כדקה
+         אחרי התשלום, לא תוך 30 שניות): "בזמן ההמתנה לעדכון המסלול: חלון עם
+         הודעה גלויה, לא כפתור תקוע על 'רגע…'" - מוצג לאורך כל הפולינג
+         ב-kbWaitForPlanUpdate (בדיקה ראשונה מיד, ואז כל 2 שניות עד 120
+         שניות). אין כפתורים - סגירה רק אוטומטית (הצלחה/כישלון). -->
     <div id="kb-payment-checking-modal" class="kb-modal-scrim" hidden>
         <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-payment-checking-title">
             <div class="kb-modal-handle"></div>
-            <h2 class="kb-modal-title" id="kb-payment-checking-title" style="text-align:center;">בודקים את התשלום שלך…</h2>
+            <h2 class="kb-modal-title" id="kb-payment-checking-title" style="text-align:center;">מעדכן את הפרטים… זה יכול לקחת עד דקה</h2>
             <p style="text-align:center;margin:10px 0 0;">
                 <span class="dcard-typing-dots stage-vertical"><span></span><span></span><span></span></span>
             </p>
         </div>
     </div>
 
-    <!-- §7.2ג: "לא התעדכן אחרי 30 שניות" - [בדיקה חוזרת] מריץ שוב את אותו
+    <!-- §7.2ג: "לא התעדכן אחרי 120 שניות" - [בדיקה חוזרת] מריץ שוב את אותו
          פולינג (ר' kb-payment-pending-retry), [כתבו לנו] פותח את חלון
          הפנייה. מייל מיידי למנהל נשלח ע"י kbNotifyAdminPaymentDelay, לא
          מכאן. אסור לפתוח מכאן את חלון התשלום מחדש ואסור להריץ את הפעולה
@@ -2201,7 +2202,7 @@
     // מוצג בקטן ואפור בתחתית תפריט ה-☰ (kb-version-marker), ונכתב גם
     // ל-console בכל טעינת עמוד - כדי שאפשר לוודא מהר, גם בלי לפתוח
     // DevTools, שגרסת ה-staging שנבדקת היא באמת זו שהודבקה לאחרונה.
-    const KB_VERSION = '2026-11-21 10:05';
+    const KB_VERSION = '2026-11-21 13:20';
     console.log('[DCard] KB_VERSION =', KB_VERSION);
 
     // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
@@ -2641,14 +2642,15 @@
         }
     }
 
-    // §7.2ג (21.11): "בדיקה ראשונה מיד, ואחר כך כל 2 שניות, עד 30 שניות" -
-    // נקרא רק כש-DCARD_LS_KEYS.awaitingPayment מוגדר (נקבע ב-kb-payment-
-    // modal ממש לפני ניווט לקארדקום, ר' למטה) - כלומר רק אחרי שהמשתמש
-    // באמת ניסה לשלם, לא בכל "נגמרו הקרדיטים" סתמי. ההודעה הגלויה
-    // ("בודקים את התשלום שלך…") מוצגת ע"י קבוען kbCheckPaymentWithModal,
-    // לא כאן - הפונקציה הזו רק פולינג טהור. מחזיר true = הקרדיט התעדכן.
+    // §7.2ג (21.11): "בדיקה ראשונה מיד, ואחר כך כל 2 שניות" - עד 120
+    // שניות (הועלה מ-30, דווח בפועל: קארדקום שולחת את ה-IPN בפועל כדקה
+    // אחרי התשלום, לא תוך 30 שניות). נקרא רק כש-DCARD_LS_KEYS.awaitingPayment
+    // מוגדר (נקבע ב-kb-payment-modal ממש לפני ניווט לקארדקום, ר' למטה) -
+    // כלומר רק אחרי שהמשתמש באמת ניסה לשלם, לא בכל "נגמרו הקרדיטים" סתמי.
+    // ההודעה הגלויה מוצגת ע"י קבוען kbCheckPaymentWithModal, לא כאן -
+    // הפונקציה הזו רק פולינג טהור. מחזיר true = הקרדיט התעדכן.
     async function kbWaitForPlanUpdate(mode) {
-        const deadline = Date.now() + 30000;
+        const deadline = Date.now() + 120000;
         while (true) {
             try {
                 const res = await dcardFetch('/wp-json/dcard/v1/account/status', { method: 'GET', headers: dcardHeaders() });
@@ -2767,9 +2769,9 @@
             if (remaining > 0) return true;
 
             // §6.10.3: חזרה מקארדקום לפני שה-IPN הספיק להגיע - לא פותחים
-            // שוב את חלון התשלום, פולינג עד 30 שניות במקום זאת. דגל ישן
+            // שוב את חלון התשלום, פולינג עד 120 שניות במקום זאת. דגל ישן
             // (ר' dcardIsAwaitingPaymentFresh) מתעלם כאן בשקט ופותח את
-            // חלון התשלום הרגיל במקום, לא את ה-30-שניות המיותרות.
+            // חלון התשלום הרגיל במקום, לא את הפולינג המיותר.
             if (dcardIsAwaitingPaymentFresh()) {
                 try { localStorage.removeItem(DCARD_LS_KEYS.awaitingPayment); } catch (lsErr) { /* ignore */ }
                 return await kbCheckPaymentWithModal(mode, triggerBtn);

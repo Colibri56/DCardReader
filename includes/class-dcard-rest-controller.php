@@ -1855,6 +1855,42 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'Unauthorized' ), 403 );
 		}
 
+		// 1d. תיקון (21.11, "MasterRecurring עדיין מתעלם בגלל בדיקת
+		// ResponseCode"): התראת מצב ממודול הוראת הקבע (RecordType=
+		// MasterRecurring, ר' docs/cardcom-api/README.md) נבדקת *לפני*
+		// בדיקת ResponseCode בשלב 2 למטה - ההתראה הזו לא מתועדת כמכילה
+		// ResponseCode תקין בכלל, ולכן הייתה נדחית שם תמיד כ"לא הצלחה"
+		// ו-RecurringId אף פעם לא נשמר. כאן רק שומרים את ה-RecurringId
+		// (דרוש בעתיד לביטול אמיתי בקארדקום - ר' ההערה המלאה ב-account_
+		// cancel_inner) - *לא* מריצים set_plan/transaction כאן: המק"ט/
+		// המייל בהתראת מצב כזו לא מתועדים כזהים לשדות ExtReadInvoiceLines_
+		// ProductID/ExtReadInvoiceHead_Email של תשלום רגיל (ר' README -
+		// שם מופיע FlexItem_ProductId, שדה אחר) - בלי לוג אמיתי שמאשר את
+		// זה, זיהוי מסלול/משתמש שגוי כאן יכול להקצות קרדיטים למשתמש הלא
+		// נכון. אם ה-RecurringId בפועל גם מחייב עדכון מסלול/קרדיטים ולא
+		// רק רישום ה-ID - נדרש לוג אמיתי של ההתראה הזו כדי לדעת אילו שדות
+		// זיהוי באמת מגיעים בה, לפני שממשיכים לשם.
+		$record_type = (string) $request->get_param( 'RecordType' );
+		if ( 'MasterRecurring' === $record_type ) {
+			$recurring_id = (string) $request->get_param( 'RecurringId' );
+			list( $recurring_user, $recurring_email ) = $this->find_user_from_ipn( $request );
+
+			if ( $recurring_user && $recurring_id ) {
+				DCard_Users::save_recurring_id( (int) $recurring_user['id'], $recurring_id );
+				DCard_Logger::info( 'POST /webhook/ipn-update - MasterRecurring notification: RecurringId saved', array(
+					'user_id'      => (int) $recurring_user['id'],
+					'recurring_id' => $recurring_id,
+				) );
+			} else {
+				DCard_Logger::warning( 'POST /webhook/ipn-update - MasterRecurring notification but user not found or RecurringId missing, not saved', array(
+					'recurring_id' => $recurring_id,
+					'email'        => $recurring_email,
+				) );
+			}
+
+			return new WP_REST_Response( array( 'success' => true ), 200 );
+		}
+
 		// 2. סטטוס העסקה - '0' = הצלחה (לפי התיעוד). השוואת מחרוזות בכוונה
 		// (לא ==) כי ResponseCode יכול להגיע כ-int 0 או כמחרוזת "0" תלוי
 		// בפורמט השליחה - (string) מנרמל את שניהם לפני ההשוואה.
@@ -1892,43 +1928,9 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => true, 'error' => 'מק"ט לא שייך למוצר הזה - התעלמות' ), 200 );
 		}
 
-		// 4. זיהוי המשתמש - שכבה ראשונה: ReturnValue (ר' הערה ב-elementor-
-		// code.html). שכבה שנייה (Fallback): לוג IPN אמיתי מקארדקום (re-
-		// transmit ידני) הראה ש-ReturnValue *לא קיים בכלל* ב-payload של
-		// המוצר הספציפי הזה - כלומר דף התשלום הזה לא מהדהד פרמטרים
-		// חיצוניים מה-URL בחזרה ב-IPN. חוזרים לתוכנית המקורית: אימייל
-		// (ExtReadInvoiceHead_Email, דרך get_nested_param - תומך גם
-		// מפתח שטוח עם קו תחתון וגם מבנה מקונן). הסיכון הידוע (אימייל
-		// שהלקוח שינה בקארדקום לא יתאים לשורה הקיימת) מתועד, לא נפתר -
-		// אין כרגע חלופה אחרת שקארדקום בפועל מחזירה עבור המוצר הזה.
-		$return_value = $request->get_param( 'ReturnValue' );
-		$user_id      = absint( $return_value );
-		error_log( '[DCard Webhook] parsed ReturnValue=' . wp_json_encode( $return_value ) . ' -> user_id=' . $user_id );
-
-		$user = $user_id > 0 ? DCard_Users::get_by_id( $user_id ) : null;
-
-		$email_from_ipn = null;
-
-		if ( ! $user ) {
-			$email_from_ipn = $this->get_nested_param( $request, 'ExtReadInvoiceHead', 'Email' );
-
-			// תיקון באג אמיתי (אומת 1.11.26 מתוך לוג IPN אמיתי עם אימייל
-			// שמכיל "+"): ההנחה הקודמת כאן הייתה שגויה - PHP/WordPress כבר
-			// מפענחים את ה-POST body הסטנדרטי (application/x-www-form-
-			// urlencoded) לבד, אז $email_from_ipn שמתקבל מ-get_nested_param
-			// כבר מכיל "heddyeldar+eden@gmail.com" נכון לגמרי (לא %2b/%40
-			// גולמיים). ה-urldecode() הנוסף שהיה כאן לא היה "no-op בטוח" -
-			// urldecode() הופך "+" ל-רווח (כך הוא מפרש טפסים), אז הוא פגע
-			// בכל אימייל עם "+" (plus-addressing, נפוץ אצל לקוחות) והפך
-			// אותו ל-"heddyeldar eden@gmail.com" (עם רווח, לא תקין) - בדיוק
-			// הסיבה לכל ה"משתמש לא נמצא" שדווחו. הוסר לגמרי - $email_from_ipn
-			// כבר השדה הנכון, בלי פענוח נוסף.
-			error_log( '[DCard Webhook] ReturnValue missing/invalid - falling back to email lookup. email=' . wp_json_encode( $email_from_ipn ) );
-
-			if ( $email_from_ipn && is_email( sanitize_email( $email_from_ipn ) ) ) {
-				$user = DCard_Users::get_by_email( sanitize_email( $email_from_ipn ) );
-			}
-		}
+		// 4. זיהוי המשתמש - ר' find_user_from_ipn (מחולץ מכאן ב-21.11 כדי
+		// שגם ענף MasterRecurring למעלה יוכל להשתמש באותו היגיון זיהוי).
+		list( $user, $email_from_ipn ) = $this->find_user_from_ipn( $request );
 
 		if ( ! $user ) {
 			// מגיעים לכאן רק עבור עסקה שכבר אושרה כשייכת למוצר שלנו (מק"ט
@@ -2091,6 +2093,53 @@ class DCard_REST_Controller {
 			'credits_chat' => DCard_Plans::credits_for_plan( $plan_id, 'chat' ),
 			'expires_at'   => $expires_at,
 		), 200 );
+	}
+
+	/**
+	 * זיהוי המשתמש מהתראת IPN - שכבה ראשונה: ReturnValue (ר' הערה ב-
+	 * elementor-code.html). שכבה שנייה (Fallback): לוג IPN אמיתי מקארדקום
+	 * (re-transmit ידני) הראה ש-ReturnValue *לא קיים בכלל* ב-payload של
+	 * המוצר הספציפי הזה - כלומר דף התשלום הזה לא מהדהד פרמטרים חיצוניים
+	 * מה-URL בחזרה ב-IPN. חוזרים לתוכנית המקורית: אימייל (ExtReadInvoiceHead_
+	 * Email, דרך get_nested_param - תומך גם מפתח שטוח עם קו תחתון וגם
+	 * מבנה מקונן). הסיכון הידוע (אימייל שהלקוח שינה בקארדקום לא יתאים
+	 * לשורה הקיימת) מתועד, לא נפתר - אין כרגע חלופה אחרת שקארדקום בפועל
+	 * מחזירה עבור המוצר הזה. מחולץ (21.11) מ-payment_webhook_inner כדי
+	 * שגם ענף MasterRecurring ישתמש באותו היגיון זיהוי, לא רק התשלום הרגיל.
+	 *
+	 * @return array{0: array|null, 1: string|null} [$user, $email_from_ipn]
+	 */
+	private function find_user_from_ipn( WP_REST_Request $request ) {
+		$return_value = $request->get_param( 'ReturnValue' );
+		$user_id      = absint( $return_value );
+		error_log( '[DCard Webhook] parsed ReturnValue=' . wp_json_encode( $return_value ) . ' -> user_id=' . $user_id );
+
+		$user = $user_id > 0 ? DCard_Users::get_by_id( $user_id ) : null;
+
+		$email_from_ipn = null;
+
+		if ( ! $user ) {
+			$email_from_ipn = $this->get_nested_param( $request, 'ExtReadInvoiceHead', 'Email' );
+
+			// תיקון באג אמיתי (אומת 1.11.26 מתוך לוג IPN אמיתי עם אימייל
+			// שמכיל "+"): ההנחה הקודמת כאן הייתה שגויה - PHP/WordPress כבר
+			// מפענחים את ה-POST body הסטנדרטי (application/x-www-form-
+			// urlencoded) לבד, אז $email_from_ipn שמתקבל מ-get_nested_param
+			// כבר מכיל "heddyeldar+eden@gmail.com" נכון לגמרי (לא %2b/%40
+			// גולמיים). ה-urldecode() הנוסף שהיה כאן לא היה "no-op בטוח" -
+			// urldecode() הופך "+" ל-רווח (כך הוא מפרש טפסים), אז הוא פגע
+			// בכל אימייל עם "+" (plus-addressing, נפוץ אצל לקוחות) והפך
+			// אותו ל-"heddyeldar eden@gmail.com" (עם רווח, לא תקין) - בדיוק
+			// הסיבה לכל ה"משתמש לא נמצא" שדווחו. הוסר לגמרי - $email_from_ipn
+			// כבר השדה הנכון, בלי פענוח נוסף.
+			error_log( '[DCard Webhook] ReturnValue missing/invalid - falling back to email lookup. email=' . wp_json_encode( $email_from_ipn ) );
+
+			if ( $email_from_ipn && is_email( sanitize_email( $email_from_ipn ) ) ) {
+				$user = DCard_Users::get_by_email( sanitize_email( $email_from_ipn ) );
+			}
+		}
+
+		return array( $user, $email_from_ipn );
 	}
 
 	/**

@@ -135,7 +135,9 @@ class DCard_Quotas {
 				'chat_credits'  => self::OPTION_NURIT_CHAT_CREDITS,
 			),
 			DCard_Plans::NURIT_YEARLY => array(
-				'default_label'      => 'נורית (שנתי)',
+				// תיקון (21.11): היה "נורית (שנתי)" - מסלול שלישי אמיתי
+				// וחודשי בפועל ("איריס" בקארדקום), לא גרסה שנתית של נורית.
+				'default_label'      => 'איריס',
 				'default_product_id' => '603',
 				'default_unlimited'  => true,
 				'active'        => self::OPTION_NURIT_YEARLY_ACTIVE,
