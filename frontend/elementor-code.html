@@ -2203,7 +2203,7 @@
     // מוצג בקטן ואפור בתחתית תפריט ה-☰ (kb-version-marker), ונכתב גם
     // ל-console בכל טעינת עמוד - כדי שאפשר לוודא מהר, גם בלי לפתוח
     // DevTools, שגרסת ה-staging שנבדקת היא באמת זו שהודבקה לאחרונה.
-    const KB_VERSION = '2026-11-21 13:20';
+    const KB_VERSION = '2026-11-21 16:40';
     console.log('[DCard] KB_VERSION =', KB_VERSION);
 
     // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
@@ -2654,7 +2654,12 @@
         const deadline = Date.now() + 120000;
         while (true) {
             try {
-                const res = await dcardFetch('/wp-json/dcard/v1/account/status', { method: 'GET', headers: dcardHeaders() });
+                // תיקון (21.11): פרמטר timestamp כדי שכל בקשה תהיה URL שונה -
+                // הגנה בלבד (ר' הערת Cache-Control ב-account_status_inner,
+                // נבדק בפועל ב-Cloudflare: cf-cache-status DYNAMIC, לא זה
+                // הגורם שדווח). fetch() רגיל (בלי cache:'no-store') כבר לא
+                // אמור לקאש תגובה כזו, אבל זה עדיין "חסין-קאש" לגמרי.
+                const res = await dcardFetch('/wp-json/dcard/v1/account/status?_=' + Date.now(), { method: 'GET', headers: dcardHeaders() });
                 const data = await res.json();
                 if (data && data.success) {
                     const remaining = ( 'message' === mode ) ? data.current_credits_msg : data.current_credits_chat;

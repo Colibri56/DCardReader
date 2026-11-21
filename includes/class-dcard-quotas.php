@@ -109,9 +109,11 @@ class DCard_Quotas {
 	private static function paid_plan_fields_config() {
 		return array(
 			DCard_Plans::NARKIS       => array(
-				'default_label'      => 'נרקיס',
-				'default_product_id' => '601',
-				'default_unlimited'  => false,
+				'default_label'        => 'נרקיס',
+				'default_product_id'   => '601',
+				'default_unlimited'    => false,
+				'default_msg_credits'  => self::DEFAULT_NARKIS_MSG_CREDITS,
+				'default_chat_credits' => self::DEFAULT_NARKIS_CHAT_CREDITS,
 				'active'        => self::OPTION_NARKIS_ACTIVE,
 				'label'         => self::OPTION_NARKIS_LABEL,
 				'price'         => self::OPTION_NARKIS_PRICE,
@@ -122,9 +124,11 @@ class DCard_Quotas {
 				'chat_credits'  => self::OPTION_NARKIS_CHAT_CREDITS,
 			),
 			DCard_Plans::NURIT        => array(
-				'default_label'      => 'נורית',
-				'default_product_id' => '602',
-				'default_unlimited'  => true,
+				'default_label'        => 'נורית',
+				'default_product_id'   => '602',
+				'default_unlimited'    => true,
+				'default_msg_credits'  => self::DEFAULT_NURIT_MSG_CREDITS,
+				'default_chat_credits' => self::DEFAULT_NURIT_CHAT_CREDITS,
 				'active'        => self::OPTION_NURIT_ACTIVE,
 				'label'         => self::OPTION_NURIT_LABEL,
 				'price'         => self::OPTION_NURIT_PRICE,
@@ -137,9 +141,11 @@ class DCard_Quotas {
 			DCard_Plans::NURIT_YEARLY => array(
 				// תיקון (21.11): היה "נורית (שנתי)" - מסלול שלישי אמיתי
 				// וחודשי בפועל ("איריס" בקארדקום), לא גרסה שנתית של נורית.
-				'default_label'      => 'איריס',
-				'default_product_id' => '603',
-				'default_unlimited'  => true,
+				'default_label'        => 'איריס',
+				'default_product_id'   => '603',
+				'default_unlimited'    => true,
+				'default_msg_credits'  => self::DEFAULT_NURIT_YEARLY_MSG_CREDITS,
+				'default_chat_credits' => self::DEFAULT_NURIT_YEARLY_CHAT_CREDITS,
 				'active'        => self::OPTION_NURIT_YEARLY_ACTIVE,
 				'label'         => self::OPTION_NURIT_YEARLY_LABEL,
 				'price'         => self::OPTION_NURIT_YEARLY_PRICE,
@@ -372,11 +378,21 @@ class DCard_Quotas {
 	 * ו-data-plan תואמים לשם מפתח ה-JS בתחתית render_page().
 	 */
 	private static function render_paid_plan_row( $plan_id, $cfg ) {
+		// תיקון (21.11, דווח בפועל - "התקדמות לא מתגלה אחרי תשלום"): ברירת
+		// המחדל כאן הייתה 0 (לא DEFAULT_*_CREDITS של המסלול) - אם האדמין
+		// פתח את העמוד הזה ולחץ "שמירה" לפני שהזין בעצמו מספר אמיתי לשדה
+		// הזה (למשל כששדה המספר הזה נוסף לראשונה, או סתם לא הבחין בו כי
+		// is_unlimited הישן הציג "ללא הגבלה" והסתיר את זה) - ה-0 המוצג כאן
+		// *נשמר בפועל* ל-wp_options, ואז credits_for_plan מחזיר 0 קרדיטים
+		// אמיתיים לכל קונה חדש של המסלול - הפלאגין מעדכן את המסלול נכון
+		// אחרי התשלום, אבל kbWaitForPlanUpdate מחכה ל"נשארו קרדיטים > 0"
+		// שלעולם לא מתקיים, ולכן "נתקע". ברירת המחדל כאן צריכה להיות המספר
+		// האמיתי של המסלול (DEFAULT_*_CREDITS), לא 0.
 		$active         = (bool) get_option( $cfg['active'], 1 );
 		$label          = get_option( $cfg['label'], $cfg['default_label'] );
 		$price          = get_option( $cfg['price'], 0 );
-		$msg_value      = (int) get_option( $cfg['msg_credits'], 0 );
-		$chat_value     = (int) get_option( $cfg['chat_credits'], 0 );
+		$msg_value      = (int) get_option( $cfg['msg_credits'], $cfg['default_msg_credits'] );
+		$chat_value     = (int) get_option( $cfg['chat_credits'], $cfg['default_chat_credits'] );
 		$product_id     = get_option( $cfg['product_id'], $cfg['default_product_id'] );
 		?>
 		<tr class="dcard-plan-row" data-plan="<?php echo esc_attr( $plan_id ); ?>">

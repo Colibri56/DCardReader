@@ -190,8 +190,13 @@ class DCard_Customers_Admin {
 						<?php foreach ( $customers as $customer ) : ?>
 							<?php
 							$plan_id           = $customer['current_plan'];
-							$is_unlimited_msg  = class_exists( 'DCard_Plans' ) && DCard_Plans::is_unlimited( $plan_id, 'msg' );
-							$is_unlimited_chat = class_exists( 'DCard_Plans' ) && DCard_Plans::is_unlimited( $plan_id, 'chat' );
+							// תיקון (21.11, התבקש): §6.10.2 (19.11) כבר ביטל "ללא הגבלה"
+							// כתווית-תצוגה לחלוטין בעמוד ההגדרות (DCard_Quotas::render_
+							// paid_plan_row לא מציג יותר תיבת checkbox כזו) - המספר
+							// האמיתי הוא המקור היחיד. הטבלה הזו הציגה "ללא הגבלה" בכל
+							// זאת, לפי is_unlimited() הישן (ברירת מחדל true, בלי UI
+							// לשנות) - מה שהסתיר בפועל מספרים שגויים (למשל 0, ר' התיקון
+							// ב-DCard_Quotas::render_paid_plan_row). מוצג תמיד המספר.
 							$plan_label        = class_exists( 'DCard_Plans' ) ? DCard_Plans::label_for_plan( $plan_id ) : $plan_id;
 							?>
 							<tr>
@@ -219,8 +224,8 @@ class DCard_Customers_Admin {
 									}
 									?>
 								</td>
-								<td><?php echo $is_unlimited_msg ? 'ללא הגבלה' : esc_html( $customer['current_credits_msg'] ); ?></td>
-								<td><?php echo $is_unlimited_chat ? 'ללא הגבלה' : esc_html( $customer['current_credits_chat'] ); ?></td>
+								<td><?php echo esc_html( $customer['current_credits_msg'] ); ?></td>
+								<td><?php echo esc_html( $customer['current_credits_chat'] ); ?></td>
 								<td><?php echo $customer['plan_expires_at'] ? esc_html( $customer['plan_expires_at'] ) : '-'; ?></td>
 								<td><?php echo esc_html( number_format( (float) $customer['total_paid'], 2 ) ); ?> ₪</td>
 								<td><?php echo esc_html( $customer['transactions_count'] ); ?></td>

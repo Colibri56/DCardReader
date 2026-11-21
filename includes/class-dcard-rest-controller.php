@@ -1873,7 +1873,10 @@ class DCard_REST_Controller {
 		$record_type = (string) $request->get_param( 'RecordType' );
 		if ( 'MasterRecurring' === $record_type ) {
 			$recurring_id = (string) $request->get_param( 'RecurringId' );
-			list( $recurring_user, $recurring_email ) = $this->find_user_from_ipn( $request );
+			// 'acc' - ר' ההערה המלאה מעל find_user_from_ipn: שדה האימייל
+			// בהתראת MasterRecurring הוא acc.Email (-> acc_Email), לא
+			// ExtReadInvoiceHead_Email כמו בתשלום הרגיל.
+			list( $recurring_user, $recurring_email ) = $this->find_user_from_ipn( $request, 'acc' );
 
 			if ( $recurring_user && $recurring_id ) {
 				DCard_Users::save_recurring_id( (int) $recurring_user['id'], $recurring_id );
@@ -2107,9 +2110,17 @@ class DCard_REST_Controller {
 	 * מחזירה עבור המוצר הזה. מחולץ (21.11) מ-payment_webhook_inner כדי
 	 * שגם ענף MasterRecurring ישתמש באותו היגיון זיהוי, לא רק התשלום הרגיל.
 	 *
+	 * $email_group (21.11, דווח בפועל - לוג MasterRecurring אמיתי: "user not
+	 * found, email: null"): תשלום רגיל שולח את האימייל תחת ExtReadInvoiceHead.
+	 * Email (ברירת המחדל כאן), אבל התראת MasterRecurring שולחת אותו תחת
+	 * acc.Email - קבוצה אחרת לגמרי (לא מתועדת ב-README, התגלתה מהלוג בפועל).
+	 * PHP/WordPress הופכים את הנקודה בשם הפרמטר לקו תחתון אוטומטית (כמו כל
+	 * שאר שדות ה-group_key בקובץ הזה), כך ש-get_nested_param עם group='acc'
+	 * כבר קוראת את acc_Email נכון בלי שינוי נוסף.
+	 *
 	 * @return array{0: array|null, 1: string|null} [$user, $email_from_ipn]
 	 */
-	private function find_user_from_ipn( WP_REST_Request $request ) {
+	private function find_user_from_ipn( WP_REST_Request $request, $email_group = 'ExtReadInvoiceHead' ) {
 		$return_value = $request->get_param( 'ReturnValue' );
 		$user_id      = absint( $return_value );
 		error_log( '[DCard Webhook] parsed ReturnValue=' . wp_json_encode( $return_value ) . ' -> user_id=' . $user_id );
@@ -2119,7 +2130,7 @@ class DCard_REST_Controller {
 		$email_from_ipn = null;
 
 		if ( ! $user ) {
-			$email_from_ipn = $this->get_nested_param( $request, 'ExtReadInvoiceHead', 'Email' );
+			$email_from_ipn = $this->get_nested_param( $request, $email_group, 'Email' );
 
 			// תיקון באג אמיתי (אומת 1.11.26 מתוך לוג IPN אמיתי עם אימייל
 			// שמכיל "+"): ההנחה הקודמת כאן הייתה שגויה - PHP/WordPress כבר
@@ -2184,7 +2195,7 @@ class DCard_REST_Controller {
 		// current_credits (יחיד) הוחלף בשני המאגרים; נשאר גם בתגובה
 		// בשם הישן current_credits (= credits_msg) בשביל הלוג הקיים ב-
 		// elementor-code.html שעדיין קורא אותו, לצד שני המפתחות החדשים.
-		return new WP_REST_Response( array(
+		$response = new WP_REST_Response( array(
 			'success'             => true,
 			'user_id'             => (int) $user['id'],
 			'current_plan'        => $user['current_plan'],
@@ -2193,6 +2204,16 @@ class DCard_REST_Controller {
 			'current_credits_chat'=> (int) $user['current_credits_chat'],
 			'plan_expires_at'     => $user['plan_expires_at'],
 		), 200 );
+
+		// תיקון (21.11, נבדק בפועל ב-Cloudflare עם curl/fetch - cf-cache-
+		// status: DYNAMIC, אין קאש בפועל בקצה): לא זה הגורם שדווח כ"נתקע
+		// אחרי תשלום" (ר' הגורם האמיתי ב-DCard_Quotas::render_paid_plan_row),
+		// אבל ה-header הזה נוסף כהגנה - אנדפוינט פולינג כזה לא אמור להיות
+		// תלוי בברירת המחדל "DYNAMIC" של Cloudflare, ובכל מקרה לא תקף
+		// לקאש בדפדפן/פרוקסי כלשהו בדרך.
+		$response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate' );
+
+		return $response;
 	}
 
 	// ---------------------------------------------------------------
