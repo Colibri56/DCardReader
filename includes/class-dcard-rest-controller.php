@@ -2401,18 +2401,12 @@ class DCard_REST_Controller {
 				// מוצג "בוטל" (אסור להציג זאת בלי אישור), עד שיוחלט אחרת.
 				$admin_email = get_option( 'admin_email' );
 				if ( $admin_email ) {
-					wp_mail(
-						$admin_email,
-						'הקורא בקלפים - לבדוק: תשובה לא-0 מקארדקום לביטול מנוי',
-						sprintf(
-							"ניסיון ביטול אצל קארדקום עבור המשתמש %s (%s), RecurringId: %s, החזיר ResponseCode שאינו 0.\n\nResponseCode: %s\nDescription: %s\n\nיכול להיות כישלון אמיתי, או שהוראת הקבע כבר לא פעילה/כבר בוטלה אצל קארדקום (ואז הביטול בעצם הושלם) - יש לבדוק בדשבורד קארדקום ולהחליט. אם ההוראה כבר לא פעילה שם, אפשר לסמן ידנית את הביטול אצלנו.",
-							$user['name'] ? $user['name'] : '(ללא שם)',
-							$user['email'],
-							$recurring_id,
-							$result['response_code'],
-							$result['description']
-						)
-					);
+					$body = '<div dir="rtl" style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #222;">'
+						. '<p>ניסיון ביטול אצל קארדקום עבור המשתמש ' . esc_html( $user['name'] ? $user['name'] : '(ללא שם)' ) . ' (' . esc_html( $user['email'] ) . '), RecurringId: ' . esc_html( $recurring_id ) . ', החזיר ResponseCode שאינו 0.</p>'
+						. '<p style="line-height:1.8;">ResponseCode: ' . esc_html( $result['response_code'] ) . '<br />Description: ' . esc_html( $result['description'] ) . '</p>'
+						. '<p>יכול להיות כישלון אמיתי, או שהוראת הקבע כבר לא פעילה/כבר בוטלה אצל קארדקום (ואז הביטול בעצם הושלם) - יש לבדוק בדשבורד קארדקום ולהחליט. אם ההוראה כבר לא פעילה שם, אפשר לסמן ידנית את הביטול אצלנו.</p>'
+						. '</div>';
+					wp_mail( $admin_email, 'הקורא בקלפים - לבדוק: תשובה לא-0 מקארדקום לביטול מנוי', $body, array( 'Content-Type: text/html; charset=UTF-8' ) );
 				}
 
 				return new WP_REST_Response( array(
@@ -2426,32 +2420,8 @@ class DCard_REST_Controller {
 				return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת הביטול' ), 500 );
 			}
 
-			$admin_email = get_option( 'admin_email' );
-			if ( $admin_email ) {
-				wp_mail(
-					$admin_email,
-					'הקורא בקלפים - מנוי בוטל בקארדקום',
-					sprintf(
-						"המשתמש %s (%s) ביטל את המנוי שלו (מסלול: %s). הוראת הקבע בקארדקום (RecurringId: %s) נעצרה בהצלחה.\n\nסיבה: %s\n\nהמנוי יישאר פעיל עד %s, ואז יעבור אוטומטית למצב \"מבוטל\".",
-						$user['name'] ? $user['name'] : '(ללא שם)',
-						$user['email'],
-						DCard_Plans::label_for_plan( $user['current_plan'] ),
-						$recurring_id,
-						$reason ? $reason : '(לא צוינה)',
-						$user['plan_expires_at'] ? $user['plan_expires_at'] : '(לא ידוע)'
-					)
-				);
-			}
-			if ( $user['email'] ) {
-				wp_mail(
-					$user['email'],
-					'הקורא בקלפים - אישור ביטול המנוי',
-					sprintf(
-						"המנוי שלך בוטל בהצלחה. הוא יישאר פעיל עד %s, ולא תחויב/י שוב אחרי מועד זה.",
-						$user['plan_expires_at'] ? $user['plan_expires_at'] : ''
-					)
-				);
-			}
+			DCard_Mailer::send_cancellation_admin_email( $user, $recurring_id, $reason, false );
+			DCard_Mailer::send_cancellation_customer_email( $user );
 
 			return new WP_REST_Response( array( 'success' => true, 'plan_expires_at' => $user['plan_expires_at'] ), 200 );
 		}
@@ -2463,32 +2433,8 @@ class DCard_REST_Controller {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת הבקשה' ), 500 );
 		}
 
-		$admin_email = get_option( 'admin_email' );
-		if ( $admin_email ) {
-			wp_mail(
-				$admin_email,
-				'הקורא בקלפים - בקשת ביטול מנוי',
-				sprintf(
-					"המשתמש %s (%s) ביקש לבטל את המנוי שלו (מסלול: %s).\n\nסיבה: %s\n\nיש לבטל ידנית בקארדקום את הוראת הקבע של %s. המנוי שלו ימשיך להיות פעיל עד %s, ואז יעבור אוטומטית למצב \"מבוטל\".",
-					$user['name'] ? $user['name'] : '(ללא שם)',
-					$user['email'],
-					DCard_Plans::label_for_plan( $user['current_plan'] ),
-					$reason ? $reason : '(לא צוינה)',
-					$user['email'],
-					$user['plan_expires_at'] ? $user['plan_expires_at'] : '(לא ידוע)'
-				)
-			);
-		}
-		if ( $user['email'] ) {
-			wp_mail(
-				$user['email'],
-				'הקורא בקלפים - אישור בקשת ביטול',
-				sprintf(
-					"קיבלנו את בקשתך לבטל את המנוי. המנוי יישאר פעיל עד %s, ולא תחויב/י שוב אחרי מועד זה.",
-					$user['plan_expires_at'] ? $user['plan_expires_at'] : ''
-				)
-			);
-		}
+		DCard_Mailer::send_cancellation_admin_email( $user, $recurring_id, $reason, true );
+		DCard_Mailer::send_cancellation_customer_email( $user );
 
 		return new WP_REST_Response( array( 'success' => true, 'plan_expires_at' => $user['plan_expires_at'] ), 200 );
 	}

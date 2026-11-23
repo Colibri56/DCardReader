@@ -33,6 +33,150 @@ class DCard_Mailer {
 		return wp_mail( 'doar@nuriteldar.co.il', $subject, $body, $headers );
 	}
 
+	/**
+	 * §6.12 "כללי כל המיילים": "תאריכים בפורמט 21.12.2026, בלי שעה."
+	 * $utc_datetime מגיע כפי שנשמר ב-DB (current_time('mysql', true), UTC) -
+	 * מומר לאזור הזמן של האתר (date_i18n) לפני התצוגה.
+	 */
+	private static function format_date_only( $utc_datetime ) {
+		if ( ! $utc_datetime ) {
+			return '';
+		}
+		return date_i18n( 'd.m.Y', strtotime( $utc_datetime . ' UTC' ) );
+	}
+
+	/**
+	 * §6.12 "מייל למנהל: ביטול מנוי" - גם למסלול האמיתי (קארדקום אישרה,
+	 * $manual_mode=false) וגם למצב הביניים (אין עדיין terminal/API user/
+	 * RecurringId שמור, $manual_mode=true - ר' account_cancel_inner
+	 * ב-class-dcard-rest-controller.php). בהבדל יחיד: השורה הראשונה,
+	 * ושורת "הוראת קבע" (במצב ביניים אין עדיין אישור שהיא נעצרה בפועל).
+	 */
+	public static function send_cancellation_admin_email( array $user, $recurring_id, $reason, $manual_mode ) {
+		$admin_email = get_option( 'admin_email' );
+		if ( ! $admin_email ) {
+			return false;
+		}
+
+		$name       = $user['name'] ? $user['name'] : '(ללא שם)';
+		$plan_label = DCard_Plans::label_for_plan( $user['current_plan'] );
+		$subject    = 'הקורא בקלפים – ביטול מנוי: ' . ( $user['name'] ? $user['name'] : $user['email'] ) . ' (' . $plan_label . ')';
+
+		$first_line = $manual_mode
+			? 'לבצע ידנית: לבטל בקארדקום את הוראת הקבע של ' . $user['email'] . '.'
+			: 'ביטול מנוי בוצע אוטומטית בקארדקום.';
+
+		$recurring_line = $manual_mode
+			? 'הוראת קבע: ' . ( $recurring_id ? esc_html( $recurring_id ) : 'אין מזהה שמור' )
+			: 'הוראת קבע: ' . esc_html( $recurring_id ) . ' (נעצרה)';
+
+		ob_start();
+		?>
+		<div dir="rtl" style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #222;">
+			<p><?php echo esc_html( $first_line ); ?></p>
+			<p style="line-height: 1.8;">
+				שם: <?php echo esc_html( $name ); ?><br />
+				מייל: <?php echo esc_html( $user['email'] ); ?><br />
+				מסלול: <?php echo esc_html( $plan_label ); ?><br />
+				<?php echo $recurring_line; ?><br />
+				פעיל עד: <?php echo esc_html( self::format_date_only( $user['plan_expires_at'] ) ); ?><br />
+				סיבה: <?php echo esc_html( $reason ? $reason : 'לא צוינה' ); ?>
+			</p>
+		</div>
+		<?php
+		$body    = ob_get_clean();
+		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
+
+		return wp_mail( $admin_email, $subject, $body, $headers );
+	}
+
+	/**
+	 * §6.12 "מייל ללקוח: ביטול מנוי" - אותה תבנית בשני המסלולים (אמיתי/
+	 * מצב ביניים), כי מנקודת המבט של הלקוח התוצאה זהה: הבקשה התקבלה,
+	 * הגישה ממשיכה עד התאריך.
+	 */
+	public static function send_cancellation_customer_email( array $user ) {
+		if ( ! $user['email'] ) {
+			return false;
+		}
+
+		$subject    = 'הקורא בקלפים – המנוי שלך בוטל';
+		$expires_at = self::format_date_only( $user['plan_expires_at'] );
+
+		ob_start();
+		?>
+		<div dir="rtl" style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #222;">
+			<p>שלום <?php echo esc_html( $user['name'] ? $user['name'] : '' ); ?>,</p>
+			<p>לבקשתך, המנוי שלך בוטל.</p>
+			<p>אפשר להמשיך להשתמש באפליקציה עד <?php echo esc_html( $expires_at ); ?>, ולא יהיו חיובים נוספים.</p>
+			<p>אם תרצה/י לחזור, אפשר להצטרף מחדש בכל עת מתוך האפליקציה.</p>
+			<p>תודה שהיית/ת איתנו,<br />הקורא בקלפים</p>
+		</div>
+		<?php
+		$body    = ob_get_clean();
+		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
+
+		return wp_mail( $user['email'], $subject, $body, $headers );
+	}
+
+	/**
+	 * §6.12 "מייל ללקוח: מחיקת חשבון". $had_active_plan - האם היה מנוי
+	 * פעיל שבוטל כחלק מהמחיקה (קובע את המשפט השני המותנה).
+	 */
+	public static function send_deletion_customer_email( $email, $name, $had_active_plan ) {
+		if ( ! $email ) {
+			return false;
+		}
+
+		$subject = 'הקורא בקלפים – החשבון שלך נמחק';
+
+		ob_start();
+		?>
+		<div dir="rtl" style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #222;">
+			<p>שלום <?php echo esc_html( $name ? $name : '' ); ?>,</p>
+			<p>
+				לבקשתך, החשבון שלך נמחק מהאפליקציה.
+				<?php if ( $had_active_plan ) : ?>המנוי בוטל, ולא יהיו חיובים נוספים.<?php endif; ?>
+			</p>
+			<p>פרטי התשלומים נשמרים כנדרש בחוק, לצורך החשבוניות בלבד.</p>
+			<p>תודה שהיית/ת איתנו,<br />הקורא בקלפים</p>
+		</div>
+		<?php
+		$body    = ob_get_clean();
+		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
+
+		return wp_mail( $email, $subject, $body, $headers );
+	}
+
+	/**
+	 * §6.12 "מייל למנהל: מחיקת חשבון".
+	 */
+	public static function send_deletion_admin_email( $email, $last_plan_label, $recurring_id_cancelled ) {
+		$admin_email = get_option( 'admin_email' );
+		if ( ! $admin_email ) {
+			return false;
+		}
+
+		$subject = 'הקורא בקלפים – מחיקת חשבון: ' . $email;
+		$date    = self::format_date_only( current_time( 'mysql', true ) );
+
+		ob_start();
+		?>
+		<div dir="rtl" style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #222;">
+			<p style="line-height: 1.8;">
+				מייל: <?php echo esc_html( $email ); ?><br />
+				מסלול אחרון: <?php echo esc_html( $last_plan_label ); ?><br />
+				בוטל מנוי: <?php echo $recurring_id_cancelled ? 'כן (RecurringId: ' . esc_html( $recurring_id_cancelled ) . ')' : 'לא (לא היה מנוי פעיל)'; ?><br />
+				תאריך: <?php echo esc_html( $date ); ?>
+			</p>
+		</div>
+		<?php
+		$body    = ob_get_clean();
+		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
+
+		return wp_mail( $admin_email, $subject, $body, $headers );
+	}
+
 	private static function render_contact_html( $user_email, $user_name, $message, $gender, $plan_label, $user_id, $platform ) {
 		$gender_label = ( 'female' === $gender ) ? 'נקבה' : ( ( 'male' === $gender ) ? 'זכר' : '-' );
 		ob_start();
