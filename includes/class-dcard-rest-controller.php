@@ -2381,20 +2381,31 @@ class DCard_REST_Controller {
 			$result = $this->cardcom_cancel_recurring_order( $recurring_id );
 
 			if ( ! $result['success'] ) {
-				DCard_Logger::error( 'POST /account/cancel - Cardcom RecurringPayment cancel failed', array(
+				// תוספת (אושרה): לעולם לא לרשום UserName ללוג - רק
+				// ResponseCode ו-Description, שזה בדיוק מה ש-$result מכיל
+				// (cardcom_cancel_recurring_order לא מחזירה כלום אחר).
+				DCard_Logger::error( 'POST /account/cancel - Cardcom RecurringPayment cancel - non-success response', array(
 					'user_id'       => (int) $user['id'],
 					'recurring_id'  => $recurring_id,
 					'response_code' => $result['response_code'],
 					'description'   => $result['description'],
 				) );
 
+				// תוספת (אושרה): אם ResponseCode לא 0 כי ההוראה כבר לא
+				// פעילה/כבר בוטלה אצל קארדקום (למשל ביטול כפול, או ביטול
+				// שנעשה כבר ידנית), זה לא בהכרח כישלון אמיתי - אבל אי אפשר
+				// לדעת את הניסוח המדויק של קארדקום בלי לראות תגובה אמיתית,
+				// ולכן לא מנחשים כאן. מדווחים למנהל את ה-ResponseCode/
+				// Description המדויקים כפי שחזרו, בלי לקבוע מראש "נכשל" -
+				// ההחלטה אם זו בעצם הצלחה נשארת ידנית. למשתמש עדיין לא
+				// מוצג "בוטל" (אסור להציג זאת בלי אישור), עד שיוחלט אחרת.
 				$admin_email = get_option( 'admin_email' );
 				if ( $admin_email ) {
 					wp_mail(
 						$admin_email,
-						'הקורא בקלפים - דחוף: ביטול מנוי נכשל בקארדקום',
+						'הקורא בקלפים - לבדוק: תשובה לא-0 מקארדקום לביטול מנוי',
 						sprintf(
-							"ניסיון ביטול אוטומטי נכשל אצל קארדקום עבור המשתמש %s (%s), RecurringId: %s.\n\nResponseCode: %s\nDescription: %s\n\nיש לבדוק/לבטל ידנית בקארדקום.",
+							"ניסיון ביטול אצל קארדקום עבור המשתמש %s (%s), RecurringId: %s, החזיר ResponseCode שאינו 0.\n\nResponseCode: %s\nDescription: %s\n\nיכול להיות כישלון אמיתי, או שהוראת הקבע כבר לא פעילה/כבר בוטלה אצל קארדקום (ואז הביטול בעצם הושלם) - יש לבדוק בדשבורד קארדקום ולהחליט. אם ההוראה כבר לא פעילה שם, אפשר לסמן ידנית את הביטול אצלנו.",
 							$user['name'] ? $user['name'] : '(ללא שם)',
 							$user['email'],
 							$recurring_id,
@@ -2515,6 +2526,10 @@ class DCard_REST_Controller {
 		$response_code = isset( $params['ResponseCode'] ) ? (string) $params['ResponseCode'] : null;
 		$description   = isset( $params['Description'] ) ? $params['Description'] : '';
 
+		// תוספת (אושרה): לכוון, ולא בטעות - ה-caller (account_cancel_inner)
+		// רושם ללוג/למייל רק את מה שחוזר כאן, ולכן השומר הוא כאן: רק
+		// ResponseCode ו-Description מוחזרים, לעולם לא $params המלא (שעלול
+		// להכיל UserName אם קארדקום מהדהדת את הבקשה בתגובה) ולא TerminalNumber.
 		return array(
 			'success'       => ( '0' === $response_code ),
 			'response_code' => $response_code,
