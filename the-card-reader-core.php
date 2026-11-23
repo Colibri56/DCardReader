@@ -44,20 +44,25 @@ define( 'DCARD_DB_VERSION', '1.7.0' );
 // הבקשה ורושם שגיאה - ר' הבדיקה שם, לא כאן. ***
 
 // §6.11 (ביטול מנוי) + docs/cardcom-api/: קריאה ל-API של הוראות הקבע של
-// קארדקום (Operation=Update, RecurringPayments.IsActive=false) דורשת כתובת
-// API, UserName וסיסמה - אין להם ערך אמיתי כאן בכוונה (בניגוד ל-
-// DCARD_WEBHOOK_SECRET למעלה שעוד לא עבר את אותו ניקוי). הערכים האמיתיים
-// מוגדרים רק ב-wp-config.php של production (כלל 6 ב-CLAUDE.md); עד אז
-// נשארים ריקים, וכל קוד שמשתמש בהם (עוד לא נכתב - ר' תוכנית Phase A/C
-// ל"האזור שלי") צריך לבדוק שהם לא ריקים לפני קריאה בפועל ל-API.
+// קארדקום (Operation=Update, RecurringPayments.IsActive=false) דורשת
+// TerminalNumber + UserName (ר' docs/cardcom-api/README.md - נבדקו כל 44
+// הפרמטרים המתועדים, אין שם שדה סיסמה בכלל ב-API הזה). אין להם ערך אמיתי
+// כאן בכוונה - הערכים האמיתיים מוגדרים רק ב-wp-config.php של production
+// (כלל 6 ב-CLAUDE.md). DCARD_CARDCOM_API_PASS מוגדר ליתר ביטחון (לקריאות
+// עתידיות ל-API אחר של קארדקום שכן דורש סיסמה) אבל לא בשימוש בקריאת
+// הביטול עצמה. כל קוד שמשתמש באלה (cardcom_cancel_recurring_order ב-
+// class-dcard-rest-controller.php) בודק שהם לא ריקים לפני קריאה בפועל.
 if ( ! defined( 'DCARD_CARDCOM_API_URL' ) ) {
 	define( 'DCARD_CARDCOM_API_URL', '' );
 }
-if ( ! defined( 'DCARD_CARDCOM_API_USERNAME' ) ) {
-	define( 'DCARD_CARDCOM_API_USERNAME', '' );
+if ( ! defined( 'DCARD_CARDCOM_TERMINAL' ) ) {
+	define( 'DCARD_CARDCOM_TERMINAL', '' );
 }
-if ( ! defined( 'DCARD_CARDCOM_API_PASSWORD' ) ) {
-	define( 'DCARD_CARDCOM_API_PASSWORD', '' );
+if ( ! defined( 'DCARD_CARDCOM_API_USER' ) ) {
+	define( 'DCARD_CARDCOM_API_USER', '' );
+}
+if ( ! defined( 'DCARD_CARDCOM_API_PASS' ) ) {
+	define( 'DCARD_CARDCOM_API_PASS', '' );
 }
 
 // 2. תיקון (WordPress Site Health - "אותר סשן PHP פעיל"): session_start()

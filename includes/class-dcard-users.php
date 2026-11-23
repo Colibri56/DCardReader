@@ -523,6 +523,31 @@ class DCard_Users {
 	}
 
 	/**
+	 * §6.11 "ביטול המנוי" - מצב אמיתי (ר' cardcom_cancel_recurring_order
+	 * ב-class-dcard-rest-controller.php): נקראת רק אחרי שקארדקום אישרה
+	 * בפועל את עצירת הוראת הקבע (ResponseCode=0). שומרת cancelled_at +
+	 * cancel_reason בלבד - לא current_plan ולא plan_expires_at, כי המנוי
+	 * נשאר פעיל עד התאריך (run_renewal_and_expiry_check היא זו שמעבירה
+	 * בפועל ל-CANCELLED כש-plan_expires_at עובר, בדיוק כמו היום).
+	 */
+	public static function confirm_cancellation( $user_id, $reason ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return false !== $wpdb->update(
+			self::table(),
+			array(
+				'cancelled_at' => current_time( 'mysql', true ),
+				'cancel_reason' => $reason ? $reason : null,
+				'updated_at'   => current_time( 'mysql', true ),
+			),
+			array( 'id' => $user_id ),
+			array( '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
 	 * בדיקה לפני פריסת קלף: יש קרדיט פנוי *במאגר הרלוונטי*? $type: 'msg'
 	 * (קבלת מסר) או 'chat' (שיחה מפתחת) - ר' הערת ה-class המלאה ב-
 	 * DCard_Plans על הפיצול בין שני המאגרים ואיך הם מתקזזים. מסלולים ללא

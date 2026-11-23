@@ -2346,17 +2346,19 @@ class DCard_REST_Controller {
 	}
 
 	/**
-	 * מצב ביניים, כפי שהתבקש במפורש (סעיף 6.11): "עד שיהיו פרטי ה-API של
-	 * קארדקום... הבקשה נשמרת (cancel_requested_at + הסיבה), המשתמש רואה
-	 * את אותו אישור, ולמנהל נשלח מייל 'לבטל ידנית בקארדקום'". אין כאן
-	 * עדיין קריאה אמיתית ל-API של הוראות הקבע - docs/cardcom-api/ מתעד
-	 * את הפרמטרים (Operation=Update, RecurringPayments.RecurringId/
-	 * IsActive), אבל לא את כתובת ה-API/משתמש/סיסמה (ר' DCARD_CARDCOM_API_*
-	 * ב-the-card-reader-core.php - עדיין ריקים). ברגע שאלה יתמלאו, השלב
-	 * הזה יוחלף בקריאה אמיתית; עד אז הביטול בפועל קורה ידנית ע"י המנהל
-	 * בקארדקום, וה-current_plan של המשתמש עצמו רק "נופל" ל-CANCELLED
-	 * כש-plan_expires_at עובר (ר' run_renewal_and_expiry_check) - בדיוק
-	 * כמו שהיה קורה ממילא לו לא שולם מחדש.
+	 * §6.11: שני מסלולים.
+	 * 1) קריאה אמיתית ל-API של הוראות הקבע בקארדקום (cardcom_cancel_
+	 *    recurring_order) - כשיש לנו terminal/API user/כתובת API (ר'
+	 *    DCARD_CARDCOM_* ב-the-card-reader-core.php) וגם RecurringId שמור
+	 *    למשתמש (cardcom_recurring_id, נשמר מה-IPN). הצלחה (ResponseCode=0)
+	 *    => confirm_cancellation (cancelled_at+reason, לא נוגע ב-plan).
+	 *    כישלון => לא נשמר כלום, מייל דחוף למנהל, ולמשתמש הודעת שגיאה -
+	 *    "אסור להציג 'בוטל' אם החיוב לא באמת הופסק" (הנוסח המדויק מהספק).
+	 * 2) מצב ביניים (אין terminal/API user, או שאין RecurringId שמור,
+	 *    למשל משתמש ששילם לפני שההתראה הזו חוברה) - ההתנהגות הקודמת:
+	 *    נשמרת רק הבקשה (cancel_requested_at+reason), ולמנהל נשלח מייל
+	 *    "לבטל ידנית בקארדקום". ה-current_plan עצמו תמיד "נופל" ל-CANCELLED
+	 *    רק כש-plan_expires_at עובר (ר' run_renewal_and_expiry_check).
 	 */
 	private function account_cancel_inner( WP_REST_Request $request ) {
 		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
@@ -2372,6 +2374,79 @@ class DCard_REST_Controller {
 
 		$reason = sanitize_text_field( (string) $request->get_param( 'reason' ) );
 
+		$api_configured = DCARD_CARDCOM_API_URL && DCARD_CARDCOM_TERMINAL && DCARD_CARDCOM_API_USER;
+		$recurring_id   = $user['cardcom_recurring_id'];
+
+		if ( $api_configured && $recurring_id ) {
+			$result = $this->cardcom_cancel_recurring_order( $recurring_id );
+
+			if ( ! $result['success'] ) {
+				DCard_Logger::error( 'POST /account/cancel - Cardcom RecurringPayment cancel failed', array(
+					'user_id'       => (int) $user['id'],
+					'recurring_id'  => $recurring_id,
+					'response_code' => $result['response_code'],
+					'description'   => $result['description'],
+				) );
+
+				$admin_email = get_option( 'admin_email' );
+				if ( $admin_email ) {
+					wp_mail(
+						$admin_email,
+						'הקורא בקלפים - דחוף: ביטול מנוי נכשל בקארדקום',
+						sprintf(
+							"ניסיון ביטול אוטומטי נכשל אצל קארדקום עבור המשתמש %s (%s), RecurringId: %s.\n\nResponseCode: %s\nDescription: %s\n\nיש לבדוק/לבטל ידנית בקארדקום.",
+							$user['name'] ? $user['name'] : '(ללא שם)',
+							$user['email'],
+							$recurring_id,
+							$result['response_code'],
+							$result['description']
+						)
+					);
+				}
+
+				return new WP_REST_Response( array(
+					'success' => false,
+					'error'   => 'לא הצלחנו לבטל כרגע. אפשר לנסות שוב, או לכתוב לנו.',
+				), 502 );
+			}
+
+			$saved = DCard_Users::confirm_cancellation( (int) $user['id'], $reason );
+			if ( ! $saved ) {
+				return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת הביטול' ), 500 );
+			}
+
+			$admin_email = get_option( 'admin_email' );
+			if ( $admin_email ) {
+				wp_mail(
+					$admin_email,
+					'הקורא בקלפים - מנוי בוטל בקארדקום',
+					sprintf(
+						"המשתמש %s (%s) ביטל את המנוי שלו (מסלול: %s). הוראת הקבע בקארדקום (RecurringId: %s) נעצרה בהצלחה.\n\nסיבה: %s\n\nהמנוי יישאר פעיל עד %s, ואז יעבור אוטומטית למצב \"מבוטל\".",
+						$user['name'] ? $user['name'] : '(ללא שם)',
+						$user['email'],
+						DCard_Plans::label_for_plan( $user['current_plan'] ),
+						$recurring_id,
+						$reason ? $reason : '(לא צוינה)',
+						$user['plan_expires_at'] ? $user['plan_expires_at'] : '(לא ידוע)'
+					)
+				);
+			}
+			if ( $user['email'] ) {
+				wp_mail(
+					$user['email'],
+					'הקורא בקלפים - אישור ביטול המנוי',
+					sprintf(
+						"המנוי שלך בוטל בהצלחה. הוא יישאר פעיל עד %s, ולא תחויב/י שוב אחרי מועד זה.",
+						$user['plan_expires_at'] ? $user['plan_expires_at'] : ''
+					)
+				);
+			}
+
+			return new WP_REST_Response( array( 'success' => true, 'plan_expires_at' => $user['plan_expires_at'] ), 200 );
+		}
+
+		// מצב ביניים - אין terminal/API user מוגדרים, או שאין RecurringId
+		// שמור למשתמש הזה.
 		$saved = DCard_Users::request_cancellation( (int) $user['id'], $reason );
 		if ( ! $saved ) {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה בשמירת הבקשה' ), 500 );
@@ -2405,6 +2480,46 @@ class DCard_REST_Controller {
 		}
 
 		return new WP_REST_Response( array( 'success' => true, 'plan_expires_at' => $user['plan_expires_at'] ), 200 );
+	}
+
+	/**
+	 * קריאה אמיתית ל-API של הוראות הקבע בקארדקום (docs/cardcom-api/):
+	 * POST x-www-form-urlencoded ל-DCARD_CARDCOM_API_URL, תשובה בפורמט
+	 * Name=Value&Name2=Value2 (לא JSON). נבדקו כל 44 הפרמטרים המתועדים -
+	 * אין שם שדה סיסמה ב-API הזה בכלל, האימות הוא רק TerminalNumber+
+	 * UserName - ולכן לא נשלח כאן DCARD_CARDCOM_API_PASS (שמור לשימוש
+	 * עתידי אם יתברר אחרת). Operation=Update + RecurringId בלבד (בלי
+	 * TotalNumOfBills או שדות אחרים) כי קארדקום מעדכנת רק את מה שנשלח.
+	 */
+	private function cardcom_cancel_recurring_order( $recurring_id ) {
+		$response = wp_remote_post( DCARD_CARDCOM_API_URL, array(
+			'timeout' => 20,
+			'body'    => array(
+				'TerminalNumber'                 => DCARD_CARDCOM_TERMINAL,
+				'UserName'                       => DCARD_CARDCOM_API_USER,
+				'codepage'                       => '65001',
+				'Operation'                      => 'Update',
+				'RecurringPayments.RecurringId'  => $recurring_id,
+				'RecurringPayments.IsActive'     => 'false',
+			),
+		) );
+
+		if ( is_wp_error( $response ) ) {
+			return array( 'success' => false, 'response_code' => null, 'description' => $response->get_error_message() );
+		}
+
+		$body = wp_remote_retrieve_body( $response );
+		$params = array();
+		parse_str( $body, $params );
+
+		$response_code = isset( $params['ResponseCode'] ) ? (string) $params['ResponseCode'] : null;
+		$description   = isset( $params['Description'] ) ? $params['Description'] : '';
+
+		return array(
+			'success'       => ( '0' === $response_code ),
+			'response_code' => $response_code,
+			'description'   => $description,
+		);
 	}
 
 	// ---------------------------------------------------------------

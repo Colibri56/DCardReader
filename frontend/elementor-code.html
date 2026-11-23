@@ -2217,7 +2217,7 @@
     // מוצג בקטן ואפור בתחתית תפריט ה-☰ (kb-version-marker), ונכתב גם
     // ל-console בכל טעינת עמוד - כדי שאפשר לוודא מהר, גם בלי לפתוח
     // DevTools, שגרסת ה-staging שנבדקת היא באמת זו שהודבקה לאחרונה.
-    const KB_VERSION = '2026-11-21 19:30';
+    const KB_VERSION = '2026-11-23 10:00';
     console.log('[DCard] KB_VERSION =', KB_VERSION);
 
     // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
@@ -3583,7 +3583,10 @@
             // חלק 1: המסלול שלי - docs/account-reference.html
             const isFree = ('free' === data.current_plan);
             const isCancelled = ('cancelled' === data.current_plan);
-            const cancelPending = !!data.cancel_requested_at && !isCancelled;
+            // תיקון (יישום הביטול האמיתי מול קארדקום): cancelled_at נשמר
+            // ברגע שהביטול אושר בפועל אצל קארדקום (לא רק cancel_requested_at,
+            // ששמור למצב הביניים הידני) - שניהם מציגים את אותה תגית "בוטל".
+            const cancelPending = !!(data.cancel_requested_at || data.cancelled_at) && !isCancelled;
             // עדכון §6.11: מסלול חינמי מוצג כ"אורח" (לא "חינמי") - תצוגה
             // בלבד, במסך הזה בלבד (data.current_plan/plan_label עצמם לא
             // משתנים - עמוד הלקוחות באדמין וכל שאר התצוגות ממשיכות "חינמי").
