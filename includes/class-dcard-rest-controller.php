@@ -1674,6 +1674,88 @@ class DCard_REST_Controller {
 		);
 	}
 
+	/**
+	 * קצב התראה ייעודי ל-invalid_secret (24.11, דווח בפועל: הצפה מתמשכת
+	 * של notification-ים עם secret ישן/שגוי, כנראה re-transmit של קארדקום
+	 * מלפני rotation) - שונה בכוונה מ-notify_admin_of_webhook_rejection
+	 * (10 דקות, בלי צבירה): כאן "חלון" לכל סיבה - מייל מיידי בפעימה
+	 * הראשונה של חלון חדש (option עדיין לא קיים), ואז עד מייל סיכום אחד
+	 * נוסף לכל חלון (עד 24 שעות מהמייל הראשון, ר' flush_invalid_secret_
+	 * alert_window) עם מספר הפעמים ורשימת מזהי העסקה/RecurringId שנצברו.
+	 * wp_option ולא transient - חייב להישרד עד שה-cron השעתי הקיים
+	 * (dcard_daily_cleanup) יסגור את החלון, גם אם זה יותר מ-24-48 שעות
+	 * שה-transient עדיין ישמור על הערך (לא רלוונטי כאן, אבל transient על
+	 * WordPress לא מובטח להישרד יותר מהזמן שהוגדר - ולא רוצים לאבד את
+	 * הצבירה אם המזבלה מתרוקנת מוקדם).
+	 */
+	private static function record_invalid_secret_rejection( array $identifiers ) {
+		$option_name = 'dcard_webhook_alert_window_invalid_secret';
+		$window       = get_option( $option_name );
+
+		if ( ! is_array( $window ) || empty( $window['first_at'] ) ) {
+			$window = array(
+				'first_at' => time(),
+				'count'    => 0,
+				'deals'    => array(),
+			);
+
+			$admin_email = get_option( 'admin_email' );
+			if ( $admin_email ) {
+				$deal_label = $identifiers['deal_number'] ? $identifiers['deal_number'] : '(לא ידוע)';
+				wp_mail(
+					$admin_email,
+					'הקורא בקלפים - התראת תשלום נדחתה (invalid_secret)',
+					"התקבל webhook מקארדקום עם secret לא תואם או חסר.\n\n"
+					. "מספר עסקה/RecurringId: {$deal_label}\nסוג רשומה: {$identifiers['record_type']}\n"
+					. "תאריך חשבונית: {$identifiers['invoice_date']}\nמייל (ממוסך): {$identifiers['email_masked']}\n\n"
+					. "אם זה חוזר על עצמו - יישלח עד מייל סיכום אחד נוסף בתוך 24 שעות, עם מספר הפעמים ורשימת העסקאות שנצברו."
+				);
+			}
+		}
+
+		++$window['count'];
+		if ( count( $window['deals'] ) < 200 ) {
+			$window['deals'][] = $identifiers['deal_number'] ? $identifiers['deal_number'] : '(לא ידוע)';
+		}
+
+		update_option( $option_name, $window, false );
+	}
+
+	/**
+	 * נקרא מה-cron השעתי הקיים (dcard_daily_cleanup) - לא cron נפרד. סוגר
+	 * חלון invalid_secret פתוח שעברו עליו 24 שעות מהמייל הראשון: אם הצטברו
+	 * יותר מהתרחשות אחת (כלומר היה מה להוסיף על המייל המיידי) - שולח מייל
+	 * סיכום אחד עם הכמות ורשימת מזהי העסקה/RecurringId, ואז מוחק את ה-
+	 * option כדי שההתרחשות הבאה תפתח חלון חדש.
+	 */
+	public static function flush_invalid_secret_alert_window() {
+		$option_name = 'dcard_webhook_alert_window_invalid_secret';
+		$window       = get_option( $option_name );
+
+		if ( ! is_array( $window ) || empty( $window['first_at'] ) ) {
+			return;
+		}
+
+		if ( time() - $window['first_at'] < DAY_IN_SECONDS ) {
+			return;
+		}
+
+		if ( $window['count'] > 1 ) {
+			$admin_email = get_option( 'admin_email' );
+			if ( $admin_email ) {
+				$deals_list = implode( ', ', $window['deals'] );
+				wp_mail(
+					$admin_email,
+					'הקורא בקלפים - סיכום יומי: תשלומים נדחו (invalid_secret)',
+					"ב-24 השעות האחרונות נדחו {$window['count']} notification-ים מקארדקום עם secret לא תואם או חסר.\n\n"
+					. "מספרי עסקה/RecurringId: {$deals_list}"
+				);
+			}
+		}
+
+		delete_option( $option_name );
+	}
+
 	// ---------------------------------------------------------------
 	// POST /webhook/ipn-update  (שלד בלבד - שלב 3, הכנה ל-Cardcom)
 	// ---------------------------------------------------------------
@@ -1853,19 +1935,50 @@ class DCard_REST_Controller {
 				return substr( $value, 0, 2 ) . str_repeat( '*', $len - 4 ) . substr( $value, -2 );
 			};
 			$received_secret = $secret_lower ? $secret_lower : $secret_upper;
+
+			// תיקון (24.11, "invalid_secret סביב השעון אחרי rotation" -
+			// כנראה re-transmit של התראות ישנות מלפני שינוי המפתח): כדי
+			// שיהיה אפשר בעתיד לדעת לאיזו עסקה/הוראת קבע כל דחייה שייכת,
+			// בלי "לעבד" את ההתראה בפועל (אין חיפוש משתמש/DB - רק קריאת
+			// שדות גולמיים מה-payload) - מספר עסקה לתשלום רגיל, RecurringId
+			// להוראת קבע, RecordType, תאריך החשבונית (אם יש), ומייל ממוסך.
+			$deal_number = (string) $request->get_param( 'ExtReadInvoiceHead_InvoiceNumber' );
+			if ( '' === $deal_number ) {
+				$deal_number = (string) $request->get_param( 'RecurringId' );
+			}
+			$record_type  = (string) $request->get_param( 'RecordType' );
+			$invoice_date = (string) $request->get_param( 'ExtReadInvoiceHead_InvoiceDate' );
+			$email_raw    = $this->get_nested_param( $request, 'ExtReadInvoiceHead', 'Email' );
+			if ( ! $email_raw ) {
+				$email_raw = $this->get_nested_param( $request, 'acc', 'Email' );
+			}
+
 			DCard_Logger::warning( 'POST /webhook/ipn-update - missing/invalid secret, rejecting', array(
 				'received_keys'          => array_keys( $request->get_params() ),
 				'received_secret_len'    => strlen( $received_secret ),
 				'received_secret_masked' => $mask( $received_secret ),
 				'expected_secret_len'    => strlen( (string) DCARD_WEBHOOK_SECRET ),
 				'expected_secret_masked' => $mask( (string) DCARD_WEBHOOK_SECRET ),
+				'deal_number'            => $deal_number,
+				'record_type'            => $record_type,
+				'invoice_date'           => $invoice_date,
+				'email_masked'           => $email_raw ? $mask( (string) $email_raw ) : null,
+				'received_at'            => current_time( 'mysql', true ),
 			) );
-			self::notify_admin_of_webhook_rejection( 'invalid_secret', sprintf(
-				"התקבל webhook מקארדקום עם secret לא תואם.\n\nאורך שהתקבל: %d (צפוי: %d).\n\nיש לבדוק את הערך שמוגדר בקארדקום - לשים לב שהשדה אמור להכיל רק את הערך עצמו, בלי \"secret=\" לפניו.",
-				strlen( $received_secret ),
-				strlen( (string) DCARD_WEBHOOK_SECRET )
+
+			self::record_invalid_secret_rejection( array(
+				'deal_number'  => $deal_number,
+				'record_type'  => $record_type,
+				'invoice_date' => $invoice_date,
+				'email_masked' => $email_raw ? $mask( (string) $email_raw ) : '',
 			) );
-			return new WP_REST_Response( array( 'success' => false, 'error' => 'Unauthorized' ), 403 );
+
+			// 200 בכוונה (לא 403) - לא רוצים שקארדקום תמשיך לנסות שוב
+			// notification עם secret ישן/שגוי עד אינסוף (ר' הבקשה בפועל:
+			// "invalid_secret סביב השעון"). אין שום עיבוד נוסף של הבקשה
+			// הזו מעבר ללוג ולספירה לצורך ההתראה - בלי secret תקין, לא
+			// סומכים על שום שדה אחר ב-payload.
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'ignored' ), 200 );
 		}
 
 		// 1d. תיקון (21.11, "MasterRecurring עדיין מתעלם בגלל בדיקת

@@ -253,4 +253,7 @@ add_action( 'dcard_daily_cleanup', function () {
 	if ( class_exists( 'DCard_Users' ) ) {
 		DCard_Users::run_renewal_and_expiry_check();
 	}
+	if ( class_exists( 'DCard_REST_Controller' ) ) {
+		DCard_REST_Controller::flush_invalid_secret_alert_window();
+	}
 } );
