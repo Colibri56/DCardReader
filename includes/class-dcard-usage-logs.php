@@ -190,13 +190,14 @@ class DCard_Usage_Logs {
 				wp_mail(
 					$admin_email,
 					sprintf( 'הקורא בקלפים - %d%% מהתקציב החודשי ל-AI נוצל', $threshold ),
-					sprintf(
+					DCard_REST_Controller::wrap_admin_alert_html( sprintf(
 						"שימוש ב-AI החודש (%s) הגיע ל-%s$ מתוך תקציב חודשי של %s$ שהוגדר (%d%%).\n\nלעדכון התקציב: ניהול מכסות (Settings > קורא בקלפים).",
 						$month_key,
 						number_format( $spent, 2 ),
 						number_format( $budget, 2 ),
 						round( $pct )
-					)
+					) ),
+					array( 'Content-Type: text/html; charset=UTF-8' )
 				);
 			}
 

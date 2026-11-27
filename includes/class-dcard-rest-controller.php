@@ -1670,8 +1670,22 @@ class DCard_REST_Controller {
 		wp_mail(
 			$admin_email,
 			'הקורא בקלפים - התראת תשלום נדחתה (' . $reason . ')',
-			$message . "\n\n(התראה נוספת על אותה סיבה לא תישלח ב-10 הדקות הקרובות.)"
+			self::wrap_admin_alert_html( $message . "\n\n(התראה נוספת על אותה סיבה לא תישלח ב-10 הדקות הקרובות.)" ),
+			array( 'Content-Type: text/html; charset=UTF-8' )
 		);
+	}
+
+	/**
+	 * עוטף הודעת התראה פנימית (טקסט רגיל, כולל שורות "תווית: ערך") ב-HTML
+	 * פשוט - תוקן §6.12 (תגית <img> גלויה כטקסט): תוסף מעקב הפתיחה (Check
+	 * & Log Email) מניח מייל HTML, ומזריק תגית <img> שרק ב-HTML מוצגת
+	 * כתמונה. nl2br שומר על שורות ה"תווית: ערך" הקיימות כמו שהן (כל קריאה
+	 * שכותבת הודעה כזו ממשיכה לעבוד בלי שינוי בפורמט המחרוזת עצמה).
+	 */
+	public static function wrap_admin_alert_html( $plain_message ) {
+		return '<div dir="rtl" style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; color: #222; line-height: 1.8;">'
+			. '<p>' . nl2br( esc_html( $plain_message ) ) . '</p>'
+			. '</div>';
 	}
 
 	/**
@@ -1705,10 +1719,13 @@ class DCard_REST_Controller {
 				wp_mail(
 					$admin_email,
 					'הקורא בקלפים - התראת תשלום נדחתה (invalid_secret)',
-					"התקבל webhook מקארדקום עם secret לא תואם או חסר.\n\n"
-					. "מספר עסקה/RecurringId: {$deal_label}\nסוג רשומה: {$identifiers['record_type']}\n"
-					. "תאריך חשבונית: {$identifiers['invoice_date']}\nמייל (ממוסך): {$identifiers['email_masked']}\n\n"
-					. "אם זה חוזר על עצמו - יישלח עד מייל סיכום אחד נוסף בתוך 24 שעות, עם מספר הפעמים ורשימת העסקאות שנצברו."
+					self::wrap_admin_alert_html(
+						"התקבל webhook מקארדקום עם secret לא תואם או חסר.\n\n"
+						. "מספר עסקה/RecurringId: {$deal_label}\nסוג רשומה: {$identifiers['record_type']}\n"
+						. "תאריך חשבונית: {$identifiers['invoice_date']}\nמייל (ממוסך): {$identifiers['email_masked']}\n\n"
+						. "אם זה חוזר על עצמו - יישלח עד מייל סיכום אחד נוסף בתוך 24 שעות, עם מספר הפעמים ורשימת העסקאות שנצברו."
+					),
+					array( 'Content-Type: text/html; charset=UTF-8' )
 				);
 			}
 		}
@@ -1747,8 +1764,11 @@ class DCard_REST_Controller {
 				wp_mail(
 					$admin_email,
 					'הקורא בקלפים - סיכום יומי: תשלומים נדחו (invalid_secret)',
-					"ב-24 השעות האחרונות נדחו {$window['count']} notification-ים מקארדקום עם secret לא תואם או חסר.\n\n"
-					. "מספרי עסקה/RecurringId: {$deals_list}"
+					self::wrap_admin_alert_html(
+						"ב-24 השעות האחרונות נדחו {$window['count']} notification-ים מקארדקום עם secret לא תואם או חסר.\n\n"
+						. "מספרי עסקה/RecurringId: {$deals_list}"
+					),
+					array( 'Content-Type: text/html; charset=UTF-8' )
 				);
 			}
 		}
@@ -2130,14 +2150,17 @@ class DCard_REST_Controller {
 				wp_mail(
 					$admin_email,
 					'הקורא בקלפים - אי-התאמה בין הסכום שחויב למחיר המוגדר',
-					sprintf(
-						"התקבל תשלום בקארדקום (חשבונית %s, מק\"ט %s, מסלול %s) על סך %s ₪, אבל המחיר המוגדר למסלול הזה בדף המכסות הוא %s ₪.\n\nכדאי לבדוק: האם המחיר בדף המכסות לא עודכן, או שהמוצר/המחיר בקארדקום עצמו לא תואם למה שמוגדר אצלנו.",
+					self::wrap_admin_alert_html( sprintf(
+						"התקבל תשלום בקארדקום שסכומו לא תואם למחיר המוגדר בדף המכסות.\n\n"
+						. "חשבונית: %s\nמק\"ט: %s\nמסלול: %s\nסכום שחויב: %s ₪\nמחיר מוגדר: %s ₪\n\n"
+						. "כדאי לבדוק: האם המחיר בדף המכסות לא עודכן, או שהמוצר/המחיר בקארדקום עצמו לא תואם למה שמוגדר אצלנו.",
 						$cardcom_transaction_id,
 						$product_id,
 						$plan_id,
 						$amount,
 						$expected_price
-					)
+					) ),
+					array( 'Content-Type: text/html; charset=UTF-8' )
 				);
 			}
 		}
@@ -2661,13 +2684,15 @@ class DCard_REST_Controller {
 			wp_mail(
 				$admin_email,
 				'הקורא בקלפים - בקשה לתיקון כתובת מייל (משתמש ששילם בעבר)',
-				sprintf(
-					"המשתמש %s (מזהה %d) ביקש לתקן את כתובת המייל שלו.\n\nכתובת ישנה: %s\nכתובת חדשה מבוקשת: %s\n\nצריך לעדכן ידנית גם בקארדקום (הוא כבר שילם בעבר, לכן לא עודכן אוטומטית).",
+				self::wrap_admin_alert_html( sprintf(
+					"המשתמש ביקש לתקן את כתובת המייל שלו. צריך לעדכן ידנית גם בקארדקום (הוא כבר שילם בעבר, לכן לא עודכן אוטומטית).\n\n"
+					. "שם: %s\nמזהה: %d\nכתובת ישנה: %s\nכתובת חדשה מבוקשת: %s",
 					$user['name'] ? $user['name'] : '(ללא שם)',
 					(int) $user['id'],
 					$user['email'],
 					$new_email
-				)
+				) ),
+				array( 'Content-Type: text/html; charset=UTF-8' )
 			);
 		}
 
@@ -2707,12 +2732,14 @@ class DCard_REST_Controller {
 			wp_mail(
 				$admin_email,
 				'הקורא בקלפים - תשלום לא התעדכן אחרי 5 דקות',
-				sprintf(
-					"המשתמש %s (%s, מזהה %d) חזר מתשלום בקארדקום, אבל המסלול שלו עדיין לא התעדכן אחרי 5 דקות המתנה ברקע.\n\nכדאי לבדוק את ה-IPN/הלוג של קארדקום למשתמש הזה. בינתיים המשתמש לא נחסם - יש לו מעבר חד-פעמי לשיחה אחת (ר' DCard_Users::has_credits_or_pending_pass).",
+				self::wrap_admin_alert_html( sprintf(
+					"המשתמש חזר מתשלום בקארדקום, אבל המסלול שלו עדיין לא התעדכן אחרי 5 דקות המתנה ברקע. כדאי לבדוק את ה-IPN/הלוג של קארדקום למשתמש הזה. בינתיים המשתמש לא נחסם - יש לו מעבר חד-פעמי לשיחה אחת (ר' DCard_Users::has_credits_or_pending_pass).\n\n"
+					. "שם: %s\nמייל: %s\nמזהה: %d",
 					$user['name'] ? $user['name'] : '(ללא שם)',
 					$user['email'],
 					(int) $user['id']
-				)
+				) ),
+				array( 'Content-Type: text/html; charset=UTF-8' )
 			);
 		}
 
