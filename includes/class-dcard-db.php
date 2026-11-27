@@ -146,6 +146,55 @@ class DCard_DB {
 		return array_map( array( __CLASS__, 'decode_row' ), $rows );
 	}
 
+	/**
+	 * §6.12 (מחיקת חשבון) - wp_dcard_sessions שומרת תוכן שיחה מלא
+	 * (transcript, drawn_cards, state_json) אבל אין לה עמודת user_id -
+	 * מזהה המשתמש הרשום נשמר רק *בתוך* state_json (ר' default_state()
+	 * למעלה, 'user_id'), ולא בכל שורה - רק סשנים שנפתחו עם X-Dcard-Device-
+	 * Token תקין (session_start_inner) מכילים אותו; סשן אנונימי = null.
+	 * LIKE על state_json הוא רק סינון מועמדים ראשוני (חייב להימנע מ-
+	 * false positive כמו user_id=5 שתואם ל"user_id":51) - ההתאמה האמיתית
+	 * (===) נעשית ב-PHP אחרי json_decode, לפני שמוחקים בפועל.
+	 */
+	public static function delete_sessions_for_user( $user_id ) {
+		global $wpdb;
+
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		$like = '%' . $wpdb->esc_like( '"user_id":' . $user_id ) . '%';
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT id, state_json FROM " . self::table() . " WHERE state_json LIKE %s",
+				$like
+			),
+			ARRAY_A
+		);
+
+		if ( ! $rows ) {
+			return 0;
+		}
+
+		$ids_to_delete = array();
+		foreach ( $rows as $row ) {
+			$state = json_decode( $row['state_json'], true );
+			if ( is_array( $state ) && isset( $state['user_id'] ) && (int) $state['user_id'] === $user_id ) {
+				$ids_to_delete[] = (int) $row['id'];
+			}
+		}
+
+		if ( ! $ids_to_delete ) {
+			return 0;
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $ids_to_delete ), '%d' ) );
+		return $wpdb->query(
+			$wpdb->prepare( "DELETE FROM " . self::table() . " WHERE id IN ({$placeholders})", $ids_to_delete )
+		);
+	}
+
 	public static function append_transcript_entry( $session_token, $entry ) {
 		$session = self::get_session( $session_token );
 		if ( ! $session ) {

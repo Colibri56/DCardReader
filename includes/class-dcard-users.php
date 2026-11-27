@@ -58,6 +58,7 @@ class DCard_Users {
 			payment_pending_at DATETIME NULL,
 			payment_pending_used TINYINT(1) NOT NULL DEFAULT 0,
 			session_token VARCHAR(64) NULL,
+			deleted_at DATETIME NULL,
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL,
 			PRIMARY KEY  (id),
@@ -124,22 +125,58 @@ class DCard_Users {
 		$plan_id = ( $plan_id && DCard_Plans::is_valid_plan( $plan_id ) ) ? $plan_id : DCard_Plans::FREE;
 		$now     = current_time( 'mysql', true );
 
-		$existing_id = $wpdb->get_var(
-			$wpdb->prepare( "SELECT id FROM " . self::table() . " WHERE email = %s", $email )
+		$existing = $wpdb->get_row(
+			$wpdb->prepare( "SELECT id, deleted_at FROM " . self::table() . " WHERE email = %s", $email ),
+			ARRAY_A
 		);
 
-		if ( $existing_id ) {
+		if ( $existing && $existing['deleted_at'] ) {
+			// §6.12 (התבקש: "להחזיר לחיים בסטטוס 'מבוטל' בלי ניסיון חינם -
+			// ישר לחלון ההצטרפות, לא במצב free") - נרשם מחדש עם אימייל
+			// ששויך לחשבון שנמחק בעבר: לא free חדש (שיאפשר לעקוף תשלום
+			// ע"י מחיקה+הרשמה חזרה), וגם לא ממשיכים את המסלול הישן - שורה
+			// "נקייה" לחלוטין עם הפרופיל החדש, מסלול cancelled, 0 קרדיטים.
+			$wpdb->update(
+				self::table(),
+				array(
+					'name'                  => $name,
+					'phone'                 => $phone,
+					'gender'                => $gender,
+					'current_plan'          => DCard_Plans::CANCELLED,
+					'current_credits'       => 0,
+					'current_credits_msg'   => 0,
+					'current_credits_chat'  => 0,
+					'plan_expires_at'       => null,
+					'next_credit_reset_at'  => null,
+					'cancelled_at'          => null,
+					'cancel_reason'         => null,
+					'cancel_requested_at'   => null,
+					'cardcom_recurring_id'  => null,
+					'payment_pending_at'    => null,
+					'payment_pending_used'  => 0,
+					'session_token'         => null,
+					'deleted_at'            => null,
+					'updated_at'            => $now,
+				),
+				array( 'id' => $existing['id'] ),
+				array( '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s' ),
+				array( '%d' )
+			);
+			return (int) $existing['id'];
+		}
+
+		if ( $existing ) {
 			// עדכון פרופיל בלבד (שם/טלפון/מגדר) - לא דורס מסלול/קרדיטים
 			// קיימים של משתמש שחוזר ונרשם בטופס שוב; שינוי מסלול הוא
 			// תפקיד set_plan() (למשל מתוך ה-webhook הפיננסי), לא כאן.
 			$wpdb->update(
 				self::table(),
 				array( 'name' => $name, 'phone' => $phone, 'gender' => $gender, 'updated_at' => $now ),
-				array( 'id' => $existing_id ),
+				array( 'id' => $existing['id'] ),
 				array( '%s', '%s', '%s', '%s' ),
 				array( '%d' )
 			);
-			return (int) $existing_id;
+			return (int) $existing['id'];
 		}
 
 		$inserted = $wpdb->insert(
@@ -543,6 +580,36 @@ class DCard_Users {
 			),
 			array( 'id' => $user_id ),
 			array( '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
+	 * §6.12 "מחיקת החשבון" - מחיקה רכה (soft delete): השורה נשארת (id +
+	 * email נשמרים, ר' ההערה המלאה ב-account_delete_inner ב-class-dcard-
+	 * rest-controller.php למה - בעיקר כדי ש-wp_dcard_transactions יישארו
+	 * תקינים ושחשבונית/מייל יישארו לצורכי התיישבות חובות). נקראת רק אחרי
+	 * שביטול המנוי בקארדקום (אם היה כזה) כבר הצליח/אושר - לא כאן ולא
+	 * לפניה. מנקה PII: שם/טלפון/מגדר/device_token/RecurringId.
+	 */
+	public static function soft_delete_account( $user_id ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return false !== $wpdb->update(
+			self::table(),
+			array(
+				'name'                 => null,
+				'phone'                => null,
+				'gender'               => null,
+				'session_token'        => null,
+				'cardcom_recurring_id' => null,
+				'deleted_at'           => current_time( 'mysql', true ),
+				'current_plan'         => DCard_Plans::CANCELLED,
+				'updated_at'           => current_time( 'mysql', true ),
+			),
+			array( 'id' => $user_id ),
+			array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ),
 			array( '%d' )
 		);
 	}

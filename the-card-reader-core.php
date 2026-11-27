@@ -35,7 +35,7 @@ define( 'DCARD_PLUGIN_URL', TCR_CORE_URL );
 // עודכן 1.7.0 (21.11) - עמודות payment_pending_at/payment_pending_used
 // ("שיחה אחת חינם" בזמן תשלום ממתין - ר' DCard_Users::
 // has_credits_or_pending_pass/start_payment_pending/clear_payment_pending).
-define( 'DCARD_DB_VERSION', '1.7.0' );
+define( 'DCARD_DB_VERSION', '1.8.0' );
 
 // *** אבטחה (תוקן, ר' docs/go-live.md): DCARD_WEBHOOK_SECRET כבר לא
 // מוגדר כאן בשום ערך - הוא חייב להיות מוגדר ב-wp-config.php (כלל 6

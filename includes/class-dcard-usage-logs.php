@@ -73,6 +73,27 @@ class DCard_Usage_Logs {
 	}
 
 	/**
+	 * §6.12 "מחיקת החשבון" (התבקש: "לא למחוק - לנתק את הקישור למשתמש
+	 * (user_id = NULL) ולשמור על המספרים לצורכי חשבונאות עלויות") - בניגוד
+	 * ל-DCard_DB::delete_sessions_for_user (תמליל שיחה, נמחק בפועל), כאן
+	 * השורות עצמן (עלות/טוקנים/מודל) נשארות - רק הקישור למשתמש הספציפי
+	 * מתבטל, כדי ש-sum_cost_this_month()/maybe_send_monthly_budget_alert
+	 * למעלה ימשיכו לשקף את העלות האמיתית שהוצאה בפועל.
+	 */
+	public static function unlink_user( $user_id ) {
+		global $wpdb;
+		self::ensure_table_exists();
+
+		return $wpdb->update(
+			self::table(),
+			array( 'user_id' => null ),
+			array( 'user_id' => (int) $user_id ),
+			array( '%s' ),
+			array( '%d' )
+		);
+	}
+
+	/**
 	 * $user_id יכול להיות null (פריסה אנונימית, אין עדיין משתמש רשום) -
 	 * זה מצב תקין ומצופה, לא שגיאה; הטבלה מתעדת גם פריסות אנונימיות
 	 * לצורכי עלות כוללת, גם בלי לדעת "של מי" הן.

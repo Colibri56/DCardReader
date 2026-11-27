@@ -212,6 +212,13 @@
         font-family: 'Rubik', sans-serif; font-size: 15px; cursor: pointer; text-decoration: underline;
         padding: 0; flex-shrink: 0;
     }
+    /* §6.12 - תיבת "רוצה רק להפסיק את החיובים?" בחלון מחיקת החשבון. */
+    .kb-delete-blush-box {
+        background: var(--blush, #F3E7EA); color: var(--ink, #2A2326);
+        border-radius: 14px; padding: 12px 16px; font-size: 14px; line-height: 1.6;
+        font-family: 'Rubik', sans-serif; margin: 4px 0 14px;
+    }
+    .kb-delete-blush-box a { color: var(--bordeaux, #7D2E46); font-weight: 600; }
 
     /* תיקון QA (סעיף 6.5 מתוקן: "השאלה מוצגת כטקסט רגיל, לא כתיבת טקסט
        נעולה. בלי מסגרת, בלי גלילה ובלי התאמת גובה") - אחרי הנעילה תיבת
@@ -1966,8 +1973,8 @@
                  מוסתר ב-CSS, כדי לא להשאיר קוד מת. -->
             <section class="kb-account-section" aria-labelledby="kb-account-section-title">
                 <h2 id="kb-account-section-title" class="kb-account-section-title">החשבון</h2>
-                <!-- מחיקת חשבון בפועל (Phase D) לא קיימת עדיין - הקישור
-                     פותח "כתבו לנו" בינתיים, ר' kbAccountDeleteLink למטה. -->
+                <!-- §6.12: פותח חלון מחיקה ייעודי (kb-delete-modal), ר'
+                     kbAccountDeleteLink למטה. -->
                 <button type="button" class="kb-account-quiet-link" id="kb-account-delete-link" style="color:#A3262A !important;">מחיקת החשבון מהאפליקציה</button>
             </section>
 
@@ -1993,6 +2000,41 @@
             <div class="kb-modal-actions">
                 <button type="button" class="btn-outline" id="kb-cancel-confirm-btn">כן, לבטל את המנוי</button>
                 <button type="button" class="btn-main" id="kb-cancel-stay-btn">להישאר במנוי</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- חלון "למחוק את החשבון?" - סעיף 6.12. -->
+    <div id="kb-delete-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-delete-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-delete-title" style="text-align:center;">למחוק את החשבון?</h2>
+            <p class="kb-modal-text">המחיקה סופית ולא ניתן לשחזר אותה. אחרי המחיקה:</p>
+            <ul class="kb-modal-text" style="margin:0 0 12px;padding-right:20px;line-height:1.7;">
+                <li>השם, הטלפון, לשון הפנייה והיסטוריית השימוש שלך יימחקו.</li>
+                <li id="kb-delete-active-plan-line" hidden>המנוי שלך יבוטל מיד, והגישה תיפסק עכשיו, גם אם נותרו ימים בחודש ששולם. לא יינתן החזר על יתרת החודש.</li>
+                <li>פרטי התשלומים נשמרים כנדרש בחוק, יחד עם כתובת המייל בלבד, לצורך התאמה לחשבוניות.</li>
+            </ul>
+            <div id="kb-delete-cancel-shortcut" class="kb-delete-blush-box" hidden>
+                רוצה רק להפסיק את החיובים? <a href="#" id="kb-delete-cancel-shortcut-link">ביטול המנוי</a> משאיר לך גישה עד <span id="kb-delete-cancel-shortcut-date"></span>.
+            </div>
+            <label class="kb-field-label" for="kb-delete-confirm-input" style="display:block;margin:0 0 8px;">כדי לאשר, הקלד/י: מחיקה</label>
+            <input type="text" id="kb-delete-confirm-input" class="kb-field" style="width:100%;box-sizing:border-box;padding:12px 14px;" autocomplete="off" autocapitalize="off" />
+            <div class="kb-alert-banner" id="kb-delete-send-error" style="display:none;"></div>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-outline" id="kb-delete-confirm-btn" style="color:var(--error);border-color:var(--error);" disabled>מחיקת החשבון</button>
+                <button type="button" class="btn-main" id="kb-delete-stay-btn">ביטול</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- מסך אחרי מחיקה - סעיף 6.12. -->
+    <div id="kb-delete-done-modal" class="kb-modal-scrim" hidden>
+        <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="kb-delete-done-title">
+            <div class="kb-modal-handle"></div>
+            <h2 class="kb-modal-title" id="kb-delete-done-title" style="text-align:center;">החשבון נמחק. תודה שהיית/ת איתנו.</h2>
+            <div class="kb-modal-actions">
+                <button type="button" class="btn-main" id="kb-delete-done-close">סגירה</button>
             </div>
         </div>
     </div>
@@ -2217,7 +2259,7 @@
     // מוצג בקטן ואפור בתחתית תפריט ה-☰ (kb-version-marker), ונכתב גם
     // ל-console בכל טעינת עמוד - כדי שאפשר לוודא מהר, גם בלי לפתוח
     // DevTools, שגרסת ה-staging שנבדקת היא באמת זו שהודבקה לאחרונה.
-    const KB_VERSION = '2026-11-23 10:30';
+    const KB_VERSION = '2026-11-27 12:00';
     console.log('[DCard] KB_VERSION =', KB_VERSION);
 
     // סעיף 6.5 (עדכון, "כשהמקלדת נפתחת, התיבה וכפתוריה נשארים גלויים"):
@@ -2483,6 +2525,25 @@
         } catch (e) {
             // פרטי/חסום - ממשיכים בלי לשמור, לא עוצרים את הזרימה.
         }
+    }
+
+    function dcardRemoveLS(key) {
+        try {
+            localStorage.removeItem(key);
+        } catch (e) {
+            // פרטי/חסום - ממשיכים בלי למחוק, לא עוצרים את הזרימה.
+        }
+    }
+
+    // §6.12 "מחיקת החשבון" - ניקוי כל המצב המקומי שמזהה את החשבון שנמחק,
+    // לפני חזרה לדף הכניסה. בכוונה *לא* מנקה anonMsgCount/anonChatCount -
+    // אלה מונים אנונימיים נגד ניצול לרעה (סעיף 1 ב-DCARD_LS_KEYS), לא
+    // קשורים לזהות שנמחקה, ואין סיבה "לאפס" אותם רק כי חשבון נמחק.
+    function kbClearAccountLocalStorage() {
+        Object.keys(DCARD_LS_KEYS).forEach(function (key) {
+            if ('anonMsgCount' === key || 'anonChatCount' === key) return;
+            dcardRemoveLS(DCARD_LS_KEYS[key]);
+        });
     }
 
     // Freemium PLG, שלב 1: מונה שימוש אנונימי בודד (הודעות/שאלות - ר'
@@ -3695,8 +3756,7 @@
 
     kbAccountDeleteLink.addEventListener('click', function (e) {
         e.preventDefault();
-        kbCloseAccountScreen();
-        kbOpenContactModal();
+        kbOpenDeleteModal();
     });
 
     // חלון "לבטל את המנוי?" (docs/account-reference.html "הדמיה 2").
@@ -3766,6 +3826,82 @@
         }
     });
 
+    // חלון "למחוק את החשבון?" (סעיף 6.12) - "מחיקת החשבון" קורא ל-POST
+    // /account/delete (ר' account_delete_inner: אם יש מנוי פעיל, מבטל
+    // בקארדקום קודם; אם זה נכשל, לא נמחק כלום). הכפתור פעיל רק כש-
+    // "מחיקה" הוקלד בדיוק (התבקש במפורש).
+    const kbDeleteModal = document.getElementById('kb-delete-modal');
+    const kbDeleteActivePlanLine = document.getElementById('kb-delete-active-plan-line');
+    const kbDeleteCancelShortcut = document.getElementById('kb-delete-cancel-shortcut');
+    const kbDeleteCancelShortcutDate = document.getElementById('kb-delete-cancel-shortcut-date');
+    const kbDeleteConfirmInput = document.getElementById('kb-delete-confirm-input');
+    const kbDeleteConfirmBtn = document.getElementById('kb-delete-confirm-btn');
+    const kbDeleteStayBtn = document.getElementById('kb-delete-stay-btn');
+    const kbDeleteDoneModal = document.getElementById('kb-delete-done-modal');
+    const kbDeleteDoneClose = document.getElementById('kb-delete-done-close');
+
+    function kbDeleteHasActivePlan() {
+        const plan = kbAccountCurrentData && kbAccountCurrentData.current_plan;
+        return !!plan && 'free' !== plan && 'cancelled' !== plan;
+    }
+
+    function kbOpenDeleteModal() {
+        kbCloseAccountScreen();
+        const hasActivePlan = kbDeleteHasActivePlan();
+        kbDeleteActivePlanLine.hidden = !hasActivePlan;
+        kbDeleteCancelShortcut.hidden = !hasActivePlan;
+        if (hasActivePlan) {
+            kbDeleteCancelShortcutDate.textContent = (kbAccountCurrentData && kbAccountCurrentData.plan_expires_at)
+                ? kbFormatAccountDate(kbAccountCurrentData.plan_expires_at) : '';
+        }
+        kbDeleteConfirmInput.value = '';
+        kbDeleteConfirmBtn.disabled = true;
+        kbHideAlertBanner('kb-delete-send-error');
+        kbDeleteModal.hidden = false;
+    }
+    function kbCloseDeleteModal() {
+        kbDeleteModal.hidden = true;
+    }
+    kbDeleteConfirmInput.addEventListener('input', function () {
+        kbDeleteConfirmBtn.disabled = ('מחיקה' !== kbDeleteConfirmInput.value.trim());
+    });
+    kbDeleteStayBtn.addEventListener('click', kbCloseDeleteModal);
+    kbDeleteModal.addEventListener('click', function (e) {
+        if (e.target === kbDeleteModal) kbCloseDeleteModal();
+    });
+    document.getElementById('kb-delete-cancel-shortcut-link').addEventListener('click', function (e) {
+        e.preventDefault();
+        kbCloseDeleteModal();
+        kbOpenCancelModal();
+    });
+    kbDeleteConfirmBtn.addEventListener('click', async function () {
+        if ('מחיקה' !== kbDeleteConfirmInput.value.trim()) return;
+        kbHideAlertBanner('kb-delete-send-error');
+        kbDeleteConfirmBtn.disabled = true;
+        try {
+            const res = await dcardFetch('/wp-json/dcard/v1/account/delete', {
+                method: 'POST',
+                headers: dcardHeaders()
+            });
+            const data = await res.json();
+            if (!data || !data.success) {
+                kbShowAlertBanner(kbDeleteConfirmInput, 'kb-delete-send-error', (data && data.error) ? data.error : 'המחיקה לא הצליחה כרגע.', function () { kbDeleteConfirmBtn.click(); });
+                kbDeleteConfirmBtn.disabled = false;
+                return;
+            }
+            kbCloseDeleteModal();
+            kbDeleteDoneModal.hidden = false;
+        } catch (err) {
+            kbShowAlertBanner(kbDeleteConfirmInput, 'kb-delete-send-error', 'המחיקה לא נשלחה בגלל תקלה בחיבור.', function () { kbDeleteConfirmBtn.click(); });
+            kbDeleteConfirmBtn.disabled = false;
+        }
+    });
+    kbDeleteDoneClose.addEventListener('click', function () {
+        kbDeleteDoneModal.hidden = true;
+        kbClearAccountLocalStorage();
+        location.reload();
+    });
+
     kbAccountSaveDetails.addEventListener('click', async function () {
         const name = kbAccountName.value.trim();
         const gender = kbAccountGenderMale.checked ? 'male' : (kbAccountGenderFemale.checked ? 'female' : '');
@@ -3806,6 +3942,7 @@
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
         if (!kbCancelModal.hidden) kbCloseCancelModal();
+        else if (!kbDeleteModal.hidden) kbCloseDeleteModal();
         else if (!kbAccountScreen.hidden) kbCloseAccountScreen();
         else if (!kbMenuOverlay.hidden) kbCloseMenu();
         else if (!kbInfoModal.hidden) kbInfoModal.hidden = true;

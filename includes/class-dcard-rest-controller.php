@@ -371,6 +371,15 @@ class DCard_REST_Controller {
 			),
 		) );
 
+		// §6.12 "מחיקת החשבון" - חלון ייעודי, לא "כתבו לנו" (ר' account_
+		// delete_inner להסדר המלא: ביטול מנוי בקארדקום קודם אם יש, ואם
+		// זה נכשל - לא ממשיכים למחיקה).
+		register_rest_route( self::NAMESPACE_, '/account/delete', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'account_delete' ),
+			'permission_callback' => array( $this, 'verify_nonce_if_present' ),
+		) );
+
 		// §6.10.4 "תיקון כתובת המייל" (21.11) - גרסה ייעודית ל"אם הכתובת
 		// שגויה" בחלון ההצטרפות. ר' account_update_email_inner לשלוש
 		// ההתנהגויות (עדכון עצמי מיידי / פנייה למנהל / כבר תפוס).
@@ -2573,6 +2582,112 @@ class DCard_REST_Controller {
 		DCard_Mailer::send_cancellation_customer_email( $user );
 
 		return new WP_REST_Response( array( 'success' => true, 'plan_expires_at' => $user['plan_expires_at'] ), 200 );
+	}
+
+	// ---------------------------------------------------------------
+	// POST /account/delete (§6.12 "מחיקת החשבון")
+	// ---------------------------------------------------------------
+	public function account_delete( WP_REST_Request $request ) {
+		return $this->safely( 'account_delete', function () use ( $request ) {
+			return $this->account_delete_inner( $request );
+		} );
+	}
+
+	/**
+	 * §6.12: אם יש מנוי פעיל - קודם מבטלים אותו בקארדקום (אותה לוגיקה
+	 * בדיוק כמו account_cancel_inner, ר' ההערה שם). אם הביטול נכשל, או
+	 * שאי אפשר לאשר אותו בוודאות (API לא מוגדר/אין RecurringId שמור) -
+	 * **לא ממשיכים למחיקה בכלל** (התבקש במפורש - "אם ביטול נכשל, לא
+	 * מוחקים"), ומוחזרת שגיאה שמפנה ל"כתבו לנו". רק אחרי ביטול מאושר
+	 * (או שלא היה מנוי פעיל מלכתחילה) ממשיכים למחיקה בפועל:
+	 * - DCard_Users::soft_delete_account - שורת המשתמש נשארת (id+email),
+	 *   PII מתנקה, deleted_at מסומן (ר' ההערה המלאה שם).
+	 * - DCard_Usage_Logs::unlink_user - שורות העלות/טוקנים נשארות (לצורכי
+	 *   חשבונאות), רק user_id מתבטל - לא מחיקה.
+	 * - DCard_DB::delete_sessions_for_user - תמליל שיחה בפועל (transcript/
+	 *   state_json) נמחק לחלוטין (ר' ההערה המלאה שם).
+	 * אין טבלת "משוב" מקושרת למשתמש בקוד כרגע (המשוב עובר לטופס Fillout
+	 * חיצוני, ר' DCard_Settings::get_feedback_form_url) - שלב "לנקות
+	 * משוב מקושר" ב-§6.12 הוא no-op נכון לעכשיו, לא פער שהוחמץ בכוונה.
+	 */
+	private function account_delete_inner( WP_REST_Request $request ) {
+		$device_token = $request->get_header( 'X-Dcard-Device-Token' );
+		$user         = $device_token ? DCard_Users::get_by_device_token( $device_token ) : null;
+
+		if ( ! $user ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'משתמש לא נמצא' ), 404 );
+		}
+
+		$had_active_plan        = ( DCard_Plans::FREE !== $user['current_plan'] && DCard_Plans::CANCELLED !== $user['current_plan'] );
+		$recurring_id_cancelled = null;
+
+		if ( $had_active_plan ) {
+			$api_configured = DCARD_CARDCOM_API_URL && DCARD_CARDCOM_TERMINAL && DCARD_CARDCOM_API_USER;
+			$recurring_id    = $user['cardcom_recurring_id'];
+
+			if ( ! $api_configured || ! $recurring_id ) {
+				DCard_Logger::warning( 'POST /account/delete - active plan but Cardcom cancellation cannot be confirmed (API not configured or no RecurringId) - aborting deletion', array(
+					'user_id' => (int) $user['id'],
+				) );
+				return new WP_REST_Response( array(
+					'success' => false,
+					'error'   => 'לא הצלחנו לבטל את המנוי כרגע, ולכן לא נמחק את החשבון. אפשר לנסות שוב, או לכתוב לנו.',
+				), 502 );
+			}
+
+			$result = $this->cardcom_cancel_recurring_order( $recurring_id );
+			if ( ! $result['success'] ) {
+				// לא רושמים UserName ללוג בשום מקרה - בדיוק כמו account_
+				// cancel_inner, ר' ההערה המלאה שם למה.
+				DCard_Logger::error( 'POST /account/delete - Cardcom RecurringPayment cancel - non-success response, aborting deletion', array(
+					'user_id'       => (int) $user['id'],
+					'recurring_id'  => $recurring_id,
+					'response_code' => $result['response_code'],
+					'description'   => $result['description'],
+				) );
+
+				$admin_email = get_option( 'admin_email' );
+				if ( $admin_email ) {
+					wp_mail(
+						$admin_email,
+						'הקורא בקלפים - לבדוק: ביטול מנוי נכשל בעת מחיקת חשבון',
+						self::wrap_admin_alert_html( sprintf(
+							"המשתמש ביקש למחוק את החשבון, אבל ביטול המנוי בקארדקום החזיר ResponseCode שאינו 0 - לכן החשבון *לא* נמחק.\n\n"
+							. "מייל: %s\nRecurringId: %s\nResponseCode: %s\nDescription: %s\n\n"
+							. "יש לבדוק בדשבורד קארדקום ולהחליט (אותו עקרון כמו ב-account/cancel) - אם ההוראה כבר לא פעילה שם, אפשר לבטל ולמחוק ידנית.",
+							$user['email'],
+							$recurring_id,
+							$result['response_code'],
+							$result['description']
+						) ),
+						array( 'Content-Type: text/html; charset=UTF-8' )
+					);
+				}
+
+				return new WP_REST_Response( array(
+					'success' => false,
+					'error'   => 'לא הצלחנו לבטל את המנוי כרגע, ולכן לא נמחק את החשבון. אפשר לנסות שוב, או לכתוב לנו.',
+				), 502 );
+			}
+
+			$recurring_id_cancelled = $recurring_id;
+		}
+
+		$last_plan_label = DCard_Plans::label_for_plan( $user['current_plan'] );
+		$email           = $user['email'];
+		$name            = $user['name'];
+
+		if ( ! DCard_Users::soft_delete_account( (int) $user['id'] ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'שגיאה במחיקת החשבון' ), 500 );
+		}
+
+		DCard_Usage_Logs::unlink_user( (int) $user['id'] );
+		DCard_DB::delete_sessions_for_user( (int) $user['id'] );
+
+		DCard_Mailer::send_deletion_customer_email( $email, $name, $had_active_plan );
+		DCard_Mailer::send_deletion_admin_email( $email, $last_plan_label, $recurring_id_cancelled );
+
+		return new WP_REST_Response( array( 'success' => true ), 200 );
 	}
 
 	/**
